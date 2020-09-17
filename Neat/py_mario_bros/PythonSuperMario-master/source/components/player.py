@@ -540,13 +540,15 @@ class Player(pg.sprite.Sprite):
                         image.set_alpha(255)
 
     def animation(self):
-        if (not c.COMPLEX_FRAMES):
-            self.image = self.right_frames[0];
-        else:        
-            if self.facing_right:
-                self.image = self.right_frames[self.frame_index]
-            else:
-                self.image = self.left_frames[self.frame_index]
+        if self.facing_right:
+            self.image = self.right_frames[self.frame_index]
+        else:
+            self.image = self.left_frames[self.frame_index]
+
+
+    def die(self, game_info):
+        self.dead = true;
+        self.state = c.DEAD;
 
     def start_death_jump(self, game_info):
         self.dead = True

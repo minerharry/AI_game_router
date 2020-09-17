@@ -233,14 +233,28 @@ class GameRunner:
 
     #evaluate a population with the game as a feedforward neural net
     def eval_genomes_feedforward(self, genomes, config):
-        if (self.runConfig.parallel):
-            executor = concurrent.futures.ThreadPoolExecutor();
-            futures = [executor.submit(self.eval_genome_feedforward,genome,config) for genome_id,genome in genomes];
-            concurrent.futures.wait(futures);
-            return;
+        for genome in genomes:
+            genome.fitness = 0;
+        if (self.runConfig.training_data is None):
+            if (self.runConfig.parallel):
+                executor = concurrent.futures.ThreadPoolExecutor();
+                futures = [executor.submit(self.eval_genome_feedforward,genome,config) for genome_id,genome in genomes];
+                concurrent.futures.wait(futures);
+                return;
+            else:
+                for genome_id, genome in genomes:
+                    self.eval_genome_feedforward(genome,config)
         else:
-            for genome_id, genome in genomes:
-                self.eval_genome_feedforward(genome,config)
+            for datum in self.runConfig.training_data:
+                self.runConfig.training_datum = datum;
+                if (self.runConfig.parallel):
+                    executor = concurrent.futures.ThreadPoolExecutor();
+                    futures = [executor.submit(self.eval_genome_feedforward,genome,config) for genome_id,genome in genomes];
+                    concurrent.futures.wait(futures);
+                    return;
+                else:
+                    for genome_id, genome in genomes:
+                        self.eval_genome_feedforward(genome,config)
 
     def eval_genome_feedforward(self,genome,config):
         #print('genome evaluation triggered');
@@ -252,7 +266,7 @@ class GameRunner:
             fitness = 0;
             runningGame = self.game.start(runnerConfig);
             while (runningGame.isRunning()):
-                #get the current inputs from the running game, as specified by the runnerConfig
+                #get the current data from the running game, as specified by the runnerConfig
                 gameData = runningGame.getData();
 
                 #print('input: {0}'.format(gameData));
@@ -269,7 +283,7 @@ class GameRunner:
             runningGame.close();
 
         fitness = runnerConfig.fitnessFromArray(fitnesses);
-        genome.fitness = fitness;
+        genome.fitness += fitness;
         #print(genome.fitness);
 
 

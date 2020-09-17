@@ -1,4 +1,4 @@
-__author__ = 'marble_xu'
+__author__ = 'minerharry'
 
 import os
 import json
@@ -8,7 +8,13 @@ from .. import constants as c
 from ..components import info, stuff, player, brick, box, enemy, powerup, coin
 
 
-class Level(tools.State):
+class SegmentState:
+
+    def __init__(self,map_obj,task,dynamic_state):
+
+
+
+class Segment(tools.State):
     def __init__(self):
         tools.State.__init__(self)
         self.player = None
@@ -20,16 +26,16 @@ class Level(tools.State):
         self.death_timer = 0
         self.castle_timer = 0
         
-        self.moving_score_list = []
-        self.overhead_info = info.Info(self.game_info, c.LEVEL)
+        #self.moving_score_list = []
+        #self.overhead_info = info.Info(self.game_info, c.LEVEL)
         self.load_map()
-        self.setup_background()
+        self.setup_background() #look into how to remove
         self.setup_maps()
         self.ground_group = self.setup_collide(c.MAP_GROUND)
         self.step_group = self.setup_collide(c.MAP_STEP)
         self.setup_pipe()
         self.setup_slider()
-        self.setup_static_coin()
+        #self.setup_static_coin()
         self.setup_brick_and_box()
         self.setup_player()
         self.setup_enemies()
@@ -43,7 +49,22 @@ class Level(tools.State):
         f = open(file_path)
         self.map_data = json.load(f)
         f.close()
-        
+
+    #saves state within a level
+    def save_state(self):
+        return {'time':self.game_info[c.CURRENT_TIME], 'player':self.player_group,'enemies':self.enemy_group,'flagpole':self.flagpole_group,'bricks':self.brick_group,'boxes':self.box_group,'powerups':self.powerup_group,'sliders':self.slider_group}.copy();
+
+    def load_state(self,data):
+        self.player_group = data['player'];
+        self.enemy_group = data['enemy'];
+        self.flagpole_group = data['flagpole'];
+        self.brick_group = data['bricks'];
+        self.box_group = data['boxes'];
+        self.powerup_group = data['powerups'];
+        self.slider_group = data['sliders'];
+
+       
+
     def setup_background(self):
         img_name = self.map_data[c.MAP_IMAGE]
         self.background = setup.GFX[img_name]
@@ -351,8 +372,7 @@ class Level(tools.State):
                 self.player.y_vel = -1
                 self.player.state = c.BIG_TO_SMALL
             else:
-                self.player.start_death_jump(self.game_info)
-                self.death_timer = self.current_time
+                self.player.die(self.game_info)
         elif shell:
             if shell.state == c.SHELL_SLIDE:
                 if self.player.invincible:
@@ -366,8 +386,7 @@ class Level(tools.State):
                     self.player.y_vel = -1
                     self.player.state = c.BIG_TO_SMALL
                 else:
-                    self.player.start_death_jump(self.game_info)
-                    self.death_timer = self.current_time
+                    self.player.die(self.game_info)
             else:
                 self.update_score(400, shell, 0)
                 if self.player.rect.x < shell.rect.x:
@@ -535,8 +554,7 @@ class Level(tools.State):
     def check_for_player_death(self):
         if (self.player.rect.y > c.SCREEN_HEIGHT or
             self.overhead_info.time <= 0):
-            self.player.start_death_jump(self.game_info)
-            self.death_timer = self.current_time
+            self.player.die(self.game_info)
 
     def check_if_player_on_IN_pipe(self):
         '''check if player is on the pipe which can go down in to it '''

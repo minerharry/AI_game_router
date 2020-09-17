@@ -47,6 +47,7 @@ class Stuff(pg.sprite.Sprite):
     def update(self, *args):
         pass
 
+
 class Pole(Stuff):
     def __init__(self, x, y):
         Stuff.__init__(self, x, y, setup.GFX['tile_set'],
@@ -69,6 +70,8 @@ class Flag(Stuff):
             self.rect.y += self.y_vel
             if self.rect.bottom >= 485:
                 self.state = c.BOTTOM_OF_POLE
+
+
 
 class CastleFlag(Stuff):
     def __init__(self, x, y):
@@ -226,4 +229,4 @@ class Slider(Stuff):
             elif self.rect.left > self.range_end:
                 self.rect.left = self.range_end
                 self.x_vel = -1
-    
+

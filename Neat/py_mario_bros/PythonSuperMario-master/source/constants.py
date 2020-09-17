@@ -175,6 +175,7 @@ LEFT = 'left'
 RIGHT = 'right'
 JUMPED_ON = 'jumped on'
 DEATH_JUMP = 'death jump'
+DEAD = 'dead';
 
 #KOOPA STUFF
 SHELL_SLIDE = 'shell slide'

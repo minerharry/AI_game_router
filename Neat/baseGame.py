@@ -75,6 +75,71 @@ class RunGame(ABC):
     def isRunning(self):
         return self.runConfig.gameStillRunning(self.getMappedData());
 
+class Multi_Data_Game(RunGame):
+    #Warning: will not work properly if recurrent net because the net will still have memory from the previous iteration of the game
+
+    #kwargs requirements:
+    #  -gameClass: equivalent of EvalGame gameClass, the game that should be played with multiple training data
+    #  -training_data: list of all training_data to pass to the lower game
+    def __init__(self,runnerConfig,kwargs):
+        self.gameClass = kwargs[gameClass];
+        self.runConfig = runnerConfig;
+        self.data = kwargs[training_data].copy();
+        self.kwargs = kwargs;
+        self.data_index = 0;
+        self.global_steps = 0;
+        kwargs[training_data] = self.data[self.data_index];
+        self.sub_game = self.gameClass(kwargs);
+        self.accumulated_fitness = 0;
+        self.done = False;
+
+    def getOutputData(self):
+        return self.sub_game.getOutputData();
+
+    def isRunning(self):
+        return not self.done;
+
+    def renderInput(self):
+        if (not self.done):
+            result = self.sub_game.renderInput(inputs);
+            if (runnerConfig.fitness_collection_type != None and runnerConfig.fitness_collection_type == 'continuous' and self.sub_game.isRunning()):
+                self.accumulated_fitness += self.sub_game.getFitnessScore();
+            if (not self.sub_game.isRunning()):
+                self.accumulated_fitness += self.sub_game.getFitnessScore();
+                self.data_index += 1;
+                if (self.data_index >= len(self.data)):
+                    self.done = True;
+                else:
+                    self.kwargs[training_data] = self.data[self.data_index];
+                    self.sub_game = self.gameClass(self.kwargs);
+                
+            self.global_steps += 1;
+            return result;
+        return None;
+
+    def processInput(self,inputs):
+        if (not self.done):
+            self.sub_game.processInput(inputs);
+            if (runnerConfig.fitness_collection_type != None and runnerConfig.fitness_collection_type == 'continuous' and self.sub_game.isRunning()):
+                self.accumulated_fitness += self.sub_game.getFitnessScore();
+            if (not self.sub_game.isRunning()):
+                self.accumulated_fitness += self.sub_game.getFitnessScore();
+                self.data_index += 1;
+                if (self.data_index >= len(self.data)):
+                    self.done = True;
+                else:
+                    self.kwargs[training_data] = self.data[self.data_index];
+                    self.sub_game = self.gameClass(self.kwargs);
+                
+            self.global_steps += 1;
+        
+
+    
+
+
+
+
+
     
 
 class HoldRightGame(RunGame):
