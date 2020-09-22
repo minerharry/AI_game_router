@@ -49,6 +49,25 @@ class Enemy(pg.sprite.Sprite):
     def __init__(self):
         pg.sprite.Sprite.__init__(self)
     
+    #removes all of the unneeded variables that remain constant (removes unpickleable objects)
+    def compress(self,level):
+        self.frames = [];
+        self.image = None;
+        self.group_ids = [level.get_group_id(group) for group in self._Sprite__g if level.get_group_id(group) is not None];
+        self._Sprite__g = {};
+
+    #adds back all of the unneeded variables that remain constant (adds back unpickleable objects)
+    def decompress(self,level):
+        self.load_frames(setup.GFX[c.ENEMY_SHEET], self.frame_rect_list)
+        if (not c.COMPLEX_FRAMES):
+            self.image = self.frames[0];
+        else:
+            self.image = self.frames[self.frame_index]
+        self.image.get_rect().x = self.rect.x;
+        self.image.get_rect().bottom = self.rect.bottom;
+        self.add([level.get_group_by_id(id) for id in self.group_ids if level.get_group_by_id(id) is not None]);
+
+
     def setup_enemy(self, x, y, direction, name, sheet, frame_rect_list,
                         in_range, range_start, range_end, isVertical=False):
         self.frames = []
@@ -56,6 +75,7 @@ class Enemy(pg.sprite.Sprite):
         self.animate_timer = 0
         self.gravity = 1.5
         self.state = c.WALK
+        self.frame_rect_list = frame_rect_list;
         
         self.name = name
         self.direction = direction
@@ -481,7 +501,10 @@ class FireStick(pg.sprite.Sprite):
                     (96, 152, 8, 8), (104, 152, 8, 8)]
         self.load_frames(setup.GFX[c.ITEM_SHEET], rect_list)
         self.animate_timer = 0
-        self.image = self.frames[self.frame_index]
+        if (not c.COMPLEX_FRAMES):
+            self.image = self.frames[0];
+        else:
+            self.image = self.frames[self.frame_index]
         self.rect = self.image.get_rect()
         self.rect.x = center_x - radius
         self.rect.y = center_y
@@ -511,3 +534,22 @@ class FireStick(pg.sprite.Sprite):
         radian = math.radians(self.angle)
         self.rect.x = self.center_x + math.sin(radian) * self.radius
         self.rect.y = self.center_y + math.cos(radian) * self.radius
+
+    #removes all of the unneeded variables that remain constant (removes unpickleable objects)
+    def compress(self,level):
+        self.frames = [];
+        self.image = None;
+        self.group_ids = [level.get_group_id(group) for group in self._Sprite__g if level.get_group_id(group) is not None];
+        self._Sprite__g = {};
+
+
+    #adds back all of the unneeded variables that remain constant (adds back unpickleable objects)
+    def decompress(self,level):
+        self.load_frames(setup.GFX[c.ITEM_SHEET], [(96, 144, 8, 8), (104, 144, 8, 8), (96, 152, 8, 8), (104, 152, 8, 8)]);
+        if (not c.COMPLEX_FRAMES):
+            self.image = self.frames[0];
+        else:
+            self.image = self.frames[self.frame_index]
+        self.image.get_rect().x = self.rect.x;
+        self.image.get_rect().bottom = self.rect.bottom;
+        self.add([level.get_group_by_id(id) for id in self.group_ids if level.get_group_by_id(id) is not None]);

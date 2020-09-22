@@ -8,6 +8,8 @@ from .. import constants as c
 from ..components import powerup
 
 class Player(pg.sprite.Sprite):
+    #TODO: Fix player dying at full health
+    #TODO: add player 
     def __init__(self, player_name):
         pg.sprite.Sprite.__init__(self)
         self.player_name = player_name
@@ -27,6 +29,37 @@ class Player(pg.sprite.Sprite):
         self.state = c.WALK
         self.image = self.right_frames[self.frame_index]
         self.rect = self.image.get_rect()
+
+    #removes all of the unneeded variables that remain constant (removes unpickleable objects)
+    def compress(self,level):
+        self.image = None;
+        self.right_frames = [];
+        self.left_frames = [];
+        self.small_normal_frames = [];
+        self.big_normal_frames = [];
+        self.big_fire_frames = [];
+        self.all_images = [];
+
+        self.right_small_normal_frames = []
+        self.left_small_normal_frames = []
+        self.right_big_normal_frames = []
+        self.left_big_normal_frames = []
+        self.right_big_fire_frames = []
+        self.left_big_fire_frames = []
+
+        self.group_ids = [level.get_group_id(group) for group in self._Sprite__g if level.get_group_id(group) is not None];
+        self._Sprite__g = {};
+
+
+    #adds back all of the unneeded variables that remain constant (adds back unpickleable objects)
+    def decompress(self,level):
+
+        self.load_images();
+        self.image = self.right_frames[self.frame_index];
+        self.image.get_rect().x = self.rect.x;
+        self.image.get_rect().bottom = self.rect.bottom;
+        self.add([level.get_group_by_id(id) for id in self.group_ids if level.get_group_by_id(id) is not None]);
+
 
     def restart(self):
         '''restart after player is dead or go to next level'''
@@ -85,8 +118,12 @@ class Player(pg.sprite.Sprite):
         sheet = setup.GFX['mario_bros']
         frames_list = self.player_data[c.PLAYER_FRAMES]
 
-        self.right_frames = []
-        self.left_frames = []
+        self.right_frames = [];
+        self.left_frames = [];
+        self.small_normal_frames = [];
+        self.big_normal_frames = [];
+        self.big_fire_frames = [];
+        self.all_images = [];
 
         self.right_small_normal_frames = []
         self.left_small_normal_frames = []
@@ -547,7 +584,7 @@ class Player(pg.sprite.Sprite):
 
 
     def die(self, game_info):
-        self.dead = true;
+        self.dead = True;
         self.state = c.DEAD;
 
     def start_death_jump(self, game_info):

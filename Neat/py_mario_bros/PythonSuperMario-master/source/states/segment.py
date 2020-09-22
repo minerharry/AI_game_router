@@ -3,23 +3,59 @@ __author__ = 'minerharry'
 import os
 import json
 import pygame as pg
+try:
+   import cPickle as pickle
+except:
+   import pickle
 from .. import setup, tools
 from .. import constants as c
 from ..components import info, stuff, player, brick, box, enemy, powerup, coin
 
 
+
 class SegmentState:
+    last_segment_id = -1;
+    def __init__(self, dynamic_data, static_data, segment_id = None, file_path = None):
+        if (file_path is not None):
+            f = open(file_path);
+            self.raw_data = pickle.load(f);
+            f.close();
+            self.segment_id = self.raw_data['id'];
+            self.static_data = self.raw_data['static']; #otherwise known as the map data
+            self.dynamic_data =self.raw_data['dynamic'];
+        else:
+            self.static_data = static_data;
+            self.dynamic_data = dynamic_data;
+            if (segment_id is None):
+                self.segment_id = self.assign_segment_id();
+            else:
+                self.segment_id = segment_id;
 
-    def __init__(self,map_obj,task,dynamic_state):
 
+    def save_file(self,file_path):
+        f = open(file_path);
+        pickle.dump(f);
+        f.close();
+
+    def assign_segment_id(self):
+        print(self.last_segment_id);
+        self.last_segment_id += 1;
+        return self.last_segment_id;
 
 
 class Segment(tools.State):
+#TODO: add back a level timer
+#TODO: 
+
     def __init__(self):
         tools.State.__init__(self)
         self.player = None
 
     def startup(self, current_time, persist):
+        self.last_load = False; #whether the load state button was held last frame
+        self.last_save = False; #whether the save state button was held last frame
+        self.saved_state = None;
+        self.loaded_segment = -1;
         self.game_info = persist
         self.persist = self.game_info
         self.game_info[c.CURRENT_TIME] = current_time
@@ -42,6 +78,11 @@ class Segment(tools.State):
         self.setup_checkpoints()
         self.setup_flagpole()
         self.setup_sprite_groups()
+        self.setup_group_map();
+
+    def setup_group_map(self):
+        self.group_map = {self.dying_group: c.DYING_GROUP, self.ground_step_pipe_group: c.GROUND_STEP_PIPE_GROUP, self.ground_group: c.GROUND_GROUP, self.box_group: c.BOX_GROUP, self.brick_group: c.BRICK_GROUP, self.brickpiece_group: c.BRICKPIECE_GROUP, self.checkpoint_group: c.CHECKPOINT_GROUP, self.coin_group: c.COIN_GROUP, self.enemy_group: c.ENEMY_GROUP, self.flagpole_group: c.FLAGPOLE_GROUP}
+        self.group_id_map = {v: k for k, v in self.group_map.items()}
 
     def load_map(self):
         map_file = 'level_' + str(self.game_info[c.LEVEL_NUM]) + '.json'
@@ -50,21 +91,98 @@ class Segment(tools.State):
         self.map_data = json.load(f)
         f.close()
 
+    def load_map_data(self,data):
+        self.map_data = data;
+        print(data);
+        self.setup_maps()
+        #self.setup_background()
+        self.ground_group = self.setup_collide(c.MAP_GROUND)
+        self.step_group = self.setup_collide(c.MAP_STEP)
+        self.setup_pipe()
+
+
+    def save_internal_state(self):
+        self.saved_state = pickle.dumps(self.save_state());
+
+    def load_internal_state(self):
+        if (self.saved_state is None):
+            print("Unable to load state: no state saved");
+            return;
+        self.load(pickle.loads(self.saved_state));
+
     #saves state within a level
     def save_state(self):
-        return {'time':self.game_info[c.CURRENT_TIME], 'player':self.player_group,'enemies':self.enemy_group,'flagpole':self.flagpole_group,'bricks':self.brick_group,'boxes':self.box_group,'powerups':self.powerup_group,'sliders':self.slider_group}.copy();
+        
+        dynamic_data = {'time':self.game_info[c.CURRENT_TIME], 'enemy_group_list':self.enemy_group_list,'player':self.player_group, 'viewport_x':self.viewport.x,'flagpole':self.flagpole_group,'bricks':self.brick_group,'boxes':self.box_group,'powerups':self.powerup_group,'sliders':self.slider_group};
+        self.compress_dynamics();
+        #print(dir(self.box_group.sprites()[0]));
+        dynamic_data = pickle.loads(pickle.dumps(dynamic_data));
+        self.decompress_dynamics();
 
-    def load_state(self,data):
+        static_data = self.map_data;
+        return SegmentState(dynamic_data,static_data);
+
+    def compress_dynamics(self):
+        print(self.powerup_group.sprites()[0].groups());
+        [[item.compress(self) for item in group] for group in self.enemy_group_list];
+        [item.compress(self) for item in self.player_group];
+        #[item.compress(self) for item in self.enemy_group];
+        [item.compress(self) for item in self.flagpole_group];
+        [item.compress(self) for item in self.box_group];
+        [item.compress(self) for item in self.powerup_group];
+        [item.compress(self) for item in self.slider_group];
+        [item.compress(self) for item in self.brick_group];
+
+    def decompress_dynamics(self):
+        
+        [[item.decompress(self) for item in group] for group in self.enemy_group_list];
+        print([[item.group_ids for item in group] for group in self.enemy_group_list]);
+        [[group.add(item) for item in group] for group in self.enemy_group_list];
+        [item.decompress(self) for item in self.player_group];
+        #[item.decompress(self) for item in self.enemy_group];
+        [item.decompress(self) for item in self.flagpole_group];
+        [item.decompress(self) for item in self.box_group];
+        
+        [item.decompress(self) for item in self.powerup_group];
+        [item.decompress(self) for item in self.slider_group];
+        [item.decompress(self) for item in self.brick_group];
+
+    def load_dynamic(self,data):
+        [sprite.kill() for sprite in self.enemy_group];
+        self.enemy_group = pg.sprite.Group();
+        self.game_info[c.CURRENT_TIME] = data['time'];
+        self.viewport.x = data['viewport_x'];
+        self.player = data['player'].sprites()[0];
+        self.player_x = self.player.rect.x - self.viewport.x;
+        self.player_y = self.player.rect.bottom;
         self.player_group = data['player'];
-        self.enemy_group = data['enemy'];
         self.flagpole_group = data['flagpole'];
         self.brick_group = data['bricks'];
         self.box_group = data['boxes'];
         self.powerup_group = data['powerups'];
         self.slider_group = data['sliders'];
+        self.enemy_group_list = data['enemy_group_list'];
+        self.decompress_dynamics();
+
+    #data is a SegmentState
+    def load(self,data):
+        if (not self.loaded_segment == data.segment_id):
+            self.load_map_data(data.static_data);
+            self.loaded_segment = data.segment_id;
+        self.load_dynamic(data.dynamic_data);
+        self.setup_sprite_groups()
+
+        
+    def get_group_by_id(self,group_id):
+        return self.group_map[group_id] if group_id in self.group_map.keys() else None;
+
+    def get_group_id(self,group):
+        if (group in self.group_id_map.keys()):
+            return self.group_id_map[group] 
+        else:
+            return None;
 
        
-
     def setup_background(self):
         img_name = self.map_data[c.MAP_IMAGE]
         self.background = setup.GFX[img_name]
@@ -79,6 +197,7 @@ class Segment(tools.State):
 
     def setup_maps(self):
         self.map_list = []
+
         if c.MAP_MAPS in self.map_data:
             for data in self.map_data[c.MAP_MAPS]:
                 self.map_list.append((data['start_x'], data['end_x'], data['player_x'], data['player_y']))
@@ -218,6 +337,25 @@ class Segment(tools.State):
     
     def handle_states(self, keys):
         self.update_all_sprites(keys)
+
+        
+        if (keys[pg.K_PAGEUP] is not None and keys[pg.K_PAGEUP]):
+            if (not self.last_save):
+                self.save_internal_state();
+                print('state saved');
+            self.last_save = True;
+        else:
+            self.last_save = False;
+        if (keys[pg.K_PAGEDOWN] is not None and keys[pg.K_PAGEDOWN]):
+            if (not self.last_load):
+                self.load_internal_state();
+                print('state loaded');
+            self.last_load = True;
+        else:
+            self.last_load = False;            
+
+        
+
     
     def update_all_sprites(self, keys):
         if self.player.dead:
@@ -235,15 +373,12 @@ class Segment(tools.State):
             self.player.update(keys, self.game_info, None)
             self.check_checkpoints()
             self.update_viewport()
-            self.overhead_info.update(self.game_info, self.player)
-            for score in self.moving_score_list:
-                score.update(self.moving_score_list)
+
         else:
             self.player.update(keys, self.game_info, self.powerup_group)
             self.flagpole_group.update()
             self.check_checkpoints()
             self.slider_group.update()
-            self.static_coin_group.update(self.game_info)
             self.enemy_group.update(self.game_info, self)
             self.shell_group.update(self.game_info, self)
             self.brick_group.update()
@@ -255,9 +390,7 @@ class Segment(tools.State):
             self.update_player_position()
             self.check_for_player_death()
             self.update_viewport()
-            self.overhead_info.update(self.game_info, self.player)
-            for score in self.moving_score_list:
-                score.update(self.moving_score_list)
+
     
     def check_checkpoints(self):
         checkpoint = pg.sprite.spritecollideany(self.player, self.checkpoint_group)
@@ -281,7 +414,7 @@ class Segment(tools.State):
                     self.player.y_vel < 0):
                 mushroom_box = box.Box(checkpoint.rect.x, checkpoint.rect.bottom - 40,
                                 c.TYPE_LIFEMUSHROOM, self.powerup_group)
-                mushroom_box.start_bump(self.moving_score_list)
+                mushroom_box.start_bump([])
                 self.box_group.add(mushroom_box)
                 self.player.y_vel = 7
                 self.player.rect.y = mushroom_box.rect.bottom
@@ -304,7 +437,7 @@ class Segment(tools.State):
                     (0, 5000)]
         for y, score in y_score_list:
             if self.player.rect.y > y:
-                self.update_score(score, self.flag)
+                #self.update_score(score, self.flag)
                 break
         
     def update_player_position(self):
@@ -329,7 +462,6 @@ class Segment(tools.State):
         enemy = pg.sprite.spritecollideany(self.player, self.enemy_group)
         shell = pg.sprite.spritecollideany(self.player, self.shell_group)
         powerup = pg.sprite.spritecollideany(self.player, self.powerup_group)
-        coin = pg.sprite.spritecollideany(self.player, self.static_coin_group)
 
         if box:
             self.adjust_player_for_x_collisions(box)
@@ -342,27 +474,27 @@ class Segment(tools.State):
             self.adjust_player_for_x_collisions(ground_step_pipe)
         elif powerup:
             if powerup.type == c.TYPE_MUSHROOM:
-                self.update_score(1000, powerup, 0)
+                #self.update_score(1000, powerup, 0)
                 if not self.player.big:
                     self.player.y_vel = -1
                     self.player.state = c.SMALL_TO_BIG
             elif powerup.type == c.TYPE_FIREFLOWER:
-                self.update_score(1000, powerup, 0)
+                #self.update_score(1000, powerup, 0)
                 if not self.player.big:
                     self.player.state = c.SMALL_TO_BIG
                 elif self.player.big and not self.player.fire:
                     self.player.state = c.BIG_TO_FIRE
             elif powerup.type == c.TYPE_STAR:
-                self.update_score(1000, powerup, 0)
+                #self.update_score(1000, powerup, 0)
                 self.player.invincible = True
             elif powerup.type == c.TYPE_LIFEMUSHROOM:
-                self.update_score(500, powerup, 0)
+                #self.update_score(500, powerup, 0)
                 self.game_info[c.LIVES] += 1
             if powerup.type != c.TYPE_FIREBALL:
                 powerup.kill()
         elif enemy:
             if self.player.invincible:
-                self.update_score(100, enemy, 0)
+                #self.update_score(100, enemy, 0)
                 self.move_to_dying_group(self.enemy_group, enemy)
                 direction = c.RIGHT if self.player.facing_right else c.LEFT
                 enemy.start_death_jump(direction)
@@ -376,7 +508,7 @@ class Segment(tools.State):
         elif shell:
             if shell.state == c.SHELL_SLIDE:
                 if self.player.invincible:
-                    self.update_score(200, shell, 0)
+                    #self.update_score(200, shell, 0)
                     self.move_to_dying_group(self.shell_group, shell)
                     direction = c.RIGHT if self.player.facing_right else c.LEFT
                     shell.start_death_jump(direction)
@@ -388,7 +520,7 @@ class Segment(tools.State):
                 else:
                     self.player.die(self.game_info)
             else:
-                self.update_score(400, shell, 0)
+                #self.update_score(400, shell, 0)
                 if self.player.rect.x < shell.rect.x:
                     self.player.rect.left = shell.rect.x 
                     shell.direction = c.RIGHT
@@ -399,9 +531,7 @@ class Segment(tools.State):
                     shell.x_vel = -10
                 shell.rect.x += shell.x_vel * 4
                 shell.state = c.SHELL_SLIDE
-        elif coin:
-            self.update_score(100, coin, 1)
-            coin.kill()
+
 
     def adjust_player_for_x_collisions(self, collider):
         if collider.name == c.MAP_SLIDER:
@@ -434,7 +564,7 @@ class Segment(tools.State):
             self.adjust_player_for_y_collisions(ground_step_pipe)
         elif enemy:
             if self.player.invincible:
-                self.update_score(100, enemy, 0)
+                #self.update_score(100, enemy, 0)
                 self.move_to_dying_group(self.enemy_group, enemy)
                 direction = c.RIGHT if self.player.facing_right else c.LEFT
                 enemy.start_death_jump(direction)
@@ -444,7 +574,7 @@ class Segment(tools.State):
                 enemy.name == c.FIRE):
                 pass
             elif self.player.y_vel > 0:
-                self.update_score(100, enemy, 0)
+                #self.update_score(100, enemy, 0)
                 enemy.state = c.JUMPED_ON
                 if enemy.name == c.GOOMBA:
                     self.move_to_dying_group(self.enemy_group, enemy)
@@ -486,15 +616,15 @@ class Segment(tools.State):
                     if self.player.big and sprite.type == c.TYPE_NONE:
                         sprite.change_to_piece(self.dying_group)
                     else:
-                        if sprite.type == c.TYPE_COIN:
-                            self.update_score(200, sprite, 1)
-                        sprite.start_bump(self.moving_score_list)
+                        #if sprite.type == c.TYPE_COIN:
+                            #self.update_score(200, sprite, 1)
+                        sprite.start_bump([])
             elif sprite.name == c.MAP_BOX:
                 self.check_if_enemy_on_brick_box(sprite)
                 if sprite.state == c.RESTING:
-                    if sprite.type == c.TYPE_COIN:
-                        self.update_score(200, sprite, 1)
-                    sprite.start_bump(self.moving_score_list)
+                    #if sprite.type == c.TYPE_COIN:
+                        #self.update_score(200, sprite, 1)
+                    sprite.start_bump([])
             elif (sprite.name == c.MAP_PIPE and
                 sprite.type == c.PIPE_TYPE_HORIZONTAL):
                 return
@@ -516,7 +646,7 @@ class Segment(tools.State):
         brick.rect.y -= 5
         enemy = pg.sprite.spritecollideany(brick, self.enemy_group)
         if enemy:
-            self.update_score(100, enemy, 0)
+            #self.update_score(100, enemy, 0)
             self.move_to_dying_group(self.enemy_group, enemy)
             if self.player.rect.centerx > brick.rect.centerx:
                 direction = c.RIGHT
@@ -552,8 +682,8 @@ class Segment(tools.State):
         sprite.rect.y -= 1
     
     def check_for_player_death(self):
-        if (self.player.rect.y > c.SCREEN_HEIGHT or
-            self.overhead_info.time <= 0):
+        if (self.player.rect.y > c.SCREEN_HEIGHT):
+#            self.overhead_info.time <= 0):
             self.player.die(self.game_info)
 
     def check_if_player_on_IN_pipe(self):
@@ -573,8 +703,8 @@ class Segment(tools.State):
 
         if self.persist[c.LIVES] == 0:
             self.next = c.GAME_OVER
-        elif self.overhead_info.time == 0:
-            self.next = c.TIME_OUT
+        #elif self.overhead_info.time == 0:
+            #self.next = c.TIME_OUT
         elif self.player.dead:
             self.next = c.LOAD_SCREEN
         else:
@@ -615,14 +745,10 @@ class Segment(tools.State):
         self.shell_group.draw(self.level)
         self.enemy_group.draw(self.level)
         self.player_group.draw(self.level)
-        self.static_coin_group.draw(self.level)
         self.slider_group.draw(self.level)
         self.pipe_group.draw(self.level)
-        for score in self.moving_score_list:
-            score.draw(self.level)
         if c.DEBUG:
             self.ground_step_pipe_group.draw(self.level)
             self.checkpoint_group.draw(self.level)
 
         surface.blit(self.level, (0,0), self.viewport)
-        self.overhead_info.draw(surface)

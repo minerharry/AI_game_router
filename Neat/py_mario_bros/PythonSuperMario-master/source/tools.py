@@ -9,7 +9,9 @@ keybinding = {
     'jump':pg.K_a,
     'left':pg.K_LEFT,
     'right':pg.K_RIGHT,
-    'down':pg.K_DOWN
+    'down':pg.K_DOWN,
+    'save_state':pg.K_PAGEUP,
+    'load_state':pg.K_PAGEDOWN,
 }
 
 class State():
@@ -103,6 +105,12 @@ class Control():
 
     def get_game_data(self):
         return [];
+
+    #only called during manual mode, so can be assumed that current state is a segment
+    def load_segment(self,load_data):
+        self.state.load(load_data);
+
+
     
 
 

@@ -48,6 +48,21 @@ TIME_OUT = 'time out'
 GAME_OVER = 'game over'
 LEVEL = 'level'
 
+#LEVEL GROUPS
+POWERUP_GROUP = 'powerup_group'
+COIN_GROUP = 'coin_group'
+DYING_GROUP = 'dying_group'
+GROUND_STEP_PIPE_GROUP = 'ground_step_pipe_group'
+GROUND_GROUP = 'ground_group'
+BOX_GROUP = 'box_group'
+BRICK_GROUP = 'brick_group'
+BRICKPIECE_GROUP = 'brickpiece_group'
+CHECKPOINT_GROUP = 'checkpoint_group'
+COIN_GROUP = 'coin_group'
+ENEMY_GROUP = 'enemy_group'
+FLAGPOLE_GROUP = 'flagpole_group'
+
+
 #MAIN MENU CURSOR STATES
 PLAYER1 = '1 PLAYER GAME'
 PLAYER2 = '2 PLAYER GAME'

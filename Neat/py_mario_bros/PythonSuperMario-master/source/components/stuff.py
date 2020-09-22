@@ -28,13 +28,16 @@ class Checkpoint(pg.sprite.Sprite):
         self.name = name
 
 class Stuff(pg.sprite.Sprite):
-    def __init__(self, x, y, sheet, image_rect_list, scale):
+    def __init__(self, x, y, sheet_name, image_rect_list, scale):
         pg.sprite.Sprite.__init__(self)
         
         self.frames = []
         self.frame_index = 0
+        self.image_rect_list = image_rect_list;
+        self.scale = scale;
+        self.sheet_name = sheet_name;
         for image_rect in image_rect_list:
-            self.frames.append(tools.get_image(sheet, 
+            self.frames.append(tools.get_image(setup.GFX[sheet_name], 
                     *image_rect, c.BLACK, scale))
         if (not c.COMPLEX_FRAMES):
             self.image = self.frames[0];
@@ -43,24 +46,46 @@ class Stuff(pg.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
-    
+
+    #removes all of the unneeded variables that remain constant (removes unpickleable objects)
+    def compress(self,level):
+        self.frames = [];
+        self.image = None;
+        self.group_ids = [level.get_group_id(group) for group in self._Sprite__g if level.get_group_id(group) is not None];
+        self._Sprite__g = {};
+
+
+
+    #adds back all of the unneeded variables that remain constant (adds back unpickleable objects)
+    def decompress(self,level):
+        for image_rect in self.image_rect_list:
+            self.frames.append(tools.get_image(setup.GFX[self.sheet_name], 
+                    *image_rect, c.BLACK, self.scale))
+        if (not c.COMPLEX_FRAMES):
+            self.image = self.frames[0];
+        else:
+            self.image = self.frames[self.frame_index]
+        self.image.get_rect().x = self.rect.x;
+        self.image.get_rect().bottom = self.rect.bottom;
+        self.add([level.get_group_by_id(id) for id in self.group_ids if level.get_group_by_id(id) is not None]);
+
     def update(self, *args):
         pass
 
 
 class Pole(Stuff):
     def __init__(self, x, y):
-        Stuff.__init__(self, x, y, setup.GFX['tile_set'],
+        Stuff.__init__(self, x, y, 'tile_set',
                 [(263, 144, 2, 16)], c.BRICK_SIZE_MULTIPLIER)
 
 class PoleTop(Stuff):
     def __init__(self, x, y):
-        Stuff.__init__(self, x, y, setup.GFX['tile_set'],
+        Stuff.__init__(self, x, y, 'tile_set',
                 [(228, 120, 8, 8)], c.BRICK_SIZE_MULTIPLIER)
 
 class Flag(Stuff):
     def __init__(self, x, y):
-        Stuff.__init__(self, x, y, setup.GFX[c.ITEM_SHEET],
+        Stuff.__init__(self, x, y, c.ITEM_SHEET,
                 [(128, 32, 16, 16)], c.SIZE_MULTIPLIER)
         self.state = c.TOP_OF_POLE
         self.y_vel = 5
@@ -75,7 +100,7 @@ class Flag(Stuff):
 
 class CastleFlag(Stuff):
     def __init__(self, x, y):
-        Stuff.__init__(self, x, y, setup.GFX[c.ITEM_SHEET],
+        Stuff.__init__(self, x, y, c.ITEM_SHEET,
                 [(129, 2, 14, 14)], c.SIZE_MULTIPLIER)
         self.y_vel = -2
         self.target_height = y
@@ -141,7 +166,7 @@ class Pipe(Stuff):
             rect = [(32, 128, 37, 30)]
         else:
             rect = [(0, 160, 32, 30)]
-        Stuff.__init__(self, x, y, setup.GFX['tile_set'],
+        Stuff.__init__(self, x, y, 'tile_set',
                 rect, c.BRICK_SIZE_MULTIPLIER)
         self.name = name
         self.type = type
@@ -176,7 +201,7 @@ class Pipe(Stuff):
 
 class Slider(Stuff):
     def __init__(self, x, y, num, direction, range_start, range_end, vel, name=c.MAP_SLIDER):
-        Stuff.__init__(self, x, y, setup.GFX[c.ITEM_SHEET],
+        Stuff.__init__(self, x, y, c.ITEM_SHEET,
                 [(64, 128, 15, 8)], 2.8)
         self.name = name
         self.create_image(x, y, num)
@@ -230,3 +255,12 @@ class Slider(Stuff):
                 self.rect.left = self.range_end
                 self.x_vel = -1
 
+    def save_state(self):
+        return {'x':self.rect.x,'y':self.rect.y,'y_vel':self.y_vel,'x_vel':self.x_vel};
+
+    def load_state(self,data):
+        self.rect.x = data['x'];
+        self.rect.y = data['y'];
+        self.y_vel = data['y_vel'];
+        self.x_vel = data['x_vel'];
+    

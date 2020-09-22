@@ -47,9 +47,10 @@ class Brick(stuff.Stuff):
             frame_rect = orange_rect
         else:
             frame_rect = green_rect
-        stuff.Stuff.__init__(self, x, y, setup.GFX['tile_set'],
+        stuff.Stuff.__init__(self, x, y, 'tile_set',
                         frame_rect, c.BRICK_SIZE_MULTIPLIER)
-
+        self.color = color;
+        self.compressed = False;
         self.rest_height = y
         self.state = c.RESTING
         self.y_vel = 0
@@ -61,6 +62,36 @@ class Brick(stuff.Stuff):
             self.coin_num = 0
         self.group = group
         self.name = name
+    
+    #removes all of the unneeded variables that remain constant (removes unpickleable objects)
+    def compress(self,level):
+        self.frames = [];
+        self.image = None;
+        self.group = None;
+        self.group_ids = [level.get_group_id(group) for group in self._Sprite__g if level.get_group_id(group) is not None];
+        self._Sprite__g = {};
+        
+
+    #adds back all of the unneeded variables that remain constant (adds back unpickleable objects)
+    def decompress(self,level):
+        for image_rect in self.image_rect_list:
+            self.frames.append(tools.get_image(setup.GFX[self.sheet_name], 
+                    *image_rect, c.BLACK, self.scale))
+        if (not c.COMPLEX_FRAMES):
+            self.image = self.frames[0];
+        else:
+            self.image = self.frames[self.frame_index]
+        self.image.get_rect().x = self.rect.x;
+        self.image.get_rect().bottom = self.rect.bottom;
+        if self.type == c.TYPE_COIN:
+            self.group = level.coin_group;
+        else:
+            self.group = level.powerup_group;
+        self.compressed = False;
+        self.add([level.get_group_by_id(id) for id in self.group_ids if level.get_group_by_id(id) is not None]);
+
+        
+    
     
     def update(self):
         if self.state == c.BUMPED:
@@ -125,11 +156,12 @@ class Brick(stuff.Stuff):
         
 class BrickPiece(stuff.Stuff):
     def __init__(self, x, y, x_vel, y_vel):
-        stuff.Stuff.__init__(self, x, y, setup.GFX['tile_set'],
+        stuff.Stuff.__init__(self, x, y, 'tile_set',
             [(68, 20, 8, 8)], c.BRICK_SIZE_MULTIPLIER)
         self.x_vel = x_vel
         self.y_vel = y_vel
         self.gravity = .8
+
     
     def update(self, *args):
         self.rect.x += self.x_vel
