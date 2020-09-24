@@ -9,7 +9,7 @@ from ..components import powerup
 
 class Player(pg.sprite.Sprite):
     #TODO: Fix player dying at full health
-    #TODO: add player 
+    #TODO: remove animations of end of level, pipe, and powerup (aka remove any non-input frames)
     def __init__(self, player_name):
         pg.sprite.Sprite.__init__(self)
         self.player_name = player_name
@@ -206,6 +206,9 @@ class Player(pg.sprite.Sprite):
             self.rect.y += self.y_vel
             if self.rect.bottom < self.up_pipe_y:
                 self.state = c.STAND
+
+    def accepts_input(self):
+        return self.state in [c.STAND,c.WALK,c.JUMP,c.FALL];
 
     def check_to_allow_jump(self, keys):
         if not keys[tools.keybinding['jump']]:
@@ -441,9 +444,15 @@ class Player(pg.sprite.Sprite):
     def set_player_powerup_state(self,state_id):
         self.big = state_id == 1 or state_id == 2;
         self.fire = state_id == 2;
+        if (state_id == 0):
+            self.hurt_invincible = True;
+        initial_bottom = self.rect.bottom;
         self.transition_timer = 0
         self.set_player_image((self.small_normal_frames if state_id == 0 else ( self.big_normal_frames  if state_id == 1 else self.big_fire_frames)), 0 if state_id < 2 else 3);
+        self.left_frames = (self.left_small_normal_frames if state_id == 0 else ( self.left_big_normal_frames  if state_id == 1 else self.left_big_fire_frames))
+        self.right_frames = (self.right_small_normal_frames if state_id == 0 else ( self.right_big_normal_frames  if state_id == 1 else self.right_big_fire_frames))
         self.state = c.WALK
+        self.rect.bottom = initial_bottom;
 
 
     def changing_to_big(self):

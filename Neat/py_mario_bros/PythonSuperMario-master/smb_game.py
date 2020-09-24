@@ -4,7 +4,7 @@ from abc import abstractmethod
 
 
 
-
+empty_actions = zip(['action','jump','left','right','down'],[False for i in range(5)])
 class SMB1Game(RunGame):
     
     def __init__(self,runnerConfig,kwargs):
@@ -24,11 +24,17 @@ class SMB1Game(RunGame):
         output = [key > 0 for key in inputs];
         named_actions = zip(['action','jump','left','right','down'],output);
         self.game.tick_inputs(named_actions);
+        while (not self.game.accepts_player_input()):
+            self.game.tick_inputs(empty_actions);
         
 
     @abstractmethod
     def renderInput(self,inputs):
-        pass;
+        output = [key > 0 for key in inputs];
+        named_actions = zip(['action','jump','left','right','down'],output);
+        self.game.tick_inputs(named_actions,show_game=True);
+        while (not self.game.accepts_player_input()):
+            self.game.tick_inputs(empty_actions);
 
     def close(self):
         #does nothing unless game needs it to

@@ -2,6 +2,8 @@ __author__ = 'marble_xu'
 
 COMPLEX_FRAMES  = False #if false, each sprite will only ever have a single frame representing each hitbox to save on FPS
 
+DISPLAY_FRAMERATE = False;
+
 DEBUG = False
 DEBUG_START_X = 200
 DEBUG_START_y = 538
@@ -51,6 +53,8 @@ LEVEL = 'level'
 #LEVEL GROUPS
 POWERUP_GROUP = 'powerup_group'
 COIN_GROUP = 'coin_group'
+SHELL_GROUP = 'shell_group'
+PLAYER_GROUP = 'player_group'
 DYING_GROUP = 'dying_group'
 GROUND_STEP_PIPE_GROUP = 'ground_step_pipe_group'
 GROUND_GROUP = 'ground_group'

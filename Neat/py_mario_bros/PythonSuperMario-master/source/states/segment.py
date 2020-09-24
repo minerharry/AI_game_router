@@ -14,48 +14,43 @@ from ..components import info, stuff, player, brick, box, enemy, powerup, coin
 
 
 class SegmentState:
+    #TODO: Fix last_segment_id staying at one
     last_segment_id = -1;
-    def __init__(self, dynamic_data, static_data, segment_id = None, file_path = None):
+    def __init__(self, dynamic_data, static_data, file_path = None):
         if (file_path is not None):
             f = open(file_path);
             self.raw_data = pickle.load(f);
             f.close();
-            self.segment_id = self.raw_data['id'];
             self.static_data = self.raw_data['static']; #otherwise known as the map data
             self.dynamic_data =self.raw_data['dynamic'];
         else:
             self.static_data = static_data;
             self.dynamic_data = dynamic_data;
-            if (segment_id is None):
-                self.segment_id = self.assign_segment_id();
-            else:
-                self.segment_id = segment_id;
 
 
     def save_file(self,file_path):
         f = open(file_path);
-        pickle.dump(f);
+        pickle.dump({'static':self.static_data,'dynamic':self.dynamic_data},f);
         f.close();
 
-    def assign_segment_id(self):
-        print(self.last_segment_id);
-        self.last_segment_id += 1;
-        return self.last_segment_id;
+    def equal_static_data(self,other_data):
+        return json.dumps(other_data) == json.dumps(self.static_data); #using json dymps to ensure that only the dict values are compared and not class sources; that way, if static data gets treated as a class for generation purposes, it can still work exactly the same
 
 
 class Segment(tools.State):
 #TODO: add back a level timer
-#TODO: 
 
     def __init__(self):
         tools.State.__init__(self)
         self.player = None
 
+    def accepts_player_input(self):
+        return self.player.accepts_input();
+
     def startup(self, current_time, persist):
         self.last_load = False; #whether the load state button was held last frame
         self.last_save = False; #whether the save state button was held last frame
         self.saved_state = None;
-        self.loaded_segment = -1;
         self.game_info = persist
         self.persist = self.game_info
         self.game_info[c.CURRENT_TIME] = current_time
@@ -81,7 +76,7 @@ class Segment(tools.State):
         self.setup_group_map();
 
     def setup_group_map(self):
-        self.group_map = {self.dying_group: c.DYING_GROUP, self.ground_step_pipe_group: c.GROUND_STEP_PIPE_GROUP, self.ground_group: c.GROUND_GROUP, self.box_group: c.BOX_GROUP, self.brick_group: c.BRICK_GROUP, self.brickpiece_group: c.BRICKPIECE_GROUP, self.checkpoint_group: c.CHECKPOINT_GROUP, self.coin_group: c.COIN_GROUP, self.enemy_group: c.ENEMY_GROUP, self.flagpole_group: c.FLAGPOLE_GROUP}
+        self.group_map = {self.shell_group: c.SHELL_GROUP, self.dying_group: c.DYING_GROUP, self.player_group: c.PLAYER_GROUP, self.ground_step_pipe_group: c.GROUND_STEP_PIPE_GROUP, self.powerup_group: c.POWERUP_GROUP, self.ground_group: c.GROUND_GROUP, self.box_group: c.BOX_GROUP, self.brick_group: c.BRICK_GROUP, self.brickpiece_group: c.BRICKPIECE_GROUP, self.checkpoint_group: c.CHECKPOINT_GROUP, self.coin_group: c.COIN_GROUP, self.enemy_group: c.ENEMY_GROUP, self.flagpole_group: c.FLAGPOLE_GROUP}
         self.group_id_map = {v: k for k, v in self.group_map.items()}
 
     def load_map(self):
@@ -93,7 +88,7 @@ class Segment(tools.State):
 
     def load_map_data(self,data):
         self.map_data = data;
-        print(data);
+        #print(data);
         self.setup_maps()
         #self.setup_background()
         self.ground_group = self.setup_collide(c.MAP_GROUND)
@@ -113,7 +108,7 @@ class Segment(tools.State):
     #saves state within a level
     def save_state(self):
         
-        dynamic_data = {'time':self.game_info[c.CURRENT_TIME], 'enemy_group_list':self.enemy_group_list,'player':self.player_group, 'viewport_x':self.viewport.x,'flagpole':self.flagpole_group,'bricks':self.brick_group,'boxes':self.box_group,'powerups':self.powerup_group,'sliders':self.slider_group};
+        dynamic_data = {'start_x': self.start_x, 'end_x':self.end_x,'shells':self.shell_group,'time':self.game_info[c.CURRENT_TIME], 'enemy_group_list':self.enemy_group_list,'player':self.player_group, 'viewport_x':self.viewport.x,'flagpole':self.flagpole_group,'bricks':self.brick_group,'boxes':self.box_group,'powerups':self.powerup_group,'sliders':self.slider_group};
         self.compress_dynamics();
         #print(dir(self.box_group.sprites()[0]));
         dynamic_data = pickle.loads(pickle.dumps(dynamic_data));
@@ -123,9 +118,13 @@ class Segment(tools.State):
         return SegmentState(dynamic_data,static_data);
 
     def compress_dynamics(self):
-        print(self.powerup_group.sprites()[0].groups());
+        #print(self.powerup_group.sprites()[0].groups());
+        #print(self.get_group_id(self.powerup_group));
+        #print(self.group_map);
+
         [[item.compress(self) for item in group] for group in self.enemy_group_list];
         [item.compress(self) for item in self.player_group];
+        [item.compress(self) for item in self.shell_group];
         #[item.compress(self) for item in self.enemy_group];
         [item.compress(self) for item in self.flagpole_group];
         [item.compress(self) for item in self.box_group];
@@ -136,8 +135,10 @@ class Segment(tools.State):
     def decompress_dynamics(self):
         
         [[item.decompress(self) for item in group] for group in self.enemy_group_list];
-        print([[item.group_ids for item in group] for group in self.enemy_group_list]);
-        [[group.add(item) for item in group] for group in self.enemy_group_list];
+        #print([[item.group_ids for item in group] for group in self.enemy_group_list]);
+        [[item.add(group) for item in group] for group in self.enemy_group_list];
+#        print([[[self.get_group_id(grup) for grup in item.groups()] for item in group if self.enemy_group.has(item)] for group in self.enemy_group_list]);
+        [item.decompress(self) for item in self.shell_group];
         [item.decompress(self) for item in self.player_group];
         #[item.decompress(self) for item in self.enemy_group];
         [item.decompress(self) for item in self.flagpole_group];
@@ -147,38 +148,47 @@ class Segment(tools.State):
         [item.decompress(self) for item in self.slider_group];
         [item.decompress(self) for item in self.brick_group];
 
+
     def load_dynamic(self,data):
         [sprite.kill() for sprite in self.enemy_group];
         self.enemy_group = pg.sprite.Group();
+        self.dying_group = pg.sprite.Group();
+        self.setup_checkpoints();
         self.game_info[c.CURRENT_TIME] = data['time'];
         self.viewport.x = data['viewport_x'];
         self.player = data['player'].sprites()[0];
         self.player_x = self.player.rect.x - self.viewport.x;
         self.player_y = self.player.rect.bottom;
         self.player_group = data['player'];
+        self.shell_group = data['shells'];
         self.flagpole_group = data['flagpole'];
         self.brick_group = data['bricks'];
         self.box_group = data['boxes'];
         self.powerup_group = data['powerups'];
         self.slider_group = data['sliders'];
         self.enemy_group_list = data['enemy_group_list'];
+        self.start_x = data['start_x'];
+        self.end_x = data['end_x'];
+        self.ground_step_pipe_group = pg.sprite.Group(self.ground_group,self.pipe_group, self.step_group, self.slider_group)
+        self.setup_group_map();
         self.decompress_dynamics();
+
 
     #data is a SegmentState
     def load(self,data):
-        if (not self.loaded_segment == data.segment_id):
+        if (not data.equal_static_data(self.map_data)):
             self.load_map_data(data.static_data);
-            self.loaded_segment = data.segment_id;
         self.load_dynamic(data.dynamic_data);
-        self.setup_sprite_groups()
+
+
 
         
     def get_group_by_id(self,group_id):
-        return self.group_map[group_id] if group_id in self.group_map.keys() else None;
+        return self.group_id_map[group_id] if group_id in self.group_id_map.keys() else None;
 
     def get_group_id(self,group):
-        if (group in self.group_id_map.keys()):
-            return self.group_id_map[group] 
+        if (group in self.group_map.keys()):
+            return self.group_map[group] 
         else:
             return None;
 
@@ -731,7 +741,7 @@ class Segment(tools.State):
         self.game_info[c.COIN_TOTAL] += coin_num
         x = sprite.rect.x
         y = sprite.rect.y - 10
-        self.moving_score_list.append(stuff.Score(x, y, score))
+#        self.moving_score_list.append(stuff.Score(x, y, score))
 
     def draw(self, surface):
         self.level.blit(self.background, self.viewport, self.viewport)
@@ -744,6 +754,8 @@ class Segment(tools.State):
         self.flagpole_group.draw(self.level)
         self.shell_group.draw(self.level)
         self.enemy_group.draw(self.level)
+        #print(self.enemy_group in self.chosen_enemy.groups());
+        #print(self.enemy_group.has(self.chosen_enemy));
         self.player_group.draw(self.level)
         self.slider_group.draw(self.level)
         self.pipe_group.draw(self.level)
@@ -752,3 +764,15 @@ class Segment(tools.State):
             self.checkpoint_group.draw(self.level)
 
         surface.blit(self.level, (0,0), self.viewport)
+
+    def get_game_data(self,runConfig):
+        return {'done':self.done,'pos':[self.player.rect.x,self.player.rect.y],'enemy_grid':self.get_enemy_grid(runConfig),'block_grid':self.get_block_grid(runConfig),'powerup_grid':self.get_powerup_grid(runConfig)};
+
+    def get_enemy_grid(self,config):
+        pass;
+
+    def get_block_grid(self,config):
+        pass;
+
+    def get_powerup_grid(self,config):
+        pass;

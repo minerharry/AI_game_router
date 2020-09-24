@@ -184,13 +184,15 @@ class GameRunner:
 
                 gameInput = net.activate(gameData);
 
-                images.append(runningGame.renderInput(gameInput));
+                if (self.runConfig.external_render):
+                    images.append(runningGame.renderInput(gameInput));
 
                         
             runningGame.close();
-            get_genome_frame.images = images;
-            get_genome_frame.initialized = False;
-            vidfig(len(images),get_genome_frame,play_fps=runnerConfig.playback_fps);
+            if (self.runConfig.external_render):
+                get_genome_frame.images = images;
+                get_genome_frame.initialized = False;
+                vidfig(len(images),get_genome_frame,play_fps=runnerConfig.playback_fps);
 
             
     def eval_genomes(self,genomes,config):
@@ -234,7 +236,7 @@ class GameRunner:
     #evaluate a population with the game as a feedforward neural net
     def eval_genomes_feedforward(self, genomes, config):
         for genome in genomes:
-            genome.fitness = 0;
+            genome.fitness = 0; #sanity check
         if (self.runConfig.training_data is None):
             if (self.runConfig.parallel):
                 executor = concurrent.futures.ThreadPoolExecutor();

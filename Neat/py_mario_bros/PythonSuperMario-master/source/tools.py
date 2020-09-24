@@ -3,6 +3,7 @@ __author__ = 'marble_xu'
 import os
 import pygame as pg
 from abc import ABC, abstractmethod
+from . import constants as c
 
 keybinding = {
     'action':pg.K_s,
@@ -59,15 +60,16 @@ class Control():
         self.state_name = start_state
         self.state = self.state_dict[self.state_name]
     
-    def update(self):
+    def update(self,auto_advance_state = True):
         if (self.fps_counter >= self.fps_cycle):
             self.fps_counter = 0;
-            print("fps: " + str(1000 * self.fps_cycle/(self.current_time - self.last_fps_time)));
+            if (c.DISPLAY_FRAMERATE):
+                 print("fps: " + str(1000 * self.fps_cycle/(self.current_time - self.last_fps_time)));
             self.last_fps_time = self.current_time;
         self.fps_counter += 1;
 
         self.current_time = pg.time.get_ticks()
-        if self.state.done:
+        if self.state.done and auto_advance_state:
             self.flip_state()
         self.state.update(self.screen, self.keys, self.current_time)
     
@@ -96,19 +98,25 @@ class Control():
                 
             #self.clock.tick(self.fps)
 
-    def tick_inputs(self,named_inputs):
+    def tick_inputs(self,named_inputs,show_game=False):
         keys = {};
         for name,val in named_inputs:
             keys[keybinding[name]] = val;
         self.keys = keys;
-        self.update();
+        self.update(auto_advance_state=False);
+        if (show_game):
+            pg.display.update();
+
 
     def get_game_data(self):
-        return [];
+        return self.state.get_game_data;
 
     #only called during manual mode, so can be assumed that current state is a segment
     def load_segment(self,load_data):
         self.state.load(load_data);
+
+    def accepts_player_input(self):
+        return self.state.accepts_player_input();
 
 
     
