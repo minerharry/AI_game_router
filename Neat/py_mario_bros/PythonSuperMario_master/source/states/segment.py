@@ -97,7 +97,7 @@ class Segment(tools.State):
         self.map_data = data;
         #print(data);
         self.setup_maps()
-        #self.setup_background()
+        self.setup_background()
         self.ground_group = self.setup_collide(c.MAP_GROUND)
         self.step_group = self.setup_collide(c.MAP_STEP)
         self.setup_pipe()
