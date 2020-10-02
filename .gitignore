@@ -4,3 +4,7 @@
 *.cpython-37.pyc
 
 
+*.pyc
+*.pyc
+Neat/__pycache__/visualize.cpython-37.pyc
+*.pyc

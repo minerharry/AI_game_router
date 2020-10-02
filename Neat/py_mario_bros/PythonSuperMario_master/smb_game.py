@@ -36,6 +36,7 @@ class SMB1Game(RunGame):
         self.game.tick_inputs(named_actions);
         while (not self.game.accepts_player_input()):
             self.game.tick_inputs(empty_actions);
+            print('skipping bad frames...');
         
 
     def renderInput(self,inputs):
@@ -43,7 +44,7 @@ class SMB1Game(RunGame):
         named_actions = zip(['action','jump','left','right','down'],output);
         self.game.tick_inputs(named_actions,show_game=True);
         while (not self.game.accepts_player_input()):
-            self.game.tick_inputs(empty_actions);
+            self.game.tick_inputs(empty_actions,show_game=True);
 
     def close(self):
         #does nothing unless game needs it to
