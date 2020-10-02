@@ -84,6 +84,7 @@ PLAYER_LUIGI = 'luigi'
 
 #MAP COMPONENTS
 MAP_IMAGE = 'image_name'
+MAP_SIZE = 'map_size'
 MAP_MAPS = 'maps'
 SUB_MAP = 'sub_map'
 MAP_GROUND = 'ground'
@@ -212,3 +213,7 @@ EXPLODING = 'exploding'
 #IMAGE SHEET
 ENEMY_SHEET = 'smb_enemies_sheet'
 ITEM_SHEET = 'item_objects'
+
+#SEGMENT_GENERATION
+EDGE = 'edge';
+CENTER = 'center';

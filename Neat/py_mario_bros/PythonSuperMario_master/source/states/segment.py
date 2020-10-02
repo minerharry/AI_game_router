@@ -2,6 +2,7 @@ __author__ = 'minerharry'
 
 import os
 import json
+import math
 import pygame as pg
 try:
    import cPickle as pickle
@@ -16,21 +17,24 @@ from ..components import info, stuff, player, brick, box, enemy, powerup, coin
 class SegmentState:
     #TODO: Fix last_segment_id staying at one
     last_segment_id = -1;
-    def __init__(self, dynamic_data, static_data, file_path = None):
+    def __init__(self, dynamic_data, static_data, task = None, file_path = None):
         if (file_path is not None):
             f = open(file_path);
             self.raw_data = pickle.load(f);
             f.close();
             self.static_data = self.raw_data['static']; #otherwise known as the map data
             self.dynamic_data =self.raw_data['dynamic'];
+            self.task = self.raw_data['task'];
         else:
             self.static_data = static_data;
             self.dynamic_data = dynamic_data;
+            self.task = task;
 
 
+    #not particularly used
     def save_file(self,file_path):
         f = open(file_path);
-        pickle.dump({'static':self.static_data,'dynamic':self.dynamic_data},f);
+        pickle.dump({'static':self.static_data,'dynamic':self.dynamic_data,'task':self.task},f);
         f.close();
 
     def equal_static_data(self,other_data):
@@ -48,17 +52,20 @@ class Segment(tools.State):
         return self.player.accepts_input();
 
     def startup(self, current_time, persist):
+        self.loaded_segment = None;
         self.last_load = False; #whether the load state button was held last frame
         self.last_save = False; #whether the save state button was held last frame
         self.saved_state = None;
-        self.game_info = persist
-        self.persist = self.game_info
-        self.game_info[c.CURRENT_TIME] = current_time
+        #self.game_info = persist
+        #self.persist = self.game_info
+        #self.game_info[c.CURRENT_TIME] = current_time
+        self.current_time = current_time;
         self.death_timer = 0
         self.castle_timer = 0
         
         #self.moving_score_list = []
         #self.overhead_info = info.Info(self.game_info, c.LEVEL)
+        self.level_num = persist['level_num'];
         self.load_map()
         self.setup_background() #look into how to remove
         self.setup_maps()
@@ -80,8 +87,8 @@ class Segment(tools.State):
         self.group_id_map = {v: k for k, v in self.group_map.items()}
 
     def load_map(self):
-        map_file = 'level_' + str(self.game_info[c.LEVEL_NUM]) + '.json'
-        file_path = os.path.join('py_mario_bros\\PythonSuperMario-master','source', 'data', 'maps', map_file)
+        map_file = 'level_' + str(self.level_num) + '.json'
+        file_path = os.path.join('py_mario_bros\\PythonSuperMario_master','source', 'data', 'maps', map_file)
         f = open(file_path)
         self.map_data = json.load(f)
         f.close()
@@ -108,7 +115,7 @@ class Segment(tools.State):
     #saves state within a level
     def save_state(self):
         
-        dynamic_data = {'start_x': self.start_x, 'end_x':self.end_x,'shells':self.shell_group,'time':self.game_info[c.CURRENT_TIME], 'enemy_group_list':self.enemy_group_list,'player':self.player_group, 'viewport_x':self.viewport.x,'flagpole':self.flagpole_group,'bricks':self.brick_group,'boxes':self.box_group,'powerups':self.powerup_group,'sliders':self.slider_group};
+        dynamic_data = {'start_x': self.start_x, 'end_x':self.end_x,'shells':self.shell_group,'time':self.current_time, 'enemy_group_list':self.enemy_group_list,'player':self.player_group, 'viewport_x':self.viewport.x,'flagpole':self.flagpole_group,'bricks':self.brick_group,'boxes':self.box_group,'powerups':self.powerup_group,'sliders':self.slider_group};
         self.compress_dynamics();
         #print(dir(self.box_group.sprites()[0]));
         dynamic_data = pickle.loads(pickle.dumps(dynamic_data));
@@ -154,7 +161,7 @@ class Segment(tools.State):
         self.enemy_group = pg.sprite.Group();
         self.dying_group = pg.sprite.Group();
         self.setup_checkpoints();
-        self.game_info[c.CURRENT_TIME] = data['time'];
+        self.current_time = data['time'];
         self.viewport.x = data['viewport_x'];
         self.player = data['player'].sprites()[0];
         self.player_x = self.player.rect.x - self.viewport.x;
@@ -176,9 +183,13 @@ class Segment(tools.State):
 
     #data is a SegmentState
     def load(self,data):
+        self.loaded_segment = data;
+        self.task = data.task;
         if (not data.equal_static_data(self.map_data)):
             self.load_map_data(data.static_data);
-        self.load_dynamic(data.dynamic_data);
+        if (data.dynamic_data is not None):
+            self.load_dynamic(data.dynamic_data);
+
 
 
 
@@ -195,15 +206,21 @@ class Segment(tools.State):
        
     def setup_background(self):
         img_name = self.map_data[c.MAP_IMAGE]
-        self.background = setup.GFX[img_name]
-        self.bg_rect = self.background.get_rect()
-        self.background = pg.transform.scale(self.background, 
-                                    (int(self.bg_rect.width*c.BACKGROUND_MULTIPLER),
-                                    int(self.bg_rect.height*c.BACKGROUND_MULTIPLER)))
-        self.bg_rect = self.background.get_rect()
+        if (img_name is not None):
+            self.background = setup.GFX[img_name]
+            self.bg_rect = self.background.get_rect()
+            self.background = pg.transform.scale(self.background, 
+                                        (int(self.bg_rect.width*c.BACKGROUND_MULTIPLER),
+                                        int(self.bg_rect.height*c.BACKGROUND_MULTIPLER)))
+            self.bg_rect = self.background.get_rect()
 
-        self.level = pg.Surface((self.bg_rect.w, self.bg_rect.h)).convert()
-        self.viewport = setup.SCREEN.get_rect(bottom=self.bg_rect.bottom)
+            self.level = pg.Surface((self.bg_rect.w, self.bg_rect.h)).convert()
+            self.viewport = setup.SCREEN.get_rect(bottom=self.bg_rect.bottom)
+        else:
+            rect = self.map_data[c.MAP_SIZE];
+            self.level = pg.Surface((rect[0], rect[1])).convert();
+            self.viewport = setup.SCREEN.get_rect(bottom=rect[1]);
+
 
     def setup_maps(self):
         self.map_list = []
@@ -283,7 +300,7 @@ class Segment(tools.State):
             
     def setup_player(self):
         if self.player is None:
-            self.player = player.Player(self.game_info[c.PLAYER_NAME])
+            self.player = player.Player(c.PLAYER_MARIO)
         else:
             self.player.restart()
         self.player.rect.x = self.viewport.x + self.player_x
@@ -341,7 +358,7 @@ class Segment(tools.State):
         self.player_group = pg.sprite.Group(self.player)
         
     def update(self, surface, keys, current_time):
-        self.game_info[c.CURRENT_TIME] = self.current_time = current_time
+        self.current_time = current_time
         self.handle_states(keys)
         self.draw(surface)
     
@@ -349,14 +366,14 @@ class Segment(tools.State):
         self.update_all_sprites(keys)
 
         
-        if (keys[pg.K_PAGEUP] is not None and keys[pg.K_PAGEUP]):
+        if (pg.K_PAGEUP in keys and keys[pg.K_PAGEUP] is not None and keys[pg.K_PAGEUP]):
             if (not self.last_save):
                 self.save_internal_state();
                 print('state saved');
             self.last_save = True;
         else:
             self.last_save = False;
-        if (keys[pg.K_PAGEDOWN] is not None and keys[pg.K_PAGEDOWN]):
+        if (pg.K_PAGEDOWN in keys and keys[pg.K_PAGEDOWN] is not None and keys[pg.K_PAGEDOWN]):
             if (not self.last_load):
                 self.load_internal_state();
                 print('state loaded');
@@ -368,35 +385,36 @@ class Segment(tools.State):
 
     
     def update_all_sprites(self, keys):
+        time_info = {c.CURRENT_TIME:self.current_time};
         if self.player.dead:
-            self.player.update(keys, self.game_info, self.powerup_group)
+            self.player.update(keys, time_info, self.powerup_group)
             if self.current_time - self.death_timer >= 0:
                 self.update_game_info()
                 self.done = True
         elif self.player.state == c.IN_CASTLE:
-            self.player.update(keys, self.game_info, None)
+            self.player.update(keys, time_info, None)
             self.flagpole_group.update()
             if self.current_time - self.castle_timer > 2000:
                 self.update_game_info()
                 self.done = True
         elif self.in_frozen_state():
-            self.player.update(keys, self.game_info, None)
+            self.player.update(keys, time_info, None)
             self.check_checkpoints()
             self.update_viewport()
 
         else:
-            self.player.update(keys, self.game_info, self.powerup_group)
+            self.player.update(keys, time_info, self.powerup_group)
             self.flagpole_group.update()
             self.check_checkpoints()
             self.slider_group.update()
-            self.enemy_group.update(self.game_info, self)
-            self.shell_group.update(self.game_info, self)
+            self.enemy_group.update(time_info, self)
+            self.shell_group.update(time_info, self)
             self.brick_group.update()
-            self.box_group.update(self.game_info)
-            self.powerup_group.update(self.game_info, self)
-            self.coin_group.update(self.game_info)
+            self.box_group.update(time_info)
+            self.powerup_group.update(time_info, self)
+            self.coin_group.update(time_info)
             self.brickpiece_group.update()
-            self.dying_group.update(self.game_info, self)
+            self.dying_group.update(time_info, self)
             self.update_player_position()
             self.check_for_player_death()
             self.update_viewport()
@@ -497,9 +515,9 @@ class Segment(tools.State):
             elif powerup.type == c.TYPE_STAR:
                 #self.update_score(1000, powerup, 0)
                 self.player.invincible = True
-            elif powerup.type == c.TYPE_LIFEMUSHROOM:
+            #elif powerup.type == c.TYPE_LIFEMUSHROOM:
                 #self.update_score(500, powerup, 0)
-                self.game_info[c.LIVES] += 1
+                #self.game_info[c.LIVES] += 1
             if powerup.type != c.TYPE_FIREBALL:
                 powerup.kill()
         elif enemy:
@@ -514,7 +532,7 @@ class Segment(tools.State):
                 self.player.y_vel = -1
                 self.player.state = c.BIG_TO_SMALL
             else:
-                self.player.die(self.game_info)
+                self.player.die()
         elif shell:
             if shell.state == c.SHELL_SLIDE:
                 if self.player.invincible:
@@ -528,7 +546,7 @@ class Segment(tools.State):
                     self.player.y_vel = -1
                     self.player.state = c.BIG_TO_SMALL
                 else:
-                    self.player.die(self.game_info)
+                    self.player.die()
             else:
                 #self.update_score(400, shell, 0)
                 if self.player.rect.x < shell.rect.x:
@@ -694,7 +712,7 @@ class Segment(tools.State):
     def check_for_player_death(self):
         if (self.player.rect.y > c.SCREEN_HEIGHT):
 #            self.overhead_info.time <= 0):
-            self.player.die(self.game_info)
+            self.player.die()
 
     def check_if_player_on_IN_pipe(self):
         '''check if player is on the pipe which can go down in to it '''
@@ -708,18 +726,19 @@ class Segment(tools.State):
         self.player.rect.y -= 1
         
     def update_game_info(self):
-        if self.player.dead:
-            self.persist[c.LIVES] -= 1
+        #if self.player.dead:
+#            self.persist[c.LIVES] -= 1
 
-        if self.persist[c.LIVES] == 0:
-            self.next = c.GAME_OVER
+        #if self.persist[c.LIVES] == 0:
+            #self.next = c.GAME_OVER
         #elif self.overhead_info.time == 0:
             #self.next = c.TIME_OUT
-        elif self.player.dead:
-            self.next = c.LOAD_SCREEN
-        else:
-            self.game_info[c.LEVEL_NUM] += 1
-            self.next = c.LOAD_SCREEN
+        #elif self.player.dead:
+            #self.next = c.LOAD_SCREEN
+        #else:
+            #self.game_info[c.LEVEL_NUM] += 1
+            #self.next = c.LOAD_SCREEN
+        self.next = self;
 
     def update_viewport(self):
         third = self.viewport.x + self.viewport.w//3
@@ -737,14 +756,16 @@ class Segment(tools.State):
         self.dying_group.add(sprite)
         
     def update_score(self, score, sprite, coin_num=0):
-        self.game_info[c.SCORE] += score
-        self.game_info[c.COIN_TOTAL] += coin_num
-        x = sprite.rect.x
-        y = sprite.rect.y - 10
+        #self.game_info[c.SCORE] += score
+        #self.game_info[c.COIN_TOTAL] += coin_num
+        #x = sprite.rect.x
+        #y = sprite.rect.y - 10
 #        self.moving_score_list.append(stuff.Score(x, y, score))
+        print('score updated')
 
     def draw(self, surface):
-        self.level.blit(self.background, self.viewport, self.viewport)
+        if (self.background is not None):
+            self.level.blit(self.background, self.viewport, self.viewport)
         self.powerup_group.draw(self.level)
         self.brick_group.draw(self.level)
         self.box_group.draw(self.level)
@@ -766,13 +787,112 @@ class Segment(tools.State):
         surface.blit(self.level, (0,0), self.viewport)
 
     def get_game_data(self,runConfig):
-        return {'done':self.done,'pos':[self.player.rect.x,self.player.rect.y],'enemy_grid':self.get_enemy_grid(runConfig),'block_grid':self.get_block_grid(runConfig),'powerup_grid':self.get_powerup_grid(runConfig)};
+        grid_rects = self.get_rect_grid(runConfig);
+        return {'done':self.done,'task_position':self.task,'pos':[self.player.rect.centerx,self.player.rect.centery],'enemy_grid':self.get_enemy_grid(grid_rects),'collision_grid':self.get_collision_grid(grid_rects),'powerup_grid':self.get_powerup_grid(grid_rects),'box_grid':self.get_box_grid(grid_rects),'brick_grid':self.get_brick_grid(grid_rects),'task_obstructions':self.get_task_obstructions()};
 
-    def get_enemy_grid(self,config):
-        pass;
+    def get_rect_grid(self,runConfig):
+        tile_scale = runConfig.tile_scale; #power of two: number of subdivisions per tile length
+        view_distance = runConfig.view_distance; #integer number of subdivided tiles in each direction, excluding center. EX: 3 would be a 7x7
+        rect_width = 16/tile_scale;
+        player_center = self.player.rect.center;
+        center_left = player_center[0] % rect_width;
+        center_top = player_center[1] % rect_width;
+        return [[pg.Rect(center_left + i * rect_width, center_top + j * rect_width,rect_width,rect_width) for j in range(-view_distance,view_distance+1)] for i in range(-view_distance,view_distance+1)];
 
-    def get_block_grid(self,config):
-        pass;
+    def get_enemy_grid(self,grid):
+        spriteRects = [sprite.rect for sprite in self.enemy_group];
+        return [[1 if rect.collidelist(spriteRects) else 0 for rect in row] for row in grid];
 
-    def get_powerup_grid(self,config):
-        pass;
+    def get_collision_grid(self,grid):
+        check_group = pg.sprite.Group(self.ground_step_pipe_group,
+                            self.brick_group, self.box_group);
+        spriteRects = [sprite.rect for sprite in check_group];
+        return [[1 if rect.collidelist(spriteRects) else 0 for rect in row] for row in grid];
+
+    def get_powerup_grid(self,grid):
+        spriteRects = [sprite.rect for sprite in self.powerup_group];
+        return [[1 if rect.collidelist(spriteRects) else 0 for rect in row] for row in grid];
+
+    def get_box_grid(self,grid):
+        spriteRects = [sprite.rect for sprite in self.box_group];
+        return [[1 if rect.collidelist(spriteRects) else 0 for rect in row] for row in grid];
+
+    def get_brick_grid(self,grid):
+        spriteRects = [sprite.rect for sprite in self.brick_group];
+        return [[1 if rect.collidelist(spriteRects) else 0 for rect in row] for row in grid];
+
+
+    #return [distance,blocks,enemies], with [blocks,enemies] counting the number of objects between the player's center and the task. For fitness purposes only
+    #TODO: Examine performance impact of all of this *math*
+    def get_task_obstructions(self):
+        center = self.player.rect.center;
+        distance = math.sqrt((center[0]-self.task[0])**2 + (center[1]-self.task[1])**2);
+        block_obstructions = 0;
+        check_group = pg.sprite.Group(self.ground_step_pipe_group,
+                    self.brick_group, self.box_group);
+        for sprite in check_group:
+            block_obstructions += 1 if collideRectLine(sprite.rect,center,self.task) else 0;
+
+        enemy_obstructions = 0;
+        for sprite in self.enemy_group:
+            enemy_obstructions += 1 if collideRectLine(sprite.rect,center,self.task) else 0;
+        return [distance,block_obstructions,enemy_obstructions];
+        
+
+def collideLineLine(l1_p1, l1_p2, l2_p1, l2_p2):
+    
+    # normalized direction of the lines and start of the lines
+    P  = pg.math.Vector2(*l1_p1)
+    line1_vec = pg.math.Vector2(*l1_p2) - P
+    R = line1_vec.normalize()
+    Q  = pg.math.Vector2(*l2_p1)
+    line2_vec = pg.math.Vector2(*l2_p2) - Q
+    S = line2_vec.normalize()
+
+    # normal vectors to the lines
+    RNV = pg.math.Vector2(R[1], -R[0])
+    SNV = pg.math.Vector2(S[1], -S[0])
+    RdotSVN = R.dot(SNV)
+    if RdotSVN == 0:
+        return False
+
+    # distance to the intersection point
+    QP  = Q - P
+    t = QP.dot(SNV) / RdotSVN 
+    u = QP.dot(RNV) / RdotSVN 
+
+    return t > 0 and u > 0 and t*t < line1_vec.magnitude_squared() and u*u < line2_vec.magnitude_squared()
+
+
+def collideLineLine(l1_p1, l1_p2, l2_p1, l2_p2):
+    
+    # normalized direction of the lines and start of the lines
+    P  = pg.math.Vector2(*l1_p1)
+    line1_vec = pg.math.Vector2(*l1_p2) - P
+    R = line1_vec.normalize()
+    Q  = pg.math.Vector2(*l2_p1)
+    line2_vec = pg.math.Vector2(*l2_p2) - Q
+    S = line2_vec.normalize()
+
+    # normal vectors to the lines
+    RNV = pg.math.Vector2(R[1], -R[0])
+    SNV = pg.math.Vector2(S[1], -S[0])
+    RdotSVN = R.dot(SNV)
+    if RdotSVN == 0:
+        return False
+
+    # distance to the intersection point
+    QP  = Q - P
+    t = QP.dot(SNV) / RdotSVN 
+    u = QP.dot(RNV) / RdotSVN 
+
+    return t > 0 and u > 0 and t*t < line1_vec.magnitude_squared() and u*u < line2_vec.magnitude_squared()
+
+def collideRectLine(rect, p1, p2):
+
+    return (collideLineLine(p1, p2, rect.topleft, rect.bottomleft) or
+            collideLineLine(p1, p2, rect.bottomleft, rect.bottomright) or
+            collideLineLine(p1, p2, rect.bottomright, rect.topright) or
+            collideLineLine(p1, p2, rect.topright, rect.topleft))
+
+        

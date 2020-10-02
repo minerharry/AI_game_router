@@ -38,6 +38,8 @@ class RunGame(ABC):
             if (isinstance(datum,str)):
                 result.append(mappedData.get(datum));
             elif (datum.data_type == 'array'):
+                if (datum.name not in mappedData):
+                    print(datum.name);
                 result += listifyArray(mappedData.get(datum.name));
             elif (datum.data_type == 'ndarray'):
                 result += mappedData.get(datum.name).tolist();

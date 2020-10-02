@@ -108,8 +108,8 @@ class Control():
             pg.display.update();
 
 
-    def get_game_data(self):
-        return self.state.get_game_data;
+    def get_game_data(self,config):
+        return self.state.get_game_data(config);
 
     #only called during manual mode, so can be assumed that current state is a segment
     def load_segment(self,load_data):

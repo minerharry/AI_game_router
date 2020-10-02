@@ -9,7 +9,7 @@ def main():
     game = tools.Control()
     state_dict = {c.MAIN_MENU: main_menu.Menu(),
                   c.LOAD_SCREEN: load_screen.LoadScreen(),
-                  c.LEVEL: segment.Segment(),
+                  c.LEVEL: level.Level(),
                   c.GAME_OVER: load_screen.GameOver(),
                   c.TIME_OUT: load_screen.TimeOut()}
     game.setup_states(state_dict, c.MAIN_MENU)

@@ -74,7 +74,7 @@ class Player(pg.sprite.Sprite):
 
     def load_data(self):
         player_file = str(self.player_name) + '.json'
-        file_path = os.path.join('py_mario_bros\\PythonSuperMario-master','source', 'data', 'player', player_file)
+        file_path = os.path.join('py_mario_bros\\PythonSuperMario_master','source', 'data', 'player', player_file)
         f = open(file_path)
         self.player_data = json.load(f)
 
@@ -592,11 +592,11 @@ class Player(pg.sprite.Sprite):
             self.image = self.left_frames[self.frame_index]
 
 
-    def die(self, game_info):
+    def die(self):
         self.dead = True;
         self.state = c.DEAD;
 
-    def start_death_jump(self, game_info):
+    def start_death_jump(self):
         self.dead = True
         self.y_vel = -11
         self.gravity = .5

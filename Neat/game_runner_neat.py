@@ -235,7 +235,7 @@ class GameRunner:
 
     #evaluate a population with the game as a feedforward neural net
     def eval_genomes_feedforward(self, genomes, config):
-        for genome in genomes:
+        for genome_id,genome in genomes:
             genome.fitness = 0; #sanity check
         if (self.runConfig.training_data is None):
             if (self.runConfig.parallel):
