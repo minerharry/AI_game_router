@@ -98,7 +98,7 @@ class Control():
                 
             #self.clock.tick(self.fps)
 
-    def tick_inputs(self,named_inputs,show_game=False):
+    def tick_inputs(self,named_inputs,show_game=True):
         keys = {};
         for name,val in named_inputs:
             keys[keybinding[name]] = val;
