@@ -222,7 +222,7 @@ class GameRunner:
                         gameData = runningGame.getData();
 
                         gameInput = net.advance(gameData, time_const, time_const);
-
+                        
                         runningGame.processInput(gameInput);
                         if (runnerConfig.fitness_collection_type != None and runnerConfig.fitness_collection_type == 'continuous'):
                             fitness += runningGame.getFitnessScore();

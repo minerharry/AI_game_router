@@ -50,15 +50,14 @@ class SegmentGenerator:
     def export(size,blocks,bricks,boxes,dynamics,player_start,task_positions):
         output_dict = {};
         if blocks is not None and len(blocks) > 0:
-            output_dict["ground"] = [{"x":pos[0]*16,"y":pos[1]*16,"width":16,"height":16} for pos in blocks];
+            output_dict["ground"] = [{"x":pos[0]*c.TILE_SIZE,"y":pos[1]*c.TILE_SIZE,"width":c.TILE_SIZE,"height":c.TILE_SIZE} for pos in blocks];
         if bricks is not None and len(bricks) > 0:
             print("ERROR: brick generation not done yet");
         if boxes is not None and len(boxes) > 0:
             print("ERROR: box generation not done yet");
         if dynamics is not None and len(dynamics) > 0:
             print("ERROR: dynamic object generation not done yet");
-        output_dict[c.MAP_MAPS] = [{"start_x":0,"end_x":size[0]*16,"player_x":player_start[0]*16,"player_y":player_start[1]*16}];
-        output_dict[c.MAP_SIZE] = [size[0]*16,size[1]*16];
+        output_dict[c.MAP_MAPS] = [{c.MAP_BOUNDS:[0,size[0]*c.TILE_SIZE,0,size[1]*c.TILE_SIZE],c.MAP_START:[player_start[0]*c.TILE_SIZE,player_start[1]*c.TILE_SIZE]}];
         result = [];
         for pos in task_positions:
             result.append(SegmentState(None,output_dict,pos));

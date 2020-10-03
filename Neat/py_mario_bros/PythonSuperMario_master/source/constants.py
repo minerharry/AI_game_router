@@ -8,6 +8,7 @@ DEBUG = False
 DEBUG_START_X = 200
 DEBUG_START_y = 538
 
+TILE_SIZE = 32;
 SCREEN_HEIGHT = 600
 SCREEN_WIDTH = 800
 SCREEN_SIZE = (SCREEN_WIDTH,SCREEN_HEIGHT)
@@ -84,7 +85,8 @@ PLAYER_LUIGI = 'luigi'
 
 #MAP COMPONENTS
 MAP_IMAGE = 'image_name'
-MAP_SIZE = 'map_size'
+MAP_BOUNDS = 'map_bounds'
+MAP_START = 'map_start'
 MAP_MAPS = 'maps'
 SUB_MAP = 'sub_map'
 MAP_GROUND = 'ground'

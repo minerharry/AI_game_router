@@ -18,7 +18,7 @@ from py_mario_bros.PythonSuperMario_master.source.states.segment import Segment
 gameEnv = tools.Control()
 state_dict = {c.LEVEL: Segment()}
 gameEnv.setup_states(state_dict, c.LEVEL)
-gameEnv.state.startup(0,{'level_num':1});
+gameEnv.state.startup(0,{c.LEVEL_NUM:1});
 
 
 #run_state = 'continue';
@@ -53,7 +53,7 @@ def getRunning(inputs):
 
 training_data = [];
 if (run_state == 'new'):
-    inital_config = GenerationOptions(num_blocks=[0,5],ground_height=[0,0]);
+    inital_config = GenerationOptions(num_blocks=[0,5],ground_height=[7,10]);
     training_data = SegmentGenerator.generateBatch(inital_config,75);
     f = open(f'memories\\smb1Py\\run-{currentRun}-data','wb');
     pickle.dump(training_data,f);

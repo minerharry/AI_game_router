@@ -62,10 +62,10 @@ class Segment(tools.State):
         self.current_time = current_time;
         self.death_timer = 0
         self.castle_timer = 0
-        
+        self.bg_image = False;
         #self.moving_score_list = []
         #self.overhead_info = info.Info(self.game_info, c.LEVEL)
-        self.level_num = persist['level_num'];
+        self.level_num = persist[c.LEVEL_NUM];
         self.load_map()
         self.setup_background() #look into how to remove
         self.setup_maps()
@@ -115,7 +115,7 @@ class Segment(tools.State):
     #saves state within a level
     def save_state(self):
         
-        dynamic_data = {'start_x': self.start_x, 'end_x':self.end_x,'shells':self.shell_group,'time':self.current_time, 'enemy_group_list':self.enemy_group_list,'player':self.player_group, 'viewport_x':self.viewport.x,'flagpole':self.flagpole_group,'bricks':self.brick_group,'boxes':self.box_group,'powerups':self.powerup_group,'sliders':self.slider_group};
+        dynamic_data = {'done':self.done,'start_x': self.start_x, 'end_x':self.end_x,'shells':self.shell_group,'time':self.current_time, 'enemy_group_list':self.enemy_group_list,'player':self.player_group, 'viewport_pos':[self.viewport.rect.x,self.viewport.rect.y],'flagpole':self.flagpole_group,'bricks':self.brick_group,'boxes':self.box_group,'powerups':self.powerup_group,'sliders':self.slider_group};
         self.compress_dynamics();
         #print(dir(self.box_group.sprites()[0]));
         dynamic_data = pickle.loads(pickle.dumps(dynamic_data));
@@ -164,24 +164,30 @@ class Segment(tools.State):
         self.coin_group = pg.sprite.Group();
         self.dying_group = pg.sprite.Group();
         self.setup_checkpoints();
+        if 'done' in data:
+            self.done = data['done'];
+        else:
+            self.done = False;
         if 'time' in data:
             self.current_time = data['time'];
         else:
             self.current_time = 0;
+        do_viewport = False;
         if 'viewport_pos' in data:
             self.viewport.x = data['viewport_pos'][0];
-            
+            self.viewport.y = data['viewport_pos'][1];
         else:
-            self.viewport.x = self.map_data[c.MAP_MAPS][0]['start_x'];
-        print(self.viewport)
-        print(self.viewport.x)
+            do_viewport = True;
+                    
+        #print(self.viewport)
+        #print(self.viewport.x)
         if 'player' in data:
             self.player = data['player'].sprites()[0];
-            self.player_x = self.player.rect.x - self.viewport.x;
+            self.player_x = self.player.rect.x;
             self.player_y = self.player.rect.bottom;
             self.player_group = data['player'];
         else:
-            self.setup_player(do_viewport=False);            
+            self.setup_player(do_viewport=do_viewport);            
         if 'shells' in data:
             self.shell_group = data['shells'];
         else:
@@ -253,12 +259,14 @@ class Segment(tools.State):
             
             self.level = pg.Surface((self.bg_rect.w, self.bg_rect.h)).convert()
             self.viewport = setup.SCREEN.get_rect(bottom=self.bg_rect.bottom)
+            self.bg_image = True;
         else:
-            rect = self.map_data[c.MAP_SIZE];
-            self.background = pg.Surface((rect[0],rect[1])).convert();
+            self.bg_image = False;
+            rect = self.map_bounds;
+            self.background = pg.Surface((rect[1]-rect[0],rect[3]-rect[2])).convert();
             self.background.fill(c.SKY_BLUE)
-            self.level = pg.Surface((rect[0], rect[1])).convert();
-            self.viewport = setup.SCREEN.get_rect(bottom=rect[1]);
+            self.level = pg.Surface((rect[1]-rect[0],rect[3]-rect[2])).convert();
+            self.viewport = setup.SCREEN.get_rect(bottom=rect[3]);
 
 
     def setup_maps(self):
@@ -266,25 +274,28 @@ class Segment(tools.State):
 
         if c.MAP_MAPS in self.map_data:
             for data in self.map_data[c.MAP_MAPS]:
-                self.map_list.append((data['start_x'], data['end_x'], data['start_y'], data['end_y'], data['player_x'], data['player_y']))
-            self.start_x, self.end_x, self.start_y, self.end_y, self.player_x, self.player_y = self.map_list[0]
+                self.map_list.append((data[c.MAP_BOUNDS],data[c.MAP_START]))
+            self.map_bounds, player_start = self.map_list[0]
+            self.player_x = player_start[0];
+            self.player_y = player_start[1]; 
             
         else:
-            self.start_x = 0
-            self.end_x = self.bg_rect.w
+            self.map_bounds = (0,self.bg_rect.w,0,self.bg_rect.h);
             self.player_x = 110
             self.player_y = c.GROUND_HEIGHT
         
     def change_map(self, index, type):
-        self.start_x, self.end_x, self.start_y,self.end_y,self.player_x, self.player_y = self.map_list[index]
-        self.viewport.x = self.start_x
-        self.viewport.top = self.start_y;
+        self.map_bounds, player_start = self.map_list[index]
+        self.player_x = player_start[0];
+        self.player_y = player_start[1]; 
+        self.viewport.x = self.player_x - c.SCREEN_WIDTH//3;
+        self.viewport.bottom = self.player_y + c.SCREEN_HEIGHT//3;
         if type == c.CHECKPOINT_TYPE_MAP:
-            self.player.rect.x = self.viewport.x + self.player_x
+            self.player.rect.x = self.player_x
             self.player.rect.bottom = self.player_y
             self.player.state = c.STAND
         elif type == c.CHECKPOINT_TYPE_PIPE_UP:
-            self.player.rect.x = self.viewport.x + self.player_x
+            self.player.rect.x = self.player_x
             self.player.rect.bottom = c.GROUND_HEIGHT
             self.player.state = c.UP_OUT_PIPE
             self.player.up_pipe_y = self.player_y
@@ -350,13 +361,14 @@ class Segment(tools.State):
             self.player = player.Player(c.PLAYER_MARIO)
         else:
             self.player.restart()
-        self.player.rect.x = self.viewport.x + self.player_x
+        self.player.rect.x = self.player_x
         self.player.rect.bottom = self.player_y
         if c.DEBUG:
-            self.player.rect.x = self.viewport.x + c.DEBUG_START_X
+            self.player.rect.x = c.DEBUG_START_X
             self.player.rect.bottom = c.DEBUG_START_y
         if (do_viewport):
-            self.viewport.x = self.player.rect.x - 110
+            self.viewport.x = self.player.rect.x - c.SCREEN_WIDTH//3;
+            self.viewport.bottom = self.player.rect.bottom + c.SCREEN_HEIGHT//3;
 
     def setup_enemies(self):
         self.enemy_group_list = []
@@ -525,10 +537,12 @@ class Segment(tools.State):
             return
 
         self.player.rect.x += round(self.player.x_vel)
-        if self.player.rect.x < self.start_x:
-            self.player.rect.x = self.start_x
-        elif self.player.rect.right > self.end_x:
-            self.player.rect.right = self.end_x
+        if self.player.rect.left < self.map_bounds[0]:
+            self.player.rect.left = self.map_bounds[0];
+        elif self.player.rect.right > self.map_bounds[1]:
+            self.player.rect.right = self.map_bounds[1];
+        if self.player.rect.top < self.map_bounds[2]:
+            self.player.rect.top = self.map_bounds[2];
         self.check_player_x_collisions()
         
         if not self.player.dead:
@@ -762,7 +776,7 @@ class Segment(tools.State):
         sprite.rect.y -= 1
     
     def check_for_player_death(self):
-        if (self.player.rect.y > c.SCREEN_HEIGHT):
+        if (self.player.rect.y > self.map_bounds[3]):
 #            self.overhead_info.time <= 0):
             self.player.die()
 
@@ -793,15 +807,26 @@ class Segment(tools.State):
         self.next = self;
 
     def update_viewport(self):
-        third = self.viewport.x + self.viewport.w//3
-        player_center = self.player.rect.centerx
+        x_third = self.viewport.x + self.viewport.w//3
+        y_third = self.viewport.bottom - self.viewport.h//3;
+        player_centerx = self.player.rect.centerx;
+        player_centery = self.player.rect.centery
         
         if (self.player.x_vel > 0 and 
-            player_center >= third and
-            self.viewport.right < self.end_x):
-            self.viewport.x += round(self.player.x_vel)
-        elif self.player.x_vel < 0 and self.viewport.x > self.start_x:
-            self.viewport.x += round(self.player.x_vel)
+            player_centerx >= x_third and
+            self.viewport.right < self.map_bounds[1]):
+            self.viewport.x += round(self.player.x_vel);
+        elif self.player.x_vel < 0 and self.viewport.x > self.map_bounds[0]:
+            self.viewport.x += round(self.player.x_vel);
+
+        if (self.player.y_vel < 0 and
+            player_centery <= y_third and
+            self.viewport.top > self.map_bounds[2]):
+            self.viewport.y += round(self.player.y_vel);
+        elif self.player.y_vel > 0 and self.viewport.bottom < self.map_bounds[3]:
+            self.viewport.y += round(self.player.y_vel);
+
+
     
     def move_to_dying_group(self, group, sprite):
         group.remove(sprite)
@@ -832,6 +857,8 @@ class Segment(tools.State):
         self.player_group.draw(self.level)
         self.slider_group.draw(self.level)
         self.pipe_group.draw(self.level)
+        if not self.bg_image:
+            self.ground_group.draw(self.level);
         if c.DEBUG:
             self.ground_step_pipe_group.draw(self.level)
             self.checkpoint_group.draw(self.level)
@@ -845,7 +872,7 @@ class Segment(tools.State):
     def get_rect_grid(self,runConfig):
         tile_scale = runConfig.tile_scale; #power of two: number of subdivisions per tile length
         view_distance = runConfig.view_distance; #integer number of subdivided tiles in each direction, excluding center. EX: 3 would be a 7x7
-        rect_width = 16/tile_scale;
+        rect_width = c.TILE_SIZE/tile_scale;
         player_center = self.player.rect.center;
         center_left = player_center[0] % rect_width;
         center_top = player_center[1] % rect_width;

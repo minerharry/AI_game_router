@@ -31,21 +31,23 @@ class SMB1Game(RunGame):
         
 
     def processInput(self, inputs):
-        print('input processed')
+        #print('input processed')
         output = [key > 0 for key in inputs];
         named_actions = zip(['action','jump','left','right','down'],output);
         self.game.tick_inputs(named_actions);
         while (self.isRunning() and not self.game.accepts_player_input()):
             self.game.tick_inputs(empty_actions);
-            print('skipping bad frames...');
+            #print('skipping bad frames...');
+        #print(game.don)
         
 
     def renderInput(self,inputs):
         output = [key > 0 for key in inputs];
         named_actions = zip(['action','jump','left','right','down'],output);
         self.game.tick_inputs(named_actions,show_game=True);
-        while (not self.game.accepts_player_input()):
+        while (not self.game.accepts_player_input() and not self.game.accepts_player_input()):
             self.game.tick_inputs(empty_actions,show_game=True);
+            #print('skipping bad rendered frames');
 
     def close(self):
         #does nothing unless game needs it to

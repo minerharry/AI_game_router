@@ -1,9 +1,9 @@
 {
     "image_name":"level_1",
     "maps":[
-        {"start_x":   0, "end_x": 9086, "player_x": 5745, "player_y":700},
-        {"start_x":9090, "end_x": 9890, "player_x":  80, "player_y": 60},
-        {"start_x":6740, "end_x": 9086, "player_x": 270, "player_y":450}
+        {"map_bounds": [0,9086,0,600],"map_start":[110,450]},
+        {"map_bounds": [9090,9890,0,600],"map_start":[80,60]},
+        {"map_bounds": [6740,9086,0,600],"map_start":[7010,450]}
     ],
     "ground":[
         {"x":   0, "y":538, "width":2953, "height":60},
