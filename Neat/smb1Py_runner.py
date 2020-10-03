@@ -27,7 +27,18 @@ run_state = 'new';
 currentRun = 0;
 reRunGeneration = 0;
 
-steps_threshold = 2000;
+if (False):
+    f = open(f'memories\\smb1Py\\run-{currentRun}-data','rb')
+    training_data = pickle.load(f);
+    f.close();
+    print(training_data[0].static_data);
+    while (True):
+        x=3;
+
+
+
+
+steps_threshold = 1000;
 
 
 def task_obstruction_score(obstructions):
@@ -42,7 +53,7 @@ def getRunning(inputs):
 
 training_data = [];
 if (run_state == 'new'):
-    inital_config = GenerationOptions(num_blocks=[0,5],ground_height=[4,7]);
+    inital_config = GenerationOptions(num_blocks=[0,5],ground_height=[0,0]);
     training_data = SegmentGenerator.generateBatch(inital_config,75);
     f = open(f'memories\\smb1Py\\run-{currentRun}-data','wb');
     pickle.dump(training_data,f);

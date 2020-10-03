@@ -157,25 +157,63 @@ class Segment(tools.State):
 
 
     def load_dynamic(self,data):
+        if data is None:
+           data = {};
         [sprite.kill() for sprite in self.enemy_group];
         self.enemy_group = pg.sprite.Group();
+        self.coin_group = pg.sprite.Group();
         self.dying_group = pg.sprite.Group();
         self.setup_checkpoints();
-        self.current_time = data['time'];
-        self.viewport.x = data['viewport_x'];
-        self.player = data['player'].sprites()[0];
-        self.player_x = self.player.rect.x - self.viewport.x;
-        self.player_y = self.player.rect.bottom;
-        self.player_group = data['player'];
-        self.shell_group = data['shells'];
-        self.flagpole_group = data['flagpole'];
-        self.brick_group = data['bricks'];
-        self.box_group = data['boxes'];
-        self.powerup_group = data['powerups'];
-        self.slider_group = data['sliders'];
-        self.enemy_group_list = data['enemy_group_list'];
-        self.start_x = data['start_x'];
-        self.end_x = data['end_x'];
+        if 'time' in data:
+            self.current_time = data['time'];
+        else:
+            self.current_time = 0;
+        if 'viewport_pos' in data:
+            self.viewport.x = data['viewport_pos'][0];
+            
+        else:
+            self.viewport.x = self.map_data[c.MAP_MAPS][0]['start_x'];
+        print(self.viewport)
+        print(self.viewport.x)
+        if 'player' in data:
+            self.player = data['player'].sprites()[0];
+            self.player_x = self.player.rect.x - self.viewport.x;
+            self.player_y = self.player.rect.bottom;
+            self.player_group = data['player'];
+        else:
+            self.setup_player(do_viewport=False);            
+        if 'shells' in data:
+            self.shell_group = data['shells'];
+        else:
+            self.shell_group = pg.sprite.Group()
+        if 'flagpole' in data:
+            self.flagpole_group = data['flagpole'];
+        else:
+            self.setup_flagpole();
+        if 'bricks' in data:
+            self.brick_group = data['bricks'];
+        else:
+            self.setup_brick();
+        if 'powerups' in data:
+            self.powerup_group = data['powerups'];
+        else:
+            self.powerup_group = pg.sprite.Group();
+        if 'boxes' in data:
+            self.box_group = data['boxes'];
+        else:
+            self.setup_box();
+        
+        if 'sliders' in data:
+            self.slider_group = data['sliders'];
+        else:
+            self.setup_slider()
+        if 'enemy_group_list' in data:
+            self.enemy_group_list = data['enemy_group_list'];
+        else:
+            self.setup_enemies();
+        if 'start_x' in data:
+            self.start_x = data['start_x'];
+            self.end_x = data['end_x'];
         self.ground_step_pipe_group = pg.sprite.Group(self.ground_group,self.pipe_group, self.step_group, self.slider_group)
         self.setup_group_map();
         self.decompress_dynamics();
@@ -187,8 +225,7 @@ class Segment(tools.State):
         self.task = data.task;
         if (not data.equal_static_data(self.map_data)):
             self.load_map_data(data.static_data);
-        if (data.dynamic_data is not None):
-            self.load_dynamic(data.dynamic_data);
+        self.load_dynamic(data.dynamic_data);
 
 
 
@@ -205,19 +242,21 @@ class Segment(tools.State):
 
        
     def setup_background(self):
-        img_name = self.map_data[c.MAP_IMAGE]
-        if (img_name is not None):
+        if (c.MAP_IMAGE in self.map_data):
+            img_name = self.map_data[c.MAP_IMAGE]
             self.background = setup.GFX[img_name]
             self.bg_rect = self.background.get_rect()
             self.background = pg.transform.scale(self.background, 
                                         (int(self.bg_rect.width*c.BACKGROUND_MULTIPLER),
                                         int(self.bg_rect.height*c.BACKGROUND_MULTIPLER)))
             self.bg_rect = self.background.get_rect()
-
+            
             self.level = pg.Surface((self.bg_rect.w, self.bg_rect.h)).convert()
             self.viewport = setup.SCREEN.get_rect(bottom=self.bg_rect.bottom)
         else:
             rect = self.map_data[c.MAP_SIZE];
+            self.background = pg.Surface((rect[0],rect[1])).convert();
+            self.background.fill(c.SKY_BLUE)
             self.level = pg.Surface((rect[0], rect[1])).convert();
             self.viewport = setup.SCREEN.get_rect(bottom=rect[1]);
 
@@ -227,8 +266,9 @@ class Segment(tools.State):
 
         if c.MAP_MAPS in self.map_data:
             for data in self.map_data[c.MAP_MAPS]:
-                self.map_list.append((data['start_x'], data['end_x'], data['player_x'], data['player_y']))
-            self.start_x, self.end_x, self.player_x, self.player_y = self.map_list[0]
+                self.map_list.append((data['start_x'], data['end_x'], data['start_y'], data['end_y'], data['player_x'], data['player_y']))
+            self.start_x, self.end_x, self.start_y, self.end_y, self.player_x, self.player_y = self.map_list[0]
+            
         else:
             self.start_x = 0
             self.end_x = self.bg_rect.w
@@ -236,8 +276,9 @@ class Segment(tools.State):
             self.player_y = c.GROUND_HEIGHT
         
     def change_map(self, index, type):
-        self.start_x, self.end_x, self.player_x, self.player_y = self.map_list[index]
+        self.start_x, self.end_x, self.start_y,self.end_y,self.player_x, self.player_y = self.map_list[index]
         self.viewport.x = self.start_x
+        self.viewport.top = self.start_y;
         if type == c.CHECKPOINT_TYPE_MAP:
             self.player.rect.x = self.viewport.x + self.player_x
             self.player.rect.bottom = self.player_y
@@ -283,13 +324,19 @@ class Segment(tools.State):
     def setup_brick_and_box(self):
         self.coin_group = pg.sprite.Group()
         self.powerup_group = pg.sprite.Group()
+        self.setup_brick();
+        self.setup_box();
+        
+        
+    def setup_brick(self):
         self.brick_group = pg.sprite.Group()
         self.brickpiece_group = pg.sprite.Group()
 
         if c.MAP_BRICK in self.map_data:
             for data in self.map_data[c.MAP_BRICK]:
                 brick.create_brick(self.brick_group, data, self)
-        
+
+    def setup_box(self):
         self.box_group = pg.sprite.Group()
         if c.MAP_BOX in self.map_data:
             for data in self.map_data[c.MAP_BOX]:
@@ -297,8 +344,8 @@ class Segment(tools.State):
                     self.box_group.add(box.Box(data['x'], data['y'], data['type'], self.coin_group))
                 else:
                     self.box_group.add(box.Box(data['x'], data['y'], data['type'], self.powerup_group))
-            
-    def setup_player(self):
+    
+    def setup_player(self,do_viewport = True):
         if self.player is None:
             self.player = player.Player(c.PLAYER_MARIO)
         else:
@@ -308,11 +355,14 @@ class Segment(tools.State):
         if c.DEBUG:
             self.player.rect.x = self.viewport.x + c.DEBUG_START_X
             self.player.rect.bottom = c.DEBUG_START_y
-        self.viewport.x = self.player.rect.x - 110
+        if (do_viewport):
+            self.viewport.x = self.player.rect.x - 110
 
     def setup_enemies(self):
         self.enemy_group_list = []
         index = 0
+        if c.MAP_ENEMY not in self.map_data:
+            return
         for data in self.map_data[c.MAP_ENEMY]:
             group = pg.sprite.Group()
             for item in data[str(index)]:
@@ -322,6 +372,8 @@ class Segment(tools.State):
             
     def setup_checkpoints(self):
         self.checkpoint_group = pg.sprite.Group()
+        if c.MAP_CHECKPOINT not in self.map_data:
+            return;
         for data in self.map_data[c.MAP_CHECKPOINT]:
             if c.ENEMY_GROUPID in data:
                 enemy_groupid = data[c.ENEMY_GROUPID]

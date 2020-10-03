@@ -1,4 +1,6 @@
 **/checkpoints
+**/logs
+**/memories
 *.pyc
 */*.pyc
 *.cpython-37.pyc
@@ -8,3 +10,4 @@
 *.pyc
 Neat/__pycache__/visualize.cpython-37.pyc
 *.pyc
+Neat/neat/__pycache__/genes.cpython-37.pyc

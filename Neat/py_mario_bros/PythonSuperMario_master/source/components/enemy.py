@@ -48,6 +48,7 @@ def create_enemy(item, level):
 class Enemy(pg.sprite.Sprite):
     def __init__(self):
         pg.sprite.Sprite.__init__(self)
+        self.group_ids = None;
     
     #removes all of the unneeded variables that remain constant (removes unpickleable objects)
     def compress(self,level):
@@ -55,6 +56,7 @@ class Enemy(pg.sprite.Sprite):
         self.image = None;
         self.group_ids = [level.get_group_id(group) for group in self._Sprite__g if level.get_group_id(group) is not None];
         self._Sprite__g = {};
+        
 
     #adds back all of the unneeded variables that remain constant (adds back unpickleable objects)
     def decompress(self,level):
@@ -65,7 +67,9 @@ class Enemy(pg.sprite.Sprite):
             self.image = self.frames[self.frame_index]
         self.image.get_rect().x = self.rect.x;
         self.image.get_rect().bottom = self.rect.bottom;
-        self.add([level.get_group_by_id(id) for id in self.group_ids if level.get_group_by_id(id) is not None]);
+        if self.group_ids is not None:
+            self.add([level.get_group_by_id(id) for id in self.group_ids if level.get_group_by_id(id) is not None]);
+            self.group_ids = None;
 
 
     def setup_enemy(self, x, y, direction, name, sheet, frame_rect_list,
@@ -493,6 +497,8 @@ class FireStick(pg.sprite.Sprite):
         '''the firestick will rotate around the center of a circle'''
         pg.sprite.Sprite.__init__(self)
 
+        self.group_ids = None;
+
         self.frames = []
         self.frame_index = 0
         self.animate_timer = 0
@@ -552,4 +558,6 @@ class FireStick(pg.sprite.Sprite):
             self.image = self.frames[self.frame_index]
         self.image.get_rect().x = self.rect.x;
         self.image.get_rect().bottom = self.rect.bottom;
-        self.add([level.get_group_by_id(id) for id in self.group_ids if level.get_group_by_id(id) is not None]);
+        if self.group_ids is not None:
+            self.add([level.get_group_by_id(id) for id in self.group_ids if level.get_group_by_id(id) is not None]);
+            self.group_ids = None;

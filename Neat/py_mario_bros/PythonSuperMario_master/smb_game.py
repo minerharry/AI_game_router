@@ -31,10 +31,11 @@ class SMB1Game(RunGame):
         
 
     def processInput(self, inputs):
+        print('input processed')
         output = [key > 0 for key in inputs];
         named_actions = zip(['action','jump','left','right','down'],output);
         self.game.tick_inputs(named_actions);
-        while (not self.game.accepts_player_input()):
+        while (self.isRunning() and not self.game.accepts_player_input()):
             self.game.tick_inputs(empty_actions);
             print('skipping bad frames...');
         

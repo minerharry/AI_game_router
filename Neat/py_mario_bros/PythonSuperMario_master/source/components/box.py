@@ -29,6 +29,7 @@ class Box(pg.sprite.Sprite):
         self.type = type
         self.group = group
         self.name = name
+        self.group_ids = None;
 
     #removes all of the unneeded variables that remain constant (removes unpickleable objects)
     def compress(self,level):
@@ -52,7 +53,9 @@ class Box(pg.sprite.Sprite):
             self.group = level.coin_group;
         else:
             self.group = level.powerup_group;
-        self.add([level.get_group_by_id(id) for id in self.group_ids if level.get_group_by_id(id) is not None]);
+        if self.group_ids is not None:
+            self.add([level.get_group_by_id(id) for id in self.group_ids if level.get_group_by_id(id) is not None]);
+            self.group_ids = None;
 
 
         

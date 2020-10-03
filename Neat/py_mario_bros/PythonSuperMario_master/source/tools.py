@@ -104,7 +104,9 @@ class Control():
             keys[keybinding[name]] = val;
         self.keys = keys;
         self.update(auto_advance_state=False);
+        print('updated');
         if (show_game):
+            print('display updated')
             pg.display.update();
 
 

@@ -18,6 +18,7 @@ class Player(pg.sprite.Sprite):
         self.setup_state()
         self.setup_speed()
         self.load_images()
+        self.group_ids = None;
         
         if c.DEBUG:
             self.right_frames = self.big_fire_frames[0]
@@ -58,7 +59,9 @@ class Player(pg.sprite.Sprite):
         self.image = self.right_frames[self.frame_index];
         self.image.get_rect().x = self.rect.x;
         self.image.get_rect().bottom = self.rect.bottom;
-        self.add([level.get_group_by_id(id) for id in self.group_ids if level.get_group_by_id(id) is not None]);
+        if self.group_ids is not None:
+            self.add([level.get_group_by_id(id) for id in self.group_ids if level.get_group_by_id(id) is not None]);
+            self.group_ids = None;
 
 
     def restart(self):
@@ -208,6 +211,7 @@ class Player(pg.sprite.Sprite):
                 self.state = c.STAND
 
     def accepts_input(self):
+        #print(self.state);
         return self.state in [c.STAND,c.WALK,c.JUMP,c.FALL];
 
     def check_to_allow_jump(self, keys):

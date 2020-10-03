@@ -11,16 +11,16 @@ class SegmentGenerator:
     @staticmethod
     def generate(options,makeBatches=False):
         numTiles = options.size[0]*options.size[1];
-        tiles = [(i/options.size[1],i%options.size[1]) for i in range(numTiles)];
+        tiles = [(int(i/options.size[1]),i%options.size[1]) for i in range(numTiles)];
         outputGrid = [[0 for i in range(options.size[0])] for j in range(options.size[1])];
         random.shuffle(tiles);
         innerRing = options.inner_ring();
-
+        groundPositions = [];
         if (options.hasGround and options.groundHeight is not None):
             groundHeight = options.groundHeight;
             if (isinstance(groundHeight,list)):
                 groundHeight = random.choice(range(groundHeight[0],groundHeight[1]+1));
-            groundPositions = [[(i,j) for i in range(options.size[0])] for j in range(groundHeight,options.size[1])];
+            groundPositions = sum([[(i,j) for i in range(options.size[0])] for j in range(groundHeight,options.size[1])],[]);
             [[innerRing.remove(el) for el in pos if el in innerRing] for pos in groundPositions];
             [[tiles.remove(el) for el in pos if el in tiles] for pos in groundPositions];
         
@@ -36,6 +36,7 @@ class SegmentGenerator:
             numBlocks = random.choice(range(numBlocks[0],numBlocks[1]+1));
             
         block_positions = random.sample(tiles,numBlocks);
+        block_positions += groundPositions;
 
         if makeBatches:
             return SegmentGenerator.export(options.size,block_positions,[],[],[],player_position,[random.choice(innerRing)]);

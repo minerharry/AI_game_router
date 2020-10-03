@@ -12,6 +12,7 @@ class Collider(pg.sprite.Sprite):
         self.rect.x = x
         self.rect.y = y
         self.name = name
+        self.image.fill(c.ORANGE)
         if c.DEBUG:
             self.image.fill(c.RED)
 
@@ -30,7 +31,7 @@ class Checkpoint(pg.sprite.Sprite):
 class Stuff(pg.sprite.Sprite):
     def __init__(self, x, y, sheet_name, image_rect_list, scale):
         pg.sprite.Sprite.__init__(self)
-        
+        self.group_ids = None;
         self.frames = []
         self.frame_index = 0
         self.image_rect_list = image_rect_list;
@@ -58,16 +59,19 @@ class Stuff(pg.sprite.Sprite):
 
     #adds back all of the unneeded variables that remain constant (adds back unpickleable objects)
     def decompress(self,level):
-        for image_rect in self.image_rect_list:
-            self.frames.append(tools.get_image(setup.GFX[self.sheet_name], 
-                    *image_rect, c.BLACK, self.scale))
+        if self.frames is None or len(self.frames) == 0:
+            for image_rect in self.image_rect_list:
+                self.frames.append(tools.get_image(setup.GFX[self.sheet_name], 
+                        *image_rect, c.BLACK, self.scale))
         if (not c.COMPLEX_FRAMES):
             self.image = self.frames[0];
         else:
             self.image = self.frames[self.frame_index]
         self.image.get_rect().x = self.rect.x;
         self.image.get_rect().bottom = self.rect.bottom;
-        self.add([level.get_group_by_id(id) for id in self.group_ids if level.get_group_by_id(id) is not None]);
+        if self.group_ids is not None:
+            self.add([level.get_group_by_id(id) for id in self.group_ids if level.get_group_by_id(id) is not None]);
+            self.group_ids = None;
 
     def update(self, *args):
         pass
