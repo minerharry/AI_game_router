@@ -421,10 +421,11 @@ class Segment(tools.State):
                         self.pipe_group, self.step_group, self.slider_group)
         self.player_group = pg.sprite.Group(self.player)
         
-    def update(self, surface, keys, current_time):
+    def update(self, surface, keys, current_time,draw=True):
         self.current_time = current_time
         self.handle_states(keys)
-        self.draw(surface)
+        if (draw):
+            self.draw(surface)
     
     def handle_states(self, keys):
         self.update_all_sprites(keys)

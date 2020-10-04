@@ -60,7 +60,7 @@ class Control():
         self.state_name = start_state
         self.state = self.state_dict[self.state_name]
     
-    def update(self,auto_advance_state = True):
+    def update(self,auto_advance_state = True, draw=True):
         if (self.fps_counter >= self.fps_cycle):
             self.fps_counter = 0;
             if (c.DISPLAY_FRAMERATE):
@@ -71,7 +71,7 @@ class Control():
         self.current_time = pg.time.get_ticks()
         if self.state.done and auto_advance_state:
             self.flip_state()
-        self.state.update(self.screen, self.keys, self.current_time)
+        self.state.update(self.screen, self.keys, self.current_time,draw=draw)
     
     def flip_state(self):
         previous, self.state_name = self.state_name, self.state.next
@@ -98,12 +98,12 @@ class Control():
                 
             #self.clock.tick(self.fps)
 
-    def tick_inputs(self,named_inputs,show_game=True):
+    def tick_inputs(self,named_inputs,show_game=False):
         keys = {};
         for name,val in named_inputs:
             keys[keybinding[name]] = val;
         self.keys = keys;
-        self.update(auto_advance_state=False);
+        self.update(auto_advance_state=False,draw=show_game);
         #print('updated');
         if (show_game):
             #print('display updated')

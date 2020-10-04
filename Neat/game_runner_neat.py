@@ -6,6 +6,7 @@ import os
 import visualize
 import random
 import concurrent.futures
+import time
 from logReporting import LoggingReporter
 from renderer import Renderer as RendererReporter
 from videofig import videofig as vidfig
@@ -264,6 +265,7 @@ class GameRunner:
         net = neat.nn.FeedForwardNetwork.create(genome,config);
         fitnesses = [];
         for trial in range(runnerConfig.numTrials):
+            #startTime = time.time()
             #print('evaluating genome with id {0}, trial {1}'.format(genome.key,trial));
             fitness = 0;
             runningGame = self.game.start(runnerConfig);
@@ -283,6 +285,7 @@ class GameRunner:
             fitness += runningGame.getFitnessScore();
             fitnesses.append(fitness);
             runningGame.close();
+            #print(time.time()-startTime)
 
         fitness = runnerConfig.fitnessFromArray(fitnesses);
         genome.fitness += fitness;

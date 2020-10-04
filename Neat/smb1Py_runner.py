@@ -52,14 +52,14 @@ def getRunning(inputs):
     return (not(inputs['done']) and (not inputs['stillness_time'] > steps_threshold));
 
 training_data = [];
-if (run_state == 'new'):
-    inital_config = GenerationOptions(num_blocks=[0,5],ground_height=[7,10]);
+if (run_state == 'hahaha'):
+    inital_config = GenerationOptions(num_blocks=[0,5],ground_height=[0,0]);
     training_data = SegmentGenerator.generateBatch(inital_config,75);
     f = open(f'memories\\smb1Py\\run-{currentRun}-data','wb');
     pickle.dump(training_data,f);
     f.close();
 else:
-    f = open(f'memories\\smb1Py\\run-{currentRun}-data')
+    f = open(f'memories\\smb1Py\\run-{currentRun}-data','rb')
     training_data = pickle.load(f);
     f.close();
 
