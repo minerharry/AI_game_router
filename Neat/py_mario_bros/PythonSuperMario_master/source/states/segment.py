@@ -842,6 +842,7 @@ class Segment(tools.State):
         print('score updated')
 
     def draw(self, surface):
+        self.level.fill(c.BLACK)
         if (self.background is not None):
             self.level.blit(self.background, self.viewport, self.viewport)
         self.powerup_group.draw(self.level)

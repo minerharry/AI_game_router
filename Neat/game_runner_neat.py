@@ -41,7 +41,13 @@ class GameRunner:
 
         return self.run(pop.config,run_name,render=render,pop=pop);
 
-    def run(self,config,run_name,render=False,pop=None):
+    def replay_generation(self,generation,run_name,render=False):
+        checkpoint_folder = 'checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_');
+        pop = neat.Checkpointer.restore_checkpoint(checkpoint_folder + '\\run-checkpoint-' + str(generation));
+
+        return self.run(pop.config,run_name,render=render,pop=pop,single_gen=True);
+
+    def run(self,config,run_name,render=False,pop=None,single_gen=False):
         if (pop is None):
             pop = neat.Population(config);
             continuing = False;
@@ -55,23 +61,24 @@ class GameRunner:
         pop.add_reporter(stats);
         pop.add_reporter(neat.StdOutReporter(True));
 
-        if (not(os.path.exists('checkpoints'))):
-            os.mkdir('checkpoints');
-        if (not(os.path.exists('checkpoints\\games'))):
-            os.mkdir('checkpoints\\games');
-        if (not(os.path.exists('checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')))):
-            os.mkdir('checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_'));
-        if (not(os.path.exists('checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_')))):
-            os.mkdir('checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_'));
-        
-        pop.add_reporter(neat.Checkpointer(1,filename_prefix='checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_')+'\\run-checkpoint-'));
+        if not single_gen:
+            if (not(os.path.exists('checkpoints'))):
+                os.mkdir('checkpoints');
+            if (not(os.path.exists('checkpoints\\games'))):
+                os.mkdir('checkpoints\\games');
+            if (not(os.path.exists('checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')))):
+                os.mkdir('checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_'));
+            if (not(os.path.exists('checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_')))):
+                os.mkdir('checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_'));
+            
+            pop.add_reporter(neat.Checkpointer(1,filename_prefix='checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_')+'\\run-checkpoint-'));
 
         if (render):
             pop.add_reporter(RendererReporter(self));
         if (continuing):
             pop.complete_generation();
         
-        winner = pop.run(self.eval_genomes,self.runConfig.generations);
+        winner = pop.run(self.eval_genomes,self.runConfig.generations if not single_gen else 1);
 
         return winner;
 
@@ -122,10 +129,18 @@ class GameRunner:
         
 
     def render_genome(self,genome,config,net=False):
-        if (self.runConfig.recurrent):
-            self.render_genome_recurrent(genome,config,net=net);
+        if self.runConfig.training_data is None:
+            if (self.runConfig.recurrent):  
+                self.render_genome_recurrent(genome,config,net=net);
+            else:
+                self.render_genome_feedforward(genome,config,net=net);
         else:
-            self.render_genome_feedforward(genome,config,net=net);
+            for datum in self.runConfig.training_data:
+                self.runConfig.training_datum = datum;
+                if (self.runConfig.recurrent):  
+                    self.render_genome_recurrent(genome,config,net=False);
+                else:
+                    self.render_genome_feedforward(genome,config,net=False);
 
 
 
@@ -187,6 +202,8 @@ class GameRunner:
 
                 if (self.runConfig.external_render):
                     images.append(runningGame.renderInput(gameInput));
+                else:
+                    runningGame.renderInput(gameInput);
 
                         
             runningGame.close();
@@ -257,10 +274,11 @@ class GameRunner:
                     return;
                 else:
                     for genome_id, genome in genomes:
+                        print(f'evaluating genome id {genome_id}')
                         self.eval_genome_feedforward(genome,config)
 
     def eval_genome_feedforward(self,genome,config):
-        #print('genome evaluation triggered');
+        print('genome evaluation triggered');
         runnerConfig = self.runConfig;
         net = neat.nn.FeedForwardNetwork.create(genome,config);
         fitnesses = [];

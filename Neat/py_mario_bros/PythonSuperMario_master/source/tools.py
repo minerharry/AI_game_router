@@ -98,14 +98,15 @@ class Control():
                 
             #self.clock.tick(self.fps)
 
-    def tick_inputs(self,named_inputs,show_game=False):
+    def tick_inputs(self,named_inputs,show_game=True):
         keys = {};
-        for name,val in named_inputs:
+        for name,val in named_inputs.items():
             keys[keybinding[name]] = val;
         self.keys = keys;
         self.update(auto_advance_state=False,draw=show_game);
         #print('updated');
         if (show_game):
+            pg.event.pump();
             #print('display updated')
             pg.display.update();
 
