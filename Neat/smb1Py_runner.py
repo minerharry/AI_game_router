@@ -26,6 +26,14 @@ def getFitness(inputs):
 
 def getRunning(inputs):
     return (not(inputs['done']) and (not inputs['stillness_time'] > steps_threshold));
+#run_state = 'continue';
+#run_state = 'rerun';
+run_state = 'rerun_all'
+#run_state = 'new';
+#run_state = 'id_rerun'
+currentRun = 0;
+reRunGeneration = 1;
+reRunId = 88;
 
 
 if __name__ == "__main__":
@@ -105,3 +113,7 @@ if __name__ == "__main__":
             print('\nBest genome:\n{!s}'.format(winner))
         if (run_state == 'rerun'):
             runner.replay_best(reRunGeneration,config,'run_' + str(currentRun),net=True,randomReRoll=True);
+        if (run_state == 'rerun_all'):
+            runner.replay_generation(reRunGeneration,'run_' + str(currentRun));
+        if (run_state == 'id_rerun'):
+            runner.render_genome_by_id(reRunId,reRunGeneration,config,'run_' + str(currentRun),net=True);

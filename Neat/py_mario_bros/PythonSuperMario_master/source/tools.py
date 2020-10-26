@@ -106,7 +106,7 @@ class Control():
         if self.process_num is not None and self.process_num != 0:
             show_game = True;
         keys = {};
-        for name,val in named_inputs:
+        for name,val in named_inputs.items():
             keys[keybinding[name]] = val;
         self.keys = keys;
         self.update(auto_advance_state=False,show_game=show_game);
