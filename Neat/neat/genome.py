@@ -172,6 +172,13 @@ class DefaultGenome(object):
         # Fitness results.
         self.fitness = None
 
+    def increment_fitness(self,lock,num):
+        lock.acquire();
+        try:
+            self.fitness += num;
+        finally:
+            lock.release();
+
     def configure_new(self, config):
         """Configure a new genome based on the given configuration."""
 

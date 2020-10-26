@@ -8,6 +8,10 @@ from . import stuff
 class Powerup(stuff.Stuff):
     def __init__(self, x, y, sheet, image_rect_list, scale):
         stuff.Stuff.__init__(self, x, y, sheet, image_rect_list, scale)
+        if c.GRAPHICS_SETTINGS == c.LOW:
+            for frame in self.frames:
+                if frame is not None:
+                    frame.fill(c.POWERUP_PLACEHOLDER_COLOR);
         self.rect.centerx = x
         self.state = c.REVEAL
         self.y_vel = -1
@@ -61,20 +65,7 @@ class Powerup(stuff.Stuff):
         level.check_is_falling(self)
 
     def animation(self):
-        if (not c.COMPLEX_FRAMES):
-            self.image = self.frames[0];
-        else:
-            self.image = self.frames[self.frame_index]
-
-    def save_state(self):
-        return {
-            'rect':self.rect,
-            'y_vel':self.y_vel,
-            'x_vel':self.x_vel,
-            'state':self.state,
-            'animate_timer':self.animate_timer,
-
-        }
+        self.image = self.frames[self.frame_index]
 
 class Mushroom(Powerup):
     def __init__(self, x, y):
@@ -98,7 +89,8 @@ class Mushroom(Powerup):
         
         if self.state == c.SLIDE or self.state == c.FALL:
             self.update_position(level)
-        self.animation()
+        if c.GRAPHICS_SETTINGS != c.NONE:
+            self.animation()
 
 class LifeMushroom(Mushroom):
     def __init__(self, x, y):
@@ -114,6 +106,7 @@ class FireFlower(Powerup):
         Powerup.__init__(self, x, y, c.ITEM_SHEET,
                     frame_rect_list, c.SIZE_MULTIPLIER)
         self.type = c.TYPE_FIREFLOWER
+        #print(self.image);
 
     def update(self, game_info, *args):
         self.current_time = game_info[c.CURRENT_TIME]
@@ -124,14 +117,15 @@ class FireFlower(Powerup):
                 self.y_vel = 0
                 self.state = c.RESTING
         
-        if (self.current_time - self.animate_timer) > 30:
+        if (self.current_time - self.animate_timer) > 30 and c.GRAPHICS_SETTINGS == c.HIGH:
             if self.frame_index < 3:
                 self.frame_index += 1
             else:
                 self.frame_index = 0
             self.animate_timer = self.current_time
 
-        self.animation()
+        if c.GRAPHICS_SETTINGS != c.NONE:
+            self.animation()
 
 class Star(Powerup):
     def __init__(self, x, y):
@@ -155,7 +149,7 @@ class Star(Powerup):
             self.y_vel += self.gravity
             self.x_vel = self.speed if self.direction == c.RIGHT else -1 * self.speed
         
-        if (self.current_time - self.animate_timer) > 30:
+        if (self.current_time - self.animate_timer) > 30 and c.GRAPHICS_SETTINGS == c.HIGH:
             if self.frame_index < 3:
                 self.frame_index += 1
             else:
@@ -164,7 +158,8 @@ class Star(Powerup):
         
         if self.state == c.BOUNCING:
             self.update_position(level)
-        self.animation()
+        if c.GRAPHICS_SETTINGS != c.NONE:
+            self.animation()
     
     def check_y_collisions(self, level):
         sprite_group = pg.sprite.Group(level.ground_step_pipe_group,
@@ -205,7 +200,7 @@ class FireBall(Powerup):
         
         if self.state == c.FLYING or self.state == c.BOUNCING:
             self.y_vel += self.gravity
-            if (self.current_time - self.animate_timer) > 200:
+            if (self.current_time - self.animate_timer) > 200 and c.GRAPHICS_SETTINGS == c.HIGH:
                 if self.frame_index < 3:
                     self.frame_index += 1
                 else:
@@ -213,15 +208,11 @@ class FireBall(Powerup):
                 self.animate_timer = self.current_time
             self.update_position(level)
         elif self.state == c.EXPLODING:
-            if (self.current_time - self.animate_timer) > 50:
-                if self.frame_index < 6:
-                    self.frame_index += 1
-                else:
-                    self.kill()
-                self.animate_timer = self.current_time
+            self.kill();
         
         
-        self.animation()
+        if c.GRAPHICS_SETTINGS != c.NONE:
+            self.animation()
     
     def check_x_collisions(self, level):
         sprite_group = pg.sprite.Group(level.ground_step_pipe_group,
@@ -249,12 +240,13 @@ class FireBall(Powerup):
                 self.state = c.BOUNCING
         elif enemy:
             if (enemy.name != c.FIRESTICK) :
-                level.update_score(100, enemy, 0)
+                #level.update_score(100, enemy, 0)
                 level.move_to_dying_group(level.enemy_group, enemy)
                 enemy.start_death_jump(self.direction)
             self.change_to_explode()
     
     def change_to_explode(self):
-        self.frame_index = 4
+        if c.GRAPHICS_SETTINGS != c.NONE:
+            self.frame_index = 4
         self.state = c.EXPLODING
 

@@ -1,16 +1,27 @@
 __author__ = 'marble_xu'
 
-COMPLEX_FRAMES  = False #if false, each sprite will only ever have a single frame representing each hitbox to save on FPS
+NONE = 0;
+LOW = 1;
+MED = 2;
+HIGH = 3;
 
-DISPLAY_FRAMERATE = False;
+GRAPHICS_SETTINGS = LOW; 
+#NONE: no sprite images ever assigned nor loaded from memory; draw function never called
+#LOW: all sprite images are placeholders (not loeaded from memory)
+#MED: sprite images loaded from memory, but all animations deactivated
+#HIGH: Original quality - sprite images loaded from memory and fully animated
 
-DEBUG = False
+#NOTE: it is assumed that medium and high quality means that loaded maps have image backgrounds, meaning ground tiles do not render. ground will render with a placeholder on low quality
+#NOTE: Certain enemies (only koopas, so far) change their hitbox between frames; specifically, when they turn into shells. All other enemies, so far, have the same hitbox independent of their animation, meaning the exact same image can be used for all frames. If any new enemies get added (and they change hitbox based on animation), the collision needs to be updated accordingly on low/medium graphics settings
+
+DISPLAY_FRAMERATE = True;
+
+DEBUG = False;
 DEBUG_START_X = 200
 DEBUG_START_y = 538
 
-TILE_SIZE = 32;
 SCREEN_HEIGHT = 600
-SCREEN_WIDTH = 800
+SCREEN_WIDTH = 600
 SCREEN_SIZE = (SCREEN_WIDTH,SCREEN_HEIGHT)
 
 ORIGINAL_CAPTION = "Super Mario Bros"
@@ -33,14 +44,28 @@ BLACK        = (  0,   0,   0)
 NEAR_BLACK   = ( 19,  15,  48)
 COMBLUE      = (233, 232, 255)
 GOLD         = (255, 215,   0)
+BROWN        = (139,  69,  19)
+
+PLAYER_PLACEHOLDER_COLOR = BLUE
+ENEMY_PLACEHOLDER_COLOR = RED
+BOX_PLACEHOLDER_COLOR = GOLD
+BRICK_PLACEHOLDER_COLOR = ORANGE
+GROUND_PLACEHOLDER_COLOR = BROWN
+PIPE_PLACEHOLDER_COLOR = GREEN
+POWERUP_PLACEHOLDER_COLOR = WHITE
+SLIDER_PLACEHOLDER_COLOR = GROUND_PLACEHOLDER_COLOR
 
 BGCOLOR = WHITE
 
+SHADER_ALPHA = 128
 
 SIZE_MULTIPLIER = 2.5
-BRICK_SIZE_MULTIPLIER = 2.69
-BACKGROUND_MULTIPLER = 2.679
+BRICK_SIZE_MULTIPLIER = 2.73
+BACKGROUND_MULTIPLER = 2.7
+PLAYER_WIDTH_MODIFIER = -0.25 #Player hitbox width is actually two pixels smaller on either side than it visually appears - 12 pixels wide instead of 16. Necessary so player can fit through 1 block gaps
 GROUND_HEIGHT = SCREEN_HEIGHT - 62
+TILE_SIZE = SIZE_MULTIPLIER*16
+
 
 GAME_TIME_OUT = 301
 

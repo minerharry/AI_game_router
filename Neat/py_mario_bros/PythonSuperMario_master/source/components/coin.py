@@ -11,10 +11,7 @@ class Coin(pg.sprite.Sprite):
         self.frames = []
         self.frame_index = 0
         self.load_frames()
-        if (not c.COMPLEX_FRAMES):
-            self.image = self.frames[0];
-        else:
-            self.image = self.frames[self.frame_index]
+        self.image = self.frames[self.frame_index]
         self.rect = self.image.get_rect()
         self.rect.centerx = x
         self.rect.bottom = y - 5
@@ -37,7 +34,7 @@ class Coin(pg.sprite.Sprite):
         self.spinning()
     
     def spinning(self):
-        if (not c.COMPLEX_FRAMES):
+        if (c.GRAPHICS_SETTINGS <= c.MED):
             self.image = self.frames[0];
         else:
             self.image = self.frames[self.frame_index]
@@ -60,7 +57,7 @@ class FlashCoin(pg.sprite.Sprite):
         self.frame_index = 0
         self.frames = []
         self.load_frames()
-        if (not c.COMPLEX_FRAMES):
+        if (c.GRAPHICS_SETTINGS <= c.MED):
             self.image = self.frames[0];
         else:
             self.image = self.frames[self.frame_index]
@@ -87,7 +84,7 @@ class FlashCoin(pg.sprite.Sprite):
                 self.frame_index = 0
             self.animation_timer = current_time
         
-        if (not c.COMPLEX_FRAMES):
+        if (c.GRAPHICS_SETTINGS <= c.MED):
             self.image = self.frames[0];
         else:
             self.image = self.frames[self.frame_index]
@@ -98,7 +95,7 @@ class StaticCoin(pg.sprite.Sprite):
         self.frame_index = 0
         self.frames = []
         self.load_frames()
-        if (not c.COMPLEX_FRAMES):
+        if (c.GRAPHICS_SETTINGS <= c.MED):
             self.image = self.frames[0];
         else:
             self.image = self.frames[self.frame_index]
@@ -127,7 +124,7 @@ class StaticCoin(pg.sprite.Sprite):
                 self.frame_index = 0
             self.animation_timer = self.current_time
         
-        if (not c.COMPLEX_FRAMES):
+        if (c.GRAPHICS_SETTINGS <= c.MED):
             self.image = self.frames[0];
         else:
             self.image = self.frames[self.frame_index]

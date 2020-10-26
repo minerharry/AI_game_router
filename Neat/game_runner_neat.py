@@ -5,7 +5,9 @@ import os.path
 import os
 import visualize
 import random
-import concurrent.futures
+import numpy as np
+#import concurrent.futures
+import multiprocessing
 from logReporting import LoggingReporter
 from renderer import Renderer as RendererReporter
 from videofig import videofig as vidfig
@@ -233,32 +235,58 @@ class GameRunner:
                 genome.fitness = fitness;
         
 
+    #parallel version of eval_genomes_feedforward
+    def eval_genome_batch_feedforward(self,genomes,config,processNum):
+        for genome_id, genome in genomes:
+            genome.fitness += self.eval_genome_feedforward(genome,config,processNum=processNum);
+
+    
+    def eval_training_data_batch_feedforward(self,genomes,config,data,processNum,lock):
+        for datum in data:
+            for genome_id,genome in genomes:
+                genome.increment_fitness(lock,self.eval_genome_feedforward(genome,config,processNum=processNum,trainingDatum=datum));
+
     #evaluate a population with the game as a feedforward neural net
     def eval_genomes_feedforward(self, genomes, config):
         for genome_id,genome in genomes:
             genome.fitness = 0; #sanity check
         if (self.runConfig.training_data is None):
             if (self.runConfig.parallel):
-                executor = concurrent.futures.ThreadPoolExecutor();
-                futures = [executor.submit(self.eval_genome_feedforward,genome,config) for genome_id,genome in genomes];
-                concurrent.futures.wait(futures);
+                multiprocessing.freeze_support();
+                processes = [];
+                genome_batches = np.array_split(genomes,self.runConfig.parallel_processes);
+                for i in range(runConfig.parallel_processes):
+                    process = multiprocessing.Process(target=self.eval_genome_batch_feedforward,args=(genome_batches[i],config,i));
+                    processes.append(process);
+                for process in processes:
+                    process.start();
+                for process in processes:
+                    process.join();
                 return;
             else:
                 for genome_id, genome in genomes:
-                    self.eval_genome_feedforward(genome,config)
+                    genome.fitness += self.eval_genome_feedforward(genome,config)
         else:
-            for datum in self.runConfig.training_data:
-                self.runConfig.training_datum = datum;
-                if (self.runConfig.parallel):
-                    executor = concurrent.futures.ThreadPoolExecutor();
-                    futures = [executor.submit(self.eval_genome_feedforward,genome,config) for genome_id,genome in genomes];
-                    concurrent.futures.wait(futures);
-                    return;
-                else:
+            if (self.runConfig.parallel):
+                processes = [];
+                data_batches = np.array_split(self.runConfig.training_data,self.runConfig.parallel_processes);
+                lock = multiprocessing.Lock();
+                for i in range(self.runConfig.parallel_processes):
+                    process = multiprocessing.Process(target=self.eval_training_data_batch_feedforward,args=(genomes,config,data_batches[i],i,lock));
+                    processes.append(process);
+                for process in processes:
+                    process.start();
+                for process in processes:
+                    process.join();
+                return;
+            else:
+                for datum in self.runConfig.training_data:
                     for genome_id, genome in genomes:
-                        self.eval_genome_feedforward(genome,config)
+                        genome.fitness += self.eval_genome_feedforward(genome,config,trainingDatum=datum)
 
-    def eval_genome_feedforward(self,genome,config):
+
+
+    def eval_genome_feedforward(self,genome,config,trainingDatum=None,processNum=None):
         #print('genome evaluation triggered');
         runnerConfig = self.runConfig;
         net = neat.nn.FeedForwardNetwork.create(genome,config);
@@ -266,7 +294,9 @@ class GameRunner:
         for trial in range(runnerConfig.numTrials):
             #print('evaluating genome with id {0}, trial {1}'.format(genome.key,trial));
             fitness = 0;
-            runningGame = self.game.start(runnerConfig);
+            runningGame = self.game.start(runnerConfig,training_datum = trainingDatum, process_num = processNum);
+            if runnerConfig.fitness_collection_type != None and 'delta' in runnerConfig.fitness_collection_type:
+                fitness -= runningGame.getFitnessScore();
             while (runningGame.isRunning()):
                 #get the current data from the running game, as specified by the runnerConfig
                 gameData = runningGame.getData();
@@ -277,15 +307,15 @@ class GameRunner:
                 
                 runningGame.processInput(gameInput);
 
-                if (runnerConfig.fitness_collection_type != None and runnerConfig.fitness_collection_type == 'continuous'):
+                if (runnerConfig.fitness_collection_type != None and 'continuous' in runnerConfig.fitness_collection_type):
                     fitness += runningGame.getFitnessScore();
                     
             fitness += runningGame.getFitnessScore();
             fitnesses.append(fitness);
             runningGame.close();
 
-        fitness = runnerConfig.fitnessFromArray(fitnesses);
-        genome.fitness += fitness;
+        fitness = runnerConfig.fitnessFromArray()(fitnesses);
+        return fitness;
         #print(genome.fitness);
 
 

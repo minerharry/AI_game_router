@@ -5,6 +5,8 @@ import pygame as pg
 from .. import setup, tools
 from .. import constants as c
 
+
+
 ENEMY_SPEED = 1
 
 def create_enemy(item, level):
@@ -61,10 +63,7 @@ class Enemy(pg.sprite.Sprite):
     #adds back all of the unneeded variables that remain constant (adds back unpickleable objects)
     def decompress(self,level):
         self.load_frames(setup.GFX[c.ENEMY_SHEET], self.frame_rect_list)
-        if (not c.COMPLEX_FRAMES):
-            self.image = self.frames[0];
-        else:
-            self.image = self.frames[self.frame_index]
+        self.image = self.frames[self.frame_index]
         self.image.get_rect().x = self.rect.x;
         self.image.get_rect().bottom = self.rect.bottom;
         if self.group_ids is not None:
@@ -84,10 +83,7 @@ class Enemy(pg.sprite.Sprite):
         self.name = name
         self.direction = direction
         self.load_frames(sheet, frame_rect_list)
-        if (not c.COMPLEX_FRAMES):
-            self.image = self.frames[0];
-        else:
-            self.image = self.frames[self.frame_index]
+        self.image = self.frames[self.frame_index]
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.bottom = y
@@ -99,9 +95,24 @@ class Enemy(pg.sprite.Sprite):
         self.death_timer = 0
     
     def load_frames(self, sheet, frame_rect_list):
+        if (sheet is None):
+            self.placeholder_frames(frame_rect_list);
+            return;
         for frame_rect in frame_rect_list:
             self.frames.append(tools.get_image(sheet, *frame_rect, 
                             c.BLACK, c.SIZE_MULTIPLIER))
+
+    def placeholder_frames(self,frame_rect_list):
+        sizes = [];
+        for frame in frame_rect_list:
+            rect = (frame[2],frame[3])
+            if (rect not in sizes):
+                sizes.append(rect);
+                frame = pg.Surface((rect[0]*c.SIZE_MULTIPLIER,rect[1]*c.SIZE_MULTIPLIER)).convert();
+                frame.fill(c.ENEMY_PLACEHOLDER_COLOR)
+                self.frames.append(frame);
+            else:
+                self.frames.append(None);
 
     def set_velocity(self):
         if self.isVertical:
@@ -119,7 +130,7 @@ class Enemy(pg.sprite.Sprite):
 
     def handle_state(self):
         if (self.state == c.WALK or
-            self.state == c.FLY):
+            self.state == c.FLY) and c.GRAPHICS_SETTINGS == c.HIGH:
             self.walking()
         elif self.state == c.FALL:
             self.falling()
@@ -129,7 +140,7 @@ class Enemy(pg.sprite.Sprite):
             self.death_jumping()
         elif self.state == c.SHELL_SLIDE:
             self.shell_sliding()
-        elif self.state == c.REVEAL:
+        elif self.state == c.REVEAL and c.GRAPHICS_SETTINGS == c.HIGH:
             self.revealing()
     
     def walking(self):
@@ -173,13 +184,12 @@ class Enemy(pg.sprite.Sprite):
         self.y_vel = -8
         self.x_vel = 2 if direction == c.RIGHT else -2
         self.gravity = .5
-        self.frame_index = 3
+        if c.GRAPHICS_SETTINGS == c.HIGH:
+            self.frame_index = 3
         self.state = c.DEATH_JUMP
 
     def animation(self):
-        if (not c.COMPLEX_FRAMES):
-            self.image = self.frames[0];
-        else:
+        if c.GRAPHICS_SETTINGS != c.NONE:
             self.image = self.frames[self.frame_index]
     
     def update_position(self, level):
@@ -233,11 +243,11 @@ class Enemy(pg.sprite.Sprite):
         self.direction = direction
         if self.direction == c.RIGHT:
             self.x_vel = ENEMY_SPEED
-            if self.state == c.WALK or self.state == c.FLY:
+            if (self.state == c.WALK or self.state == c.FLY) and c.GRAPHICS_SETTINGS == c.HIGH :
                 self.frame_index = 4
         else:
             self.x_vel = ENEMY_SPEED * -1
-            if self.state == c.WALK or self.state == c.FLY:
+            if (self.state == c.WALK or self.state == c.FLY) and c.GRAPHICS_SETTINGS == c.HIGH:
                 self.frame_index = 0
 
     def check_y_collisions(self, level):
@@ -262,11 +272,12 @@ class Goomba(Enemy):
         frame_rect_list = self.get_frame_rect(color)
         self.setup_enemy(x, y, direction, name, setup.GFX[c.ENEMY_SHEET],
                     frame_rect_list, in_range, range_start, range_end)
-        # dead jump image
-        self.frames.append(pg.transform.flip(self.frames[2], False, True))
-        # right walk images
-        self.frames.append(pg.transform.flip(self.frames[0], True, False))
-        self.frames.append(pg.transform.flip(self.frames[1], True, False))
+        if (c.GRAPHICS_SETTINGS == c.HIGH):
+            # dead jump image
+            self.frames.append(pg.transform.flip(self.frames[2], False, True))
+            # right walk images
+            self.frames.append(pg.transform.flip(self.frames[0], True, False))
+            self.frames.append(pg.transform.flip(self.frames[1], True, False))
 
     def get_frame_rect(self, color):
         if color == c.COLOR_TYPE_GREEN:
@@ -289,14 +300,15 @@ class Koopa(Enemy):
     def __init__(self, x, y, direction, color, in_range,
                 range_start, range_end, name=c.KOOPA):
         Enemy.__init__(self)
-        frame_rect_list = self.get_frame_rect(color)
+        self.frame_rect_list = self.get_frame_rect(color)
         self.setup_enemy(x, y, direction, name, setup.GFX[c.ENEMY_SHEET],
-                    frame_rect_list, in_range, range_start, range_end)
-        # dead jump image
-        self.frames.append(pg.transform.flip(self.frames[2], False, True))
-        # right walk images
-        self.frames.append(pg.transform.flip(self.frames[0], True, False))
-        self.frames.append(pg.transform.flip(self.frames[1], True, False))
+                    self.frame_rect_list, in_range, range_start, range_end)
+        if (c.GRAPHICS_SETTINGS == c.HIGH):        
+            # dead jump image
+            self.frames.append(pg.transform.flip(self.frames[2], False, True))
+            # right walk images
+            self.frames.append(pg.transform.flip(self.frames[0], True, False))
+            self.frames.append(pg.transform.flip(self.frames[1], True, False))
 
     def get_frame_rect(self, color):
         if color == c.COLOR_TYPE_GREEN:
@@ -315,8 +327,8 @@ class Koopa(Enemy):
         self.frame_index = 2
         x = self.rect.x
         bottom = self.rect.bottom
-        self.rect = self.frames[self.frame_index].get_rect()
-        self.rect.x = x
+        frame_rect = self.frame_rect_list[self.frame_index]
+        self.rect = pg.Rect(x,0,frame_rect[2],frame_rect[3]);
         self.rect.bottom = bottom
         self.in_range = False
 
@@ -324,9 +336,9 @@ class FlyKoopa(Enemy):
     def __init__(self, x, y, direction, color, in_range, 
                 range_start, range_end, isVertical, name=c.FLY_KOOPA):
         Enemy.__init__(self)
-        frame_rect_list = self.get_frame_rect(color)
+        self.frame_rect_list = self.get_frame_rect(color)
         self.setup_enemy(x, y, direction, name, setup.GFX[c.ENEMY_SHEET], 
-                    frame_rect_list, in_range, range_start, range_end, isVertical)
+                    self.frame_rect_list, in_range, range_start, range_end, isVertical)
         # dead jump image
         self.frames.append(pg.transform.flip(self.frames[2], False, True))
         # right walk images
@@ -348,8 +360,8 @@ class FlyKoopa(Enemy):
         self.frame_index = 2
         x = self.rect.x
         bottom = self.rect.bottom
-        self.rect = self.frames[self.frame_index].get_rect()
-        self.rect.x = x
+        frame_rect = self.frame_rect_list[self.frame_index]
+        self.rect = pg.Rect(x,0,frame_rect[2],frame_rect[3]);
         self.rect.bottom = bottom
         self.in_range = False
         self.isVertical = False
@@ -505,34 +517,52 @@ class FireStick(pg.sprite.Sprite):
         self.name = name
         rect_list = [(96, 144, 8, 8), (104, 144, 8, 8),
                     (96, 152, 8, 8), (104, 152, 8, 8)]
-        self.load_frames(setup.GFX[c.ITEM_SHEET], rect_list)
         self.animate_timer = 0
-        if (not c.COMPLEX_FRAMES):
-            self.image = self.frames[0];
-        else:
+        if c.GRAPHICS_SETTINGS != c.NONE:
+            self.load_frames(setup.GFX[c.ITEM_SHEET], rect_list)
             self.image = self.frames[self.frame_index]
-        self.rect = self.image.get_rect()
-        self.rect.x = center_x - radius
-        self.rect.y = center_y
+            self.rect = self.image.get_rect()
+            self.rect.x = center_x - radius
+            self.rect.y = center_y
+        else:
+            self.rect = pg.Rect(x,y,rect_list[0][2],rect_list[0][3]);
         self.center_x = center_x
         self.center_y = center_y
         self.radius = radius
         self.angle = 0
 
+
     def load_frames(self, sheet, frame_rect_list):
+        if (sheet is None):
+            self.placeholder_frames(frame_rect_list);
+            return;
         for frame_rect in frame_rect_list:
             self.frames.append(tools.get_image(sheet, *frame_rect, 
-                            c.BLACK, c.BRICK_SIZE_MULTIPLIER))
+                            c.BLACK, c.SIZE_MULTIPLIER))
+
+    def placeholder_frames(self,frame_rect_list):
+        sizes = [];
+        for frame in frame_rect_list:
+            rect = (frame[2],frame[3])
+            if (rect not in sizes):
+                sizes.append(rect);
+                frame = pg.Surface((rect[0]*c.SIZE_MULTIPLIER,rect[1]*c.SIZE_MULTIPLIER)).convert();
+                frame.fill(c.ENEMY_PLACEHOLDER_COLOR)
+                self.frames.append(frame);
+            else:
+                self.frames.append(None);
+
 
     def update(self, game_info, level):
         self.current_time = game_info[c.CURRENT_TIME]
-        if (self.current_time - self.animate_timer) > 100:
+        if (self.current_time - self.animate_timer) > 100 and c.GRAPHICS_SETTINGS == c.HIGH:
             if self.frame_index < 3:
                 self.frame_index += 1
             else:
                 self.frame_index = 0
             self.animate_timer = self.current_time
-        self.image = self.frames[self.frame_index]
+        if c.GRAPHICS_SETTINGS != c.NONE:
+            self.image = self.frames[self.frame_index]
 
         self.angle += 1
         if self.angle == 360:
@@ -551,13 +581,11 @@ class FireStick(pg.sprite.Sprite):
 
     #adds back all of the unneeded variables that remain constant (adds back unpickleable objects)
     def decompress(self,level):
-        self.load_frames(setup.GFX[c.ITEM_SHEET], [(96, 144, 8, 8), (104, 144, 8, 8), (96, 152, 8, 8), (104, 152, 8, 8)]);
-        if (not c.COMPLEX_FRAMES):
-            self.image = self.frames[0];
-        else:
+        if c.GRAPHICS_SETTINGS != c.NONE:
+            self.load_frames(setup.GFX[c.ITEM_SHEET], [(96, 144, 8, 8), (104, 144, 8, 8), (96, 152, 8, 8), (104, 152, 8, 8)]);
             self.image = self.frames[self.frame_index]
-        self.image.get_rect().x = self.rect.x;
-        self.image.get_rect().bottom = self.rect.bottom;
+            self.image.get_rect().x = self.rect.x;
+            self.image.get_rect().bottom = self.rect.bottom;
         if self.group_ids is not None:
             self.add([level.get_group_by_id(id) for id in self.group_ids if level.get_group_by_id(id) is not None]);
             self.group_ids = None;

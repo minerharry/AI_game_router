@@ -7,22 +7,29 @@ from .. import constants as c
 class Collider(pg.sprite.Sprite):
     def __init__(self, x, y, width, height, name):
         pg.sprite.Sprite.__init__(self)
-        self.image = pg.Surface((width, height)).convert()
-        self.rect = self.image.get_rect()
-        self.rect.x = x
-        self.rect.y = y
+        if c.GRAPHICS_SETTINGS != c.NONE:
+            self.image = pg.Surface((width, height)).convert()
+            self.rect = self.image.get_rect()
+            self.rect.x = x
+            self.rect.y = y
+        else:
+            self.rect = pg.Rect(x,y,width,height);
         self.name = name
-        self.image.fill(c.ORANGE)
+        if c.GRAPHICS_SETTINGS == c.LOW:
+            self.image.fill(c.GROUND_PLACEHOLDER_COLOR)
         if c.DEBUG:
             self.image.fill(c.RED)
 
 class Checkpoint(pg.sprite.Sprite):
     def __init__(self, x, y, width, height, type, enemy_groupid=0, map_index=0, name=c.MAP_CHECKPOINT):
         pg.sprite.Sprite.__init__(self)
-        self.image = pg.Surface((width, height))
-        self.rect = self.image.get_rect()
-        self.rect.x = x
-        self.rect.y = y
+        if c.GRAPHICS_SETTINGS != c.NONE:
+            self.image = pg.Surface((width, height))
+            self.rect = self.image.get_rect()
+            self.rect.x = x
+            self.rect.y = y
+        else:
+            self.rect = pg.Rect(x,y,width,height);
         self.type = type
         self.enemy_groupid = enemy_groupid
         self.map_index = map_index
@@ -37,16 +44,29 @@ class Stuff(pg.sprite.Sprite):
         self.image_rect_list = image_rect_list;
         self.scale = scale;
         self.sheet_name = sheet_name;
-        for image_rect in image_rect_list:
-            self.frames.append(tools.get_image(setup.GFX[sheet_name], 
-                    *image_rect, c.BLACK, scale))
-        if (not c.COMPLEX_FRAMES):
-            self.image = self.frames[0];
-        else:
+        
+        if (c.GRAPHICS_SETTINGS >= c.MED):
+            for image_rect in image_rect_list:
+                self.frames.append(tools.get_image(setup.GFX[sheet_name], 
+                        *image_rect, c.BLACK, scale))
+        elif(c.GRAPHICS_SETTINGS == c.LOW):
+            sizes = [];
+            for frame in image_rect_list:
+                rect = (frame[2],frame[3]);
+                if (rect not in sizes):
+                    sizes.append(rect);
+                    frame = pg.Surface((rect[0]*scale,rect[1]*scale)).convert();
+                    self.frames.append(frame);
+                else:
+                    self.frames.append(None);
+        if c.GRAPHICS_SETTINGS != c.NONE:
             self.image = self.frames[self.frame_index]
-        self.rect = self.image.get_rect()
-        self.rect.x = x
-        self.rect.y = y
+            self.rect = self.image.get_rect()
+            self.rect.x = x
+            self.rect.y = y
+        else:
+            self.rect = pg.Rect(x,y,self.image_rect_list[self.frame_index][2],self.image_rect_list[self.frame_index][3]);
+
 
     #removes all of the unneeded variables that remain constant (removes unpickleable objects)
     def compress(self,level):
@@ -59,16 +79,26 @@ class Stuff(pg.sprite.Sprite):
 
     #adds back all of the unneeded variables that remain constant (adds back unpickleable objects)
     def decompress(self,level):
-        if self.frames is None or len(self.frames) == 0:
-            for image_rect in self.image_rect_list:
-                self.frames.append(tools.get_image(setup.GFX[self.sheet_name], 
-                        *image_rect, c.BLACK, self.scale))
-        if (not c.COMPLEX_FRAMES):
-            self.image = self.frames[0];
-        else:
+        if c.GRAPHICS_SETTINGS != c.NONE:
+            if self.frames is None or len(self.frames) == 0:
+                self.frames = [];
+                if (c.GRAPHICS_SETTINGS >= c.MED):
+                    for image_rect in self.image_rect_list:
+                        self.frames.append(tools.get_image(setup.GFX[self.sheet_name], 
+                                *image_rect, c.BLACK, self.scale))
+                else:
+                    sizes = [];
+                    for frame in self.image_rect_list:
+                        rect = (frame[2],frame[3])
+                        if (rect not in sizes):
+                            sizes.append(rect);
+                            frame = pg.Surface((rect[0]*c.SIZE_MULTIPLIER,rect[1]*c.SIZE_MULTIPLIER)).convert();
+                            self.frames.append(frame);
+                        else:
+                            self.frames.append(None);
             self.image = self.frames[self.frame_index]
-        self.image.get_rect().x = self.rect.x;
-        self.image.get_rect().bottom = self.rect.bottom;
+            self.image.get_rect().x = self.rect.x;
+            self.image.get_rect().bottom = self.rect.bottom;
         if self.group_ids is not None:
             self.add([level.get_group_by_id(id) for id in self.group_ids if level.get_group_by_id(id) is not None]);
             self.group_ids = None;
@@ -174,8 +204,20 @@ class Pipe(Stuff):
                 rect, c.BRICK_SIZE_MULTIPLIER)
         self.name = name
         self.type = type
-        if type != c.PIPE_TYPE_HORIZONTAL:
-            self.create_image(x, y, height)
+        self.pipe_height = height;
+        if (c.GRAPHICS_SETTINGS >= c.MED):
+            if type != c.PIPE_TYPE_HORIZONTAL:
+                self.create_image(x, y, height)
+        elif (c.GRAPHICS_SETTINGS == c.LOW):
+            if type != c.PIPE_TYPE_HORIZONTAL:
+                self.image = pg.Surface((rect[0][2]*c.BRICK_SIZE_MULTIPLIER, height)).convert()
+            self.image.fill(c.PIPE_PLACEHOLDER_COLOR);
+            self.rect = self.image.get_rect()
+            self.rect.x = x
+            self.rect.y = y
+            self.frames = [self.image];
+        elif (c.GRAPHICS_SETTINGS == c.NONE):
+            self.rect = pg.Rect(x,y,self.image_rect_list[self.frame_index][2],self.image_rect_list[self.frame_index][3]);
 
     def create_image(self, x, y, pipe_height):
         img = self.image
@@ -196,6 +238,26 @@ class Pipe(Stuff):
             self.image.blit(img, (0,y), (0, top_height, width, bottom_height))
         self.image.set_colorkey(c.BLACK)
 
+    def decompress(self,level): #idk why I made this it should never be called but here you go ig
+        if self.type == c.PIPE_TYPE_HORIZONTAL:
+            rect = [(32, 128, 37, 30)]
+        else:
+            rect = [(0, 160, 32, 30)]
+        Stuff.decompress(self,level);
+        if (c.GRAPHICS_SETTINGS >= c.MED):
+            if self.type != c.PIPE_TYPE_HORIZONTAL:
+                self.create_image(self.rect.x, self.rect.y, self.pipe_height)
+        elif (c.GRAPHICS_SETTINGS == c.LOW):
+            if self.type != c.PIPE_TYPE_HORIZONTAL:
+                self.image = pg.Surface((rect[0][2]*c.BRICK_SIZE_MULTIPLIER, self.pipe_height)).convert()
+            self.image.fill(c.PIPE_PLACEHOLDER_COLOR);
+            self.rect = self.image.get_rect()
+            #self.rect.x = x
+            #self.rect.y = y
+            self.frames = [self.image];
+
+
+
     def check_ignore_collision(self, level):
         if self.type == c.PIPE_TYPE_HORIZONTAL:
             return True
@@ -203,6 +265,8 @@ class Pipe(Stuff):
             return True
         return False
 
+#TODO: investigate variable-width slider meaning
+#TODO: add placeholder image for sliders
 class Slider(Stuff):
     def __init__(self, x, y, num, direction, range_start, range_end, vel, name=c.MAP_SLIDER):
         Stuff.__init__(self, x, y, c.ITEM_SHEET,
@@ -226,14 +290,22 @@ class Slider(Stuff):
         rect = self.image.get_rect()
         width = rect.w
         height = rect.h
-        self.image = pg.Surface((width * num, height)).convert()
-        self.rect = self.image.get_rect()
-        self.rect.x = x
-        self.rect.y = y
-        for i in range(num):
-            x = i * width
-            self.image.blit(img, (x,0))
-        self.image.set_colorkey(c.BLACK)
+        if (c.GRAPHICS_SETTINGS != c.NONE):
+            self.image = pg.Surface((width * num, height)).convert()
+            self.rect = self.image.get_rect()
+            self.rect.x = x
+            self.rect.y = y
+            if (c.GRAPHICS_SETTINGS >= c.MED):
+                for i in range(num):
+                    x = i * width
+                    self.image.blit(img, (x,0))
+                self.image.set_colorkey(c.BLACK)
+            else:
+                self.image.fill(c.SLIDER_PLACEHOLDER_COLOR)
+        else:
+            self.rect = pg.Rect(x,y,self.image_rect_list[self.frame_index][2],self.image_rect_list[self.frame_index][3]);
+
+        
 
     def update(self):
         if self.direction ==c.VERTICAL:

@@ -25,16 +25,25 @@ class RunnerConfig:
 ##                returnData.append(datum);
 ##        
         if (trial_fitness_aggregation == 'custom'):
-            self.fitnessFromArray = custom_fitness_aggregation;
+            self.customFitnessFunction = custom_fitness_aggregation;
+        else:
+            self.customFitnessFunction = None;
+        self.trialFitnessAggregation = trial_fitness_aggregation;
 
-        if (trial_fitness_aggregation == 'average'):
-            self.fitnessFromArray = lambda fitnesses : sum(fitnesses)/len(fitnesses);
 
-        if (trial_fitness_aggregation == 'max'):
-            self.fitnessFromArray = lambda fitnesses : max(fitnesses);
-
-        if (trial_fitness_aggregation == 'min'):
-            self.fitnessFromArray = lambda fitnesses : min(fitnesses);
+    def fitnessFromArray(self):
+        if self.customFitnessFunction is not None:
+            return self.customFitnessFunction;
+        elif self.trialFitnessAggregation == 'average':
+            return lambda array : sum(array) / len(array);
+        elif self.trialFitnessAggregation == 'sum':
+            return lambda array : sum(array);
+        elif self.trialFitnessAggregation == 'max':
+            return lambda array : max(array);
+        elif self.trialFitnessAggregation == 'min':
+            return lambda array: min(array);
+        else:
+            print(f'error: fitness aggregation function {self.trialFitnessAggregation} not defined')
 
     def flattened_return_data(self):
         result = [];

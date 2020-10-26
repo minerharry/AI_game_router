@@ -22,7 +22,10 @@ class EvalGame:
         self.gameClass = gameClass;
         self.initInputs = kwargs;
 
-    def start(self,runnerConfig):
+    def start(self,runnerConfig,**kwargs):
+        if kwargs is not None:
+            for name,arg in kwargs.items():
+                self.initInputs[name] = arg;
         return self.gameClass(runnerConfig,self.initInputs);
 
 class RunGame(ABC):

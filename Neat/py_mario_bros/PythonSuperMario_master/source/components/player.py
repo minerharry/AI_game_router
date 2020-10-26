@@ -21,32 +21,39 @@ class Player(pg.sprite.Sprite):
         self.group_ids = None;
         
         if c.DEBUG:
-            self.right_frames = self.big_fire_frames[0]
-            self.left_frames = self.big_fire_frames[1]
+            self.right_frames = self.big_normal_frames[0]
+            self.left_frames = self.big_normal_frames[1]
             self.big = True
             self.fire = True
             
         self.frame_index = 0
         self.state = c.WALK
-        self.image = self.right_frames[self.frame_index]
-        self.rect = self.image.get_rect()
+        if c.GRAPHICS_SETTINGS != c.NONE:
+            self.image = self.right_frames[self.frame_index]
+            self.rect = self.image.get_rect()
+        else:
+            self.rect = pg.Rect(0,0,self.right_frames[self.frame_index][0],self.right_frames[self.frame_index][1]);
+        self.hitbox = pg.Rect(0,0,0,0);
+        self.update_hitbox();
+        
 
     #removes all of the unneeded variables that remain constant (removes unpickleable objects)
     def compress(self,level):
-        self.image = None;
-        self.right_frames = [];
-        self.left_frames = [];
-        self.small_normal_frames = [];
-        self.big_normal_frames = [];
-        self.big_fire_frames = [];
-        self.all_images = [];
+        if c.GRAPHICS_SETTINGS != c.NONE:
+            self.image = None;
+            self.right_frames = [];
+            self.left_frames = [];
+            self.small_normal_frames = [];
+            self.big_normal_frames = [];
+            self.big_fire_frames = [];
+            self.all_images = [];
 
-        self.right_small_normal_frames = []
-        self.left_small_normal_frames = []
-        self.right_big_normal_frames = []
-        self.left_big_normal_frames = []
-        self.right_big_fire_frames = []
-        self.left_big_fire_frames = []
+            self.right_small_normal_frames = []
+            self.left_small_normal_frames = []
+            self.right_big_normal_frames = []
+            self.left_big_normal_frames = []
+            self.right_big_fire_frames = []
+            self.left_big_fire_frames = []
 
         self.group_ids = [level.get_group_id(group) for group in self._Sprite__g if level.get_group_id(group) is not None];
         self._Sprite__g = {};
@@ -54,11 +61,11 @@ class Player(pg.sprite.Sprite):
 
     #adds back all of the unneeded variables that remain constant (adds back unpickleable objects)
     def decompress(self,level):
-
-        self.load_images();
-        self.image = self.right_frames[self.frame_index];
-        self.image.get_rect().x = self.rect.x;
-        self.image.get_rect().bottom = self.rect.bottom;
+        if c.GRAPHICS_SETTINGS != c.NONE:
+            self.load_images();
+            self.image = self.right_frames[self.frame_index];
+            self.image.get_rect().centerx = self.rect.centerx;
+            self.image.get_rect().bottom = self.rect.bottom;
         if self.group_ids is not None:
             self.add([level.get_group_by_id(id) for id in self.group_ids if level.get_group_by_id(id) is not None]);
             self.group_ids = None;
@@ -118,6 +125,7 @@ class Player(pg.sprite.Sprite):
         self.x_accel = self.walk_accel
 
     def load_images(self):
+        #NOTE: For convenience, if graphics settings is none, the frames are just rect width,height values instead of images. They are consequently not compressed/decompressed
         sheet = setup.GFX['mario_bros']
         frames_list = self.player_data[c.PLAYER_FRAMES]
 
@@ -136,21 +144,52 @@ class Player(pg.sprite.Sprite):
         self.left_big_fire_frames = []
         
         for name, frames in frames_list.items():
-            for frame in frames:
-                image = tools.get_image(sheet, frame['x'], frame['y'], 
-                                    frame['width'], frame['height'],
-                                    c.BLACK, c.SIZE_MULTIPLIER)
-                left_image = pg.transform.flip(image, True, False)
+            if c.GRAPHICS_SETTINGS >= c.MED:
+                for frame in frames:
+                    image = tools.get_image(sheet, frame['x'], frame['y'], 
+                                        frame['width'], frame['height'],
+                                        c.BLACK, c.SIZE_MULTIPLIER)
+                    left_image = pg.transform.flip(image, True, False)
 
-                if name == c.RIGHT_SMALL_NORMAL:
-                    self.right_small_normal_frames.append(image)
-                    self.left_small_normal_frames.append(left_image)
-                elif name == c.RIGHT_BIG_NORMAL:
-                    self.right_big_normal_frames.append(image)
-                    self.left_big_normal_frames.append(left_image)
-                elif name == c.RIGHT_BIG_FIRE:
-                    self.right_big_fire_frames.append(image)
-                    self.left_big_fire_frames.append(left_image)
+                    if name == c.RIGHT_SMALL_NORMAL:
+                        self.right_small_normal_frames.append(image)
+                        self.left_small_normal_frames.append(left_image)
+                    elif name == c.RIGHT_BIG_NORMAL:
+                        self.right_big_normal_frames.append(image)
+                        self.left_big_normal_frames.append(left_image)
+                    elif name == c.RIGHT_BIG_FIRE:
+                        self.right_big_fire_frames.append(image)
+                        self.left_big_fire_frames.append(left_image)
+            elif c.GRAPHICS_SETTINGS <= c.LOW:
+                if (name == c.RIGHT_SMALL_NORMAL):
+                    sizes = [];
+                    for frame in frames:
+                        rect = (frame['width'],frame['height'])
+                        if (rect not in sizes):
+                            sizes.append(rect);
+                            if c.GRAPHICS_SETTINGS == c.LOW:
+                                frame = pg.Surface((rect[0]*c.SIZE_MULTIPLIER,rect[1]*c.SIZE_MULTIPLIER)).convert();
+                                frame.fill(c.PLAYER_PLACEHOLDER_COLOR);
+                                self.right_small_normal_frames.append(frame);
+                            else:
+                                self.right_small_normal_frames.append(rect);
+                        else:
+                            self.right_small_normal_frames.append(None);
+                if (name == c.RIGHT_BIG_NORMAL):
+                    sizes = [];
+                    for frame in frames:
+                        rect = (frame['width'],frame['height'])
+                        if (rect not in sizes):
+                            sizes.append(rect);
+                            if c.GRAPHICS_SETTINGS == c.LOW:
+                                frame = pg.Surface((rect[0]*c.SIZE_MULTIPLIER,rect[1]*c.SIZE_MULTIPLIER)).convert();
+                                frame.fill(c.PLAYER_PLACEHOLDER_COLOR);
+                                self.right_big_normal_frames.append(frame);
+                            else:
+                                self.right_big_normal_frames.append(rect);
+                        else:
+                            self.right_big_normal_frames.append(None);
+
         
         self.small_normal_frames = [self.right_small_normal_frames,
                                     self.left_small_normal_frames]
@@ -174,7 +213,8 @@ class Player(pg.sprite.Sprite):
         self.handle_state(keys, fire_group)
         self.check_if_hurt_invincible()
         self.check_if_invincible()
-        self.animation()
+        if c.GRAPHICS_SETTINGS != c.NONE:
+            self.animation()
 
     def handle_state(self, keys, fire_group):
         if self.state == c.STAND:
@@ -204,9 +244,11 @@ class Player(pg.sprite.Sprite):
         elif self.state == c.DOWN_TO_PIPE:
             self.y_vel = 1
             self.rect.y += self.y_vel
+            self.update_hitbox();
         elif self.state == c.UP_OUT_PIPE:
             self.y_vel = -1
             self.rect.y += self.y_vel
+            self.update_hitbox();
             if self.rect.bottom < self.up_pipe_y:
                 self.state = c.STAND
 
@@ -225,6 +267,7 @@ class Player(pg.sprite.Sprite):
     def standing(self, keys, fire_group):
         self.check_to_allow_jump(keys)
         self.check_to_allow_fireball(keys)
+        #print(self.fire);
         
         self.frame_index = 0
         self.x_vel = 0
@@ -234,59 +277,66 @@ class Player(pg.sprite.Sprite):
             if self.fire and self.allow_fireball:
                 self.shoot_fireball(fire_group)
 
-        if keys[tools.keybinding['down']]:
-            self.update_crouch_or_not(True)
+        self.update_crouch_or_not(keys)
 
-        if keys[tools.keybinding['left']]:
+        if keys[tools.keybinding['left']] and not keys[tools.keybinding['down']]:
             self.facing_right = False
-            self.update_crouch_or_not()
             self.state = c.WALK
-        elif keys[tools.keybinding['right']]:
+        elif keys[tools.keybinding['right']] and not keys[tools.keybinding['down']]:
             self.facing_right = True
-            self.update_crouch_or_not()
             self.state = c.WALK
         elif keys[tools.keybinding['jump']]:
             if self.allow_jump:
                 self.state = c.JUMP
                 self.y_vel = self.jump_vel
-        
-        if not keys[tools.keybinding['down']]:
-            self.update_crouch_or_not()
 
-    def update_crouch_or_not(self, isDown=False):
+    def update_crouch_or_not(self, keys):
+        isDown = keys[tools.keybinding['down']];
+        isHorizontal = keys[tools.keybinding['left']] != keys[tools.keybinding['right']]
         if not self.big:
-            self.crouching = True if isDown else False
+            self.crouching = isDown and not isHorizontal
             return
         if not isDown and not self.crouching:
             return
+        if self.state == c.FALL or self.state == c.JUMP:
+            return
         
-        self.crouching = True if isDown else False
-        frame_index = 7 if isDown else 0 
+        self.crouching = (isDown and not isHorizontal)
+        #print(f'updated crouching: {self.crouching}');
+        frame_index = 7 if self.crouching else 0 #allowed because crouching has different hitbox
         bottom = self.rect.bottom
-        left = self.rect.x
-        if self.facing_right:
-            self.image = self.right_frames[frame_index]
+        center = self.rect.centerx
+        if c.GRAPHICS_SETTINGS != c.NONE:
+            if self.facing_right or c.GRAPHICS_SETTINGS <= c.MED:
+                self.image = self.right_frames[frame_index]
+            else:
+                self.image = self.left_frames[frame_index]
+            self.rect = self.image.get_rect()
         else:
-            self.image = self.left_frames[frame_index]
-        self.rect = self.image.get_rect()
+            self.rect.w = self.right_frames[frame_index][0];
+            self.rect.h = self.right_frames[frame_index][1];
         self.rect.bottom = bottom
-        self.rect.x = left
+        self.rect.centerx = center
+        self.update_hitbox();
         self.frame_index = frame_index
+        #print(self.frame_index);
 
     def walking(self, keys, fire_group):
         self.check_to_allow_jump(keys)
         self.check_to_allow_fireball(keys)
+        self.update_crouch_or_not(keys);
 
-        if self.frame_index == 0:
-            self.frame_index += 1
-            self.walking_timer = self.current_time
-        elif (self.current_time - self.walking_timer >
-                    self.calculate_animation_speed()):
-            if self.frame_index < 3:
+        if c.GRAPHICS_SETTINGS == c.HIGH: #walking timer doesn't matter 
+            if self.frame_index == 0: 
                 self.frame_index += 1
-            else:
-                self.frame_index = 1
-            self.walking_timer = self.current_time
+                self.walking_timer = self.current_time
+            elif (self.current_time - self.walking_timer >
+                        self.calculate_animation_speed()):
+                if self.frame_index < 3:
+                    self.frame_index += 1
+                else:
+                    self.frame_index = 1
+                self.walking_timer = self.current_time
         
         if keys[tools.keybinding['action']]:
             self.max_x_vel = self.max_run_vel
@@ -306,17 +356,19 @@ class Player(pg.sprite.Sprite):
                     self.y_vel = self.jump_vel
                 
 
-        if keys[tools.keybinding['left']]:
+        if keys[tools.keybinding['left']] and not keys[tools.keybinding['down']]:
             self.facing_right = False
             if self.x_vel > 0:
-                self.frame_index = 5
+                if c.GRAPHICS_SETTINGS == c.HIGH:
+                    self.frame_index = 5
                 self.x_accel = c.SMALL_TURNAROUND
             
             self.x_vel = self.cal_vel(self.x_vel, self.max_x_vel, self.x_accel, True)
-        elif keys[tools.keybinding['right']]:
+        elif keys[tools.keybinding['right']] and not keys[tools.keybinding['down']]:
             self.facing_right = True
             if self.x_vel < 0:
-                self.frame_index = 5
+                if c.GRAPHICS_SETTINGS == c.HIGH:
+                    self.frame_index = 5
                 self.x_accel = c.SMALL_TURNAROUND
             
             self.x_vel = self.cal_vel(self.x_vel, self.max_x_vel, self.x_accel)
@@ -339,7 +391,8 @@ class Player(pg.sprite.Sprite):
         self.check_to_allow_fireball(keys)
         
         self.allow_jump = False
-        self.frame_index = 4
+        if c.GRAPHICS_SETTINGS == c.HIGH and not self.crouching:
+            self.frame_index = 4
         self.gravity = c.JUMP_GRAVITY
         self.y_vel += self.gravity
         
@@ -378,6 +431,7 @@ class Player(pg.sprite.Sprite):
             self.death_timer = self.current_time
         elif (self.current_time - self.death_timer) > 500:
             self.rect.y += self.y_vel
+            self.hitbox.y += self.y_vel
             self.y_vel += self.gravity
 
     def cal_vel(self, vel, max_vel, accel, isNegative=False):
@@ -407,27 +461,30 @@ class Player(pg.sprite.Sprite):
     def shoot_fireball(self, powerup_group):
         if (self.current_time - self.last_fireball_time) > 500:
             self.allow_fireball = False
+            #print('fireball shot');
             powerup_group.add(powerup.FireBall(self.rect.right, 
                             self.rect.y, self.facing_right))
             self.last_fireball_time = self.current_time
-            self.frame_index = 6
+            if c.GRAPHICS_SETTINGS == c.HIGH:
+                self.frame_index = 6
 
     def flag_pole_sliding(self):
         self.state = c.FLAGPOLE
         self.x_vel = 0
         self.y_vel = 5
 
-        if self.flagpole_timer == 0:
-            self.flagpole_timer = self.current_time
-        elif self.rect.bottom < 493:
-            if (self.current_time - self.flagpole_timer) < 65:
-                self.frame_index = 9
-            elif (self.current_time - self.flagpole_timer) < 130:
-                self.frame_index = 10
-            else:
+        if c.GRAPHICS_SETTINGS == c.HIGH: #flagpole_timer doesn't matter (animation purposes only)
+            if self.flagpole_timer == 0:
                 self.flagpole_timer = self.current_time
-        elif self.rect.bottom >= 493:
-            self.frame_index = 10
+            elif self.rect.bottom < 493:
+                if (self.current_time - self.flagpole_timer) < 65:
+                    self.frame_index = 9
+                elif (self.current_time - self.flagpole_timer) < 130:
+                    self.frame_index = 10
+                else:
+                    self.flagpole_timer = self.current_time
+            elif self.rect.bottom >= 493:
+                self.frame_index = 10
 
     def walking_auto(self):
         self.max_x_vel = 5
@@ -435,28 +492,32 @@ class Player(pg.sprite.Sprite):
         
         self.x_vel = self.cal_vel(self.x_vel, self.max_x_vel, self.x_accel)
         
-        if (self.walking_timer == 0 or (self.current_time - self.walking_timer) > 200):
-            self.walking_timer = self.current_time
-        elif (self.current_time - self.walking_timer >
-                    self.calculate_animation_speed()):
-            if self.frame_index < 3:
-                self.frame_index += 1
-            else:
-                self.frame_index = 1
-            self.walking_timer = self.current_time
+        if c.GRAPHICS_SETTINGS == c.HIGH: #walking timer doesn't matter
+            if (self.walking_timer == 0 or (self.current_time - self.walking_timer) > 200):
+                self.walking_timer = self.current_time
+            elif (self.current_time - self.walking_timer >
+                        self.calculate_animation_speed()):
+                if self.frame_index < 3:
+                    self.frame_index += 1
+                else:
+                    self.frame_index = 1
+                self.walking_timer = self.current_time
+
+    def get_powerup_state(self):
+        return self.big + self.fire;
 
     def set_player_powerup_state(self,state_id):
         self.big = state_id == 1 or state_id == 2;
         self.fire = state_id == 2;
         if (state_id == 0):
             self.hurt_invincible = True;
-        initial_bottom = self.rect.bottom;
+        #initial_bottom = self.rect.bottom;
         self.transition_timer = 0
-        self.set_player_image((self.small_normal_frames if state_id == 0 else ( self.big_normal_frames  if state_id == 1 else self.big_fire_frames)), 0 if state_id < 2 else 3);
-        self.left_frames = (self.left_small_normal_frames if state_id == 0 else ( self.left_big_normal_frames  if state_id == 1 else self.left_big_fire_frames))
-        self.right_frames = (self.right_small_normal_frames if state_id == 0 else ( self.right_big_normal_frames  if state_id == 1 else self.right_big_fire_frames))
+        self.set_player_image((self.small_normal_frames if state_id == 0 else ( self.big_normal_frames  if (state_id == 1 or c.GRAPHICS_SETTINGS <= c.LOW) else self.big_fire_frames)), 0 if (state_id < 2 or c.GRAPHICS_SETTINGS != c.HIGH) else 3);
+        self.left_frames = (self.left_small_normal_frames if state_id == 0 else ( self.left_big_normal_frames  if (state_id == 1 or c.GRAPHICS_SETTINGS <= c.LOW)else self.left_big_fire_frames))
+        self.right_frames = (self.right_small_normal_frames if state_id == 0 else ( self.right_big_normal_frames  if (state_id == 1 or c.GRAPHICS_SETTINGS <= c.LOW) else self.right_big_fire_frames))
         self.state = c.WALK
-        self.rect.bottom = initial_bottom;
+        #self.rect.bottom = initial_bottom;
 
 
     def changing_to_big(self):
@@ -535,17 +596,24 @@ class Player(pg.sprite.Sprite):
 
     def set_player_image(self, frames, frame_index):
         self.frame_index = frame_index
-        if self.facing_right:
+        if self.facing_right or c.GRAPHICS_SETTINGS <= c.MED:
             self.right_frames = frames[0]
-            self.image = frames[0][frame_index]
+            if c.GRAPHICS_SETTINGS != c.NONE:
+                self.image = frames[0][frame_index]
+            else:
+                self.rect.w = frames[0][frame_index][0];
+                self.rect.h = frames[0][frame_index][1];
         else:
             self.left_frames = frames[1]
             self.image = frames[1][frame_index]
         bottom = self.rect.bottom
         centerx = self.rect.centerx
-        self.rect = self.image.get_rect()
+        if c.GRAPHICS_SETTINGS != c.NONE:
+            self.rect = self.image.get_rect()
         self.rect.bottom = bottom
         self.rect.centerx = centerx
+        self.update_hitbox();
+
 
     def check_if_hurt_invincible(self):
         if self.hurt_invincible:
@@ -563,7 +631,8 @@ class Player(pg.sprite.Sprite):
                 self.hurt_invincible_timer = 0
                 for frames in self.all_images:
                     for image in frames:
-                        image.set_alpha(255)
+                        if (image is not None):
+                            image.set_alpha(255)
 
     def check_if_invincible(self):
         if self.invincible:
@@ -590,7 +659,7 @@ class Player(pg.sprite.Sprite):
                         image.set_alpha(255)
 
     def animation(self):
-        if self.facing_right:
+        if self.facing_right or c.GRAPHICS_SETTINGS <= c.MED:
             self.image = self.right_frames[self.frame_index]
         else:
             self.image = self.left_frames[self.frame_index]
@@ -604,5 +673,23 @@ class Player(pg.sprite.Sprite):
         self.dead = True
         self.y_vel = -11
         self.gravity = .5
-        self.frame_index = 6
+        if c.GRAPHICS_SETTINGS == c.HIGH:
+            self.frame_index = 6
         self.state = c.DEATH_JUMP
+
+    def update_hitbox(self):
+        if self.hitbox.size != self.rect.size:
+            self.hitbox = self.rect.inflate(c.PLAYER_WIDTH_MODIFIER*self.rect.w,0);
+        elif self.hitbox.center != self.rect.center:
+            self.hitbox.center = self.rect.center;
+        #print(self.rect);
+        #print(self.hitbox);
+        #print(self.rect.center);
+        #print(self.hitbox.center);
+
+
+    def rect_from_hitbox(self): #only called for collision positions
+        self.rect.center = self.hitbox.center;
+        #print(self.rect);
+
+

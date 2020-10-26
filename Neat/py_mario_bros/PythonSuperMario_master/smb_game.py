@@ -1,7 +1,8 @@
 from baseGame import RunGame
 from abc import abstractmethod
-
-
+from .source import setup, tools
+from .source import constants as c
+from .source.states.segment import Segment
 
 
 empty_actions = zip(['action','jump','left','right','down'],[False for i in range(5)])
@@ -10,8 +11,16 @@ class SMB1Game(RunGame):
     def __init__(self,runnerConfig,kwargs):
         self.steps = 0;
         self.runConfig = runnerConfig;
-        self.game = kwargs["game"];
-        self.game.load_segment(runnerConfig.training_datum);
+        if 'game' not in kwargs: #only happens if parallel
+            self.process_num = kwargs['process_num']
+            self.game = tools.Control(process_num=self.process_num)
+            state_dict = {c.LEVEL: Segment()}
+            self.game.setup_states(state_dict, c.LEVEL)
+            self.game.state.startup(0,{c.LEVEL_NUM:1});
+            kwargs['game'] = self.game;
+        else:
+            self.game = kwargs["game"];
+        self.game.load_segment(kwargs['training_datum']);
         self.min_obstructions = None;
         self.stillness_time = 0;
         

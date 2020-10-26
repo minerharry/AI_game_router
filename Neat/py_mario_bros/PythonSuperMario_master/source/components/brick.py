@@ -30,7 +30,7 @@ def create_brick(brick_group, item, level):
             
 def create_brick_list(brick_group, num, x, y, type, color, direction):
     ''' direction:horizontal, create brick from left to right, direction:vertical, create brick from up to bottom '''
-    size = 43 # 16 * c.BRICK_SIZE_MULTIPLIER is 43
+    size = 16 * c.SIZE_MULTIPLIER; #43 # 16 * c.BRICK_SIZE_MULTIPLIER is 43
     tmp_x, tmp_y = x, y
     for i in range(num):
         if direction == c.VERTICAL:
@@ -49,6 +49,10 @@ class Brick(stuff.Stuff):
             frame_rect = green_rect
         stuff.Stuff.__init__(self, x, y, 'tile_set',
                         frame_rect, c.BRICK_SIZE_MULTIPLIER)
+        if c.GRAPHICS_SETTINGS == c.LOW:
+            for frame in self.frames:
+                if frame is not None:
+                    frame.fill(c.BRICK_PLACEHOLDER_COLOR);
         self.color = color;
         self.compressed = False;
         self.rest_height = y
@@ -63,6 +67,7 @@ class Brick(stuff.Stuff):
         self.group = group
         self.name = name
         self.group_ids = None;
+
     
     #removes all of the unneeded variables that remain constant (removes unpickleable objects)
     def compress(self,level):
@@ -75,20 +80,29 @@ class Brick(stuff.Stuff):
 
     #adds back all of the unneeded variables that remain constant (adds back unpickleable objects)
     def decompress(self,level):
-        for image_rect in self.image_rect_list:
-            self.frames.append(tools.get_image(setup.GFX[self.sheet_name], 
-                    *image_rect, c.BLACK, self.scale))
-        if (not c.COMPLEX_FRAMES):
-            self.image = self.frames[0];
-        else:
+        if c.GRAPHICS_SETTINGS >= c.MED:
+            for image_rect in self.image_rect_list:
+                self.frames.append(tools.get_image(setup.GFX[self.sheet_name], 
+                        *image_rect, c.BLACK, self.scale))
+        elif c.GRAPHICS_SETTINGS == c.LOW:
+            sizes = [];
+            for frame in self.image_rect_list:
+                rect = (frame[2],frame[3])
+                if (rect not in sizes):
+                    sizes.append(rect);
+                    frame = pg.Surface((rect[0]*c.SIZE_MULTIPLIER,rect[1]*c.SIZE_MULTIPLIER)).convert();
+                    frame.fill(c.BRICK_PLACEHOLDER_COLOR);
+                    self.frames.append(frame);
+                else:
+                    self.frames.append(None);
+        if c.GRAPHICS_SETTINGS != c.NONE:
             self.image = self.frames[self.frame_index]
-        self.image.get_rect().x = self.rect.x;
-        self.image.get_rect().bottom = self.rect.bottom;
+            self.image.get_rect().x = self.rect.x;
+            self.image.get_rect().bottom = self.rect.bottom;
         if self.type == c.TYPE_COIN:
             self.group = level.coin_group;
         else:
             self.group = level.powerup_group;
-        self.compressed = False;
         if self.group_ids is not None:
             self.add([level.get_group_by_id(id) for id in self.group_ids if level.get_group_by_id(id) is not None]);
             self.group_ids = None;
@@ -128,21 +142,15 @@ class Brick(stuff.Stuff):
         
         if self.type == c.TYPE_COIN:
             if self.coin_num > 0:
-                self.group.add(coin.Coin(self.rect.centerx, self.rect.y, score_group))
+                #self.group.add(coin.Coin(self.rect.centerx, self.rect.y, score_group))
                 self.coin_num -= 1
-                if self.coin_num == 0:
+                if self.coin_num == 0 and c.GRAPHICS_SETTINGS == c.HIGH:
                     self.frame_index = 1
-                    if (not c.COMPLEX_FRAMES):
-                        self.image = self.frames[0];
-                    else:
-                        self.image = self.frames[self.frame_index]
+                    self.image = self.frames[self.frame_index]
         elif (self.type == c.TYPE_STAR or 
             self.type == c.TYPE_FIREFLOWER or 
-            self.type == c.TYPE_LIFEMUSHROOM):
-            self.frame_index = 1
-            if (not c.COMPLEX_FRAMES):
-                self.image = self.frames[0];
-            else:
+            self.type == c.TYPE_LIFEMUSHROOM) and c.GRAPHICS_SETTINGS == c.HIGH:
+                self.frame_index = 1
                 self.image = self.frames[self.frame_index]
         
         self.state = c.BUMPED

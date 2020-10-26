@@ -2,7 +2,7 @@
     "image_name":"level_1",
     "maps":[
         {"map_bounds": [0,9086,0,600],"map_start":[110,450]},
-        {"map_bounds": [9090,9890,0,600],"map_start":[80,60]},
+        {"map_bounds": [9090,9890,0,600],"map_start":[9170,60]},
         {"map_bounds": [6740,9086,0,600],"map_start":[7010,450]}
     ],
     "ground":[
@@ -12,7 +12,7 @@
         {"x":6647, "y":538, "width":3250, "height":60}
     ],
     "pipe":[
-        {"x":1201, "y":451, "width": 83, "height": 84, "type":0},
+        {"x":1201, "y":454, "width": 83, "height": 84, "type":0},
         {"x":1629, "y":409, "width": 83, "height":126, "type":0},
         {"x":1972, "y":366, "width": 83, "height":170, "type":0},
         {"x":2444, "y":366, "width": 83, "height":170, "type":1},

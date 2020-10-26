@@ -36,7 +36,8 @@ class State():
         '''abstract method'''
 
 class Control():
-    def __init__(self):
+    def __init__(self,process_num=None):
+        self.process_num = process_num;
         self.screen = pg.display.get_surface()
         self.done = False
         self.clock = pg.time.Clock()
@@ -60,7 +61,7 @@ class Control():
         self.state_name = start_state
         self.state = self.state_dict[self.state_name]
     
-    def update(self,auto_advance_state = True):
+    def update(self,auto_advance_state = True,show_game = None):
         if (self.fps_counter >= self.fps_cycle):
             self.fps_counter = 0;
             if (c.DISPLAY_FRAMERATE):
@@ -71,7 +72,10 @@ class Control():
         self.current_time = pg.time.get_ticks()
         if self.state.done and auto_advance_state:
             self.flip_state()
-        self.state.update(self.screen, self.keys, self.current_time)
+        if show_game is not None:
+            self.state.update(self.screen, self.keys, self.current_time, show_game = show_game);
+        else:
+            self.state.update(self.screen, self.keys, self.current_time);
     
     def flip_state(self):
         previous, self.state_name = self.state_name, self.state.next
@@ -99,13 +103,17 @@ class Control():
             #self.clock.tick(self.fps)
 
     def tick_inputs(self,named_inputs,show_game=True):
+        if self.process_num is not None and self.process_num != 0:
+            show_game = True;
         keys = {};
         for name,val in named_inputs:
             keys[keybinding[name]] = val;
         self.keys = keys;
-        self.update(auto_advance_state=False);
+        self.update(auto_advance_state=False,show_game=show_game);
+
         #print('updated');
         if (show_game):
+            pg.event.pump();
             #print('display updated')
             pg.display.update();
 
@@ -126,26 +134,32 @@ class Control():
 
 
 def get_image(sheet, x, y, width, height, colorkey, scale):
-        image = pg.Surface([width, height])
-        rect = image.get_rect()
+        if (sheet is not None):
+            image = pg.Surface([width, height])
+            rect = image.get_rect()
 
-        image.blit(sheet, (0, 0), (x, y, width, height))
-        image.set_colorkey(colorkey)
-        image = pg.transform.scale(image,
-                                   (int(rect.width*scale),
-                                    int(rect.height*scale)))
-        return image
+            image.blit(sheet, (0, 0), (x, y, width, height))
+            if c.GRAPHICS_SETTINGS != c.LOW:
+                image.set_colorkey(colorkey)
+            image = pg.transform.scale(image,
+                                    (int(rect.width*scale),
+                                        int(rect.height*scale)))
+            return image
+        return None;
 
 def load_all_gfx(directory, colorkey=(255,0,255), accept=('.png', '.jpg', '.bmp', '.gif')):
     graphics = {}
     for pic in os.listdir(directory):
         name, ext = os.path.splitext(pic)
-        if ext.lower() in accept:
-            img = pg.image.load(os.path.join(directory, pic))
-            if img.get_alpha():
-                img = img.convert_alpha()
-            else:
-                img = img.convert()
-                img.set_colorkey(colorkey)
-            graphics[name] = img
+        if c.GRAPHICS_SETTINGS >= c.MED or name.startswith('level'):
+            if ext.lower() in accept:
+                img = pg.image.load(os.path.join(directory, pic))
+                if img.get_alpha():
+                    img = img.convert_alpha()
+                else:
+                    img = img.convert()
+                    img.set_colorkey(colorkey)
+                graphics[name] = img
+        else:
+            graphics[name] = None;
     return graphics
