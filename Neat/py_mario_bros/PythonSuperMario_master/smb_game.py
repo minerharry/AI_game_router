@@ -1,17 +1,17 @@
 from baseGame import RunGame
 from abc import abstractmethod
-from .source import setup, tools
+from .source import tools
 from .source import constants as c
-from .source.states.segment import Segment
 
 
-empty_actions = zip(['action','jump','left','right','down'],[False for i in range(5)])
+empty_actions = dict(zip(['action','jump','left','right','down'],[False for i in range(5)]))
 class SMB1Game(RunGame):
     
     def __init__(self,runnerConfig,kwargs):
         self.steps = 0;
         self.runConfig = runnerConfig;
-        if 'game' not in kwargs: #only happens if parallel
+        if 'game' not in kwargs: #initial setup
+            from .source.states.segment import Segment
             self.process_num = kwargs['process_num']
             self.game = tools.Control(process_num=self.process_num)
             state_dict = {c.LEVEL: Segment()}

@@ -14,7 +14,7 @@ GRAPHICS_SETTINGS = LOW;
 #NOTE: it is assumed that medium and high quality means that loaded maps have image backgrounds, meaning ground tiles do not render. ground will render with a placeholder on low quality
 #NOTE: Certain enemies (only koopas, so far) change their hitbox between frames; specifically, when they turn into shells. All other enemies, so far, have the same hitbox independent of their animation, meaning the exact same image can be used for all frames. If any new enemies get added (and they change hitbox based on animation), the collision needs to be updated accordingly on low/medium graphics settings
 
-DISPLAY_FRAMERATE = True;
+DISPLAY_FRAMERATE = False;
 
 DEBUG = False;
 DEBUG_START_X = 200

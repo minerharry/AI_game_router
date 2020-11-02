@@ -6,6 +6,7 @@ import os
 import visualize
 import random
 import numpy as np
+from datetime import datetime
 #import concurrent.futures
 import multiprocessing
 from logReporting import LoggingReporter
@@ -259,9 +260,14 @@ class GameRunner:
 
     
     def eval_training_data_batch_feedforward(self,genomes,config,data,processNum,lock):
+        count = 0;
+        total_count = len(data) * len(genomes);
         for datum in data:
             for genome_id,genome in genomes:
                 genome.increment_fitness(lock,self.eval_genome_feedforward(genome,config,processNum=processNum,trainingDatum=datum));
+                count += 1;
+                if count % 100 == 0:
+                    print(f'Parallel Checkpoint - Process #{processNum} at {datetime.now()}; {count}/{total_count}');
 
     #evaluate a population with the game as a feedforward neural net
     def eval_genomes_feedforward(self, genomes, config):

@@ -10,9 +10,8 @@ try:
    import cPickle as pickle
 except:
    import pickle
-from py_mario_bros.PythonSuperMario_master.source import setup, tools
+from py_mario_bros.PythonSuperMario_master.source import tools
 from py_mario_bros.PythonSuperMario_master.source import constants as c
-from py_mario_bros.PythonSuperMario_master.source.states.segment import Segment
 
 steps_threshold = 1000;
 
@@ -26,14 +25,7 @@ def getFitness(inputs):
 
 def getRunning(inputs):
     return (not(inputs['done']) and (not inputs['stillness_time'] > steps_threshold));
-#run_state = 'continue';
-#run_state = 'rerun';
-run_state = 'rerun_all'
-#run_state = 'new';
-#run_state = 'id_rerun'
-currentRun = 0;
-reRunGeneration = 1;
-reRunId = 88;
+
 
 
 if __name__ == "__main__":
@@ -41,11 +33,14 @@ if __name__ == "__main__":
     multiprocessing.freeze_support();
 
 
-    #run_state = 'continue';
+    run_state = 'continue';
     #run_state = 'rerun';
-    run_state = 'new';
-    currentRun = 2;
-    reRunGeneration = 0;
+    #run_state = 'rerun_all'
+    #run_state = 'new';
+    #run_state = 'id_rerun'
+    currentRun = 1;
+    reRunGeneration = 1;
+    reRunId = 88;
 
     if (False):
         f = open(f'memories\\smb1Py\\run-{currentRun}-data','rb')
@@ -70,7 +65,7 @@ if __name__ == "__main__":
         pickle.dump(training_data,f);
         f.close();
     else:
-        f = open(f'memories\\smb1Py\\run-{currentRun}-data')
+        f = open(f'memories\\smb1Py\\run-{currentRun}-data','rb')
         training_data = pickle.load(f);
         f.close();
 
@@ -81,7 +76,7 @@ if __name__ == "__main__":
     runConfig.training_data = training_data;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
-    runConfig.parallel_processes = 8;
+    runConfig.parallel_processes = 4;
 
     runConfig.logPath = f'logs\\smb1Py\\run-{currentRun}-log.txt';
     runConfig.fitness_collection_type='delta';
@@ -89,13 +84,6 @@ if __name__ == "__main__":
 
 
     game = EvalGame(SMB1Game);
-    if not runConfig.parallel:
-            gameEnv = tools.Control();
-            state_dict = {c.LEVEL: Segment()}
-            gameEnv.setup_states(state_dict, c.LEVEL)
-            gameEnv.state.startup(0,{c.LEVEL_NUM:1});
-            game = EvalGame(SMB1Game,game=gameEnv);
-            print('nonparallel, set game');
     
 #    print(game.initInputs);
     runner = GameRunner(game,runConfig);

@@ -39,6 +39,8 @@ class Control():
     def __init__(self,process_num=None):
         self.process_num = process_num;
         self.screen = pg.display.get_surface()
+        if process_num is not None:
+            pg.display.set_caption(f'{c.ORIGINAL_CAPTION} - Process #{process_num}')
         self.done = False
         self.clock = pg.time.Clock()
         self.fps = 60
