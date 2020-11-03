@@ -10,7 +10,7 @@ class SMB1Game(RunGame):
     def __init__(self,runnerConfig,kwargs):
         self.steps = 0;
         self.runConfig = runnerConfig;
-        if 'game' not in kwargs: #initial setup
+        if 'game' not in kwargs: #only as an emergergency backup
             from .source.states.segment import Segment
             self.process_num = kwargs['process_num']
             self.game = tools.Control(process_num=self.process_num)

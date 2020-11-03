@@ -6,6 +6,7 @@ import os
 import visualize
 import random
 import numpy as np
+import functools
 from datetime import datetime
 #import concurrent.futures
 import multiprocessing
@@ -80,6 +81,13 @@ class GameRunner:
         if (continuing):
             pop.complete_generation();
         
+        if self.runConfig.parallel:
+            manager = multiprocessing.Manager()
+            idQueue = manager.Queue()
+            lock = manager.Lock();
+            [idQueue.put(i) for i in range(self.runConfig.parallel_processes)];
+            self.pool = multiprocessing.pool.Pool(self.runConfig.parallel_processes, Genome_Executor.initProcess,(idQueue,self.game.gameClass,lock));
+
         winner = pop.run(self.eval_genomes,self.runConfig.generations if not single_gen else 1);
 
         return winner;
@@ -253,21 +261,12 @@ class GameRunner:
                 genome.fitness = fitness;
         
 
-    #parallel version of eval_genomes_feedforward
+    #parallel versions of eval_genomes_feedforward - DUMMY FUNCTIONS, should never be passed to a parallel process; pass the Genome_Executor function itself
     def eval_genome_batch_feedforward(self,genomes,config,processNum):
-        for genome_id, genome in genomes:
-            genome.fitness += self.eval_genome_feedforward(genome,config,processNum=processNum);
-
+        return Genome_Executor.eval_genome_batch_feedforward(config,self.runConfig,self.game,genomes);
     
-    def eval_training_data_batch_feedforward(self,genomes,config,data,processNum,lock):
-        count = 0;
-        total_count = len(data) * len(genomes);
-        for datum in data:
-            for genome_id,genome in genomes:
-                genome.increment_fitness(lock,self.eval_genome_feedforward(genome,config,processNum=processNum,trainingDatum=datum));
-                count += 1;
-                if count % 100 == 0:
-                    print(f'Parallel Checkpoint - Process #{processNum} at {datetime.now()}; {count}/{total_count}');
+    def eval_training_data_batch_feedforward(self,genomes,config,data):
+        return Genome_Executor.eval_training_data_batch_feedforward(config,self.runConfig,self.game,genomes,data);
 
     #evaluate a population with the game as a feedforward neural net
     def eval_genomes_feedforward(self, genomes, config):
@@ -275,33 +274,40 @@ class GameRunner:
             genome.fitness = 0; #sanity check
         if (self.runConfig.training_data is None):
             if (self.runConfig.parallel):
-                multiprocessing.freeze_support();
-                processes = [];
-                genome_batches = np.array_split(genomes,self.runConfig.parallel_processes);
-                for i in range(runConfig.parallel_processes):
-                    process = multiprocessing.Process(target=self.eval_genome_batch_feedforward,args=(genome_batches[i],config,i));
-                    processes.append(process);
-                for process in processes:
-                    process.start();
-                for process in processes:
-                    process.join();
-                return;
+
+                batch_func = functools.partial(Genome_Executor.map_eval_genome_feedforward,config,self.runConfig,self.game);
+                
+                self.pool.map(batch_func,genomes);
+                # processes = [];
+                # genome_batches = np.array_split(genomes,self.runConfig.parallel_processes);
+                # for i in range(runConfig.parallel_processes):
+                #     process = multiprocessing.Process(target=self.eval_genome_batch_feedforward,args=(genome_batches[i],config,i));
+                #     processes.append(process);
+                # for process in processes:
+                #     process.start();
+                # for process in processes:
+                #     process.join();
+                # return;
             else:
                 for genome_id, genome in genomes:
                     genome.fitness += self.eval_genome_feedforward(genome,config)
         else:
             if (self.runConfig.parallel):
-                processes = [];
-                data_batches = np.array_split(self.runConfig.training_data,self.runConfig.parallel_processes);
-                lock = multiprocessing.Lock();
-                for i in range(self.runConfig.parallel_processes):
-                    process = multiprocessing.Process(target=self.eval_training_data_batch_feedforward,args=(genomes,config,data_batches[i],i,lock));
-                    processes.append(process);
-                for process in processes:
-                    process.start();
-                for process in processes:
-                    process.join();
-                return;
+                
+                #data_batches = np.array_split(self.runConfig.training_data,self.runConfig.parallel_processes);
+
+                batch_func = functools.partial(Genome_Executor.map_eval_genomes_feedforward,config,self.runConfig,self.game,genomes);
+
+                self.pool.map(batch_func,self.runConfig.training_data);
+
+                # for i in range(self.runConfig.parallel_processes):
+                #     process = multiprocessing.Process(target=self.eval_training_data_batch_feedforward,args=(genomes,config,data_batches[i],i,lock));
+                #     processes.append(process);
+                # for process in processes:
+                #     process.start();
+                # for process in processes:
+                #     process.join();
+                # return;
             else:
                 for datum in self.runConfig.training_data:
                     for genome_id, genome in genomes:
@@ -310,15 +316,82 @@ class GameRunner:
 
 
     def eval_genome_feedforward(self,genome,config,trainingDatum=None,processNum=None):
+        return Genome_Executor.eval_genome_feedforward(genome,config,self.runConfig,self.game,trainingDatum=trainingDatum,processNum=processNum)
+
+
+
+#Ok, so
+#WHY does this exist, you may ask?
+#This is pretty much entirely for multiprocessing reasons. These functions used to be part of the game_runner_neat class, but there ended up being a lot of pickling overhead, and - more importantly - process id assignment requires global variables. 
+#Since global variables are hard and dumb, I use class variables and class methods instead. Basically the same thing, but still encapsulated.
+#These functions were almost entirely cut&pasted from the above class, and the functions were aliased for backwards compatibility
+
+#Class that handles any and all genome processing, packaged and globalized for easier interface with parallelism
+class Genome_Executor:
+    pid = None;
+    global_game = None;
+    lock = None;
+    count = 0;
+
+    #TODO: Abstractify this using gameClass methods
+    @classmethod
+    def initProcess(cls,id_queue,gameClass,lock):
+        cls.pnum = id_queue.get();
+        from py_mario_bros.PythonSuperMario_master.source import tools
+        from py_mario_bros.PythonSuperMario_master.source import constants as c
+        from py_mario_bros.PythonSuperMario_master.source.states.segment import Segment
+        cls.global_game = tools.Control(process_num=cls.pnum);
+        state_dict = {c.LEVEL: Segment()};
+        cls.global_game.setup_states(state_dict, c.LEVEL);
+        cls.global_game.state.startup(0,{c.LEVEL_NUM:1});
+        cls.lock = lock;
+        cls.count = 0;
+
+
+    #process methods - iterate within
+    @classmethod
+    def eval_genome_batch_feedforward(cls,config,runnerConfig,game,genomes):
+        for genome_id, genome in genomes:
+            cls.count += 1;
+            if count % 100 == 0:
+                print(f'Parallel Checkpoint - Process #{cls.pnum} at {datetime.now()}');
+            genome.fitness += cls.eval_genome_feedforward(genome,config,runnerConfig,game);
+
+    @classmethod
+    def eval_training_data_batch_feedforward(cls,config,runnerConfig,game,genomes,data):
+        count = 0;
+        for datum in data:
+            for genome_id,genome in genomes:
+                genome.increment_fitness(lock,cls.eval_genome_feedforward(genome,config,runnerConfig,game,trainingDatum=datum));
+                cls.count += 1;
+                if cls.count % 100 == 0:
+                    print(f'Parallel Checkpoint - Process #{cls.pnum} at {datetime.now()}');
+
+    #map methods - iterate externally
+    @classmethod
+    def map_eval_genomes_feedforward(cls,config,runnerConfig,game,genomes,datum):
+        for genome_id,genome in genomes:
+                cls.count += 1;
+                if count % 100 == 0:
+                    print(f'Parallel Checkpoint - Process #{cls.pnum} at {datetime.now()}');
+                genome.increment_fitness(cls.lock,cls.eval_genome_feedforward(genome,config,runnerConfig,game,trainingDatum=datum));
+    @classmethod
+    def map_eval_genome_feedforward(cls,config,runnerConfig,game,genome):
+        cls.count += 1;
+        if count % 100 == 0:
+            print(f'Parallel Checkpoint - Process #{cls.pnum} at {datetime.now()}');
+        genome.increment_fitness(cls.lock,cls.eval_genome_feedforward(genome,config,runnerConfig,game));
+
+    @classmethod
+    def eval_genome_feedforward(cls,genome,config,runnerConfig,game,trainingDatum=None):
         #print('genome evaluation triggered');
-        runnerConfig = self.runConfig;
         net = neat.nn.FeedForwardNetwork.create(genome,config);
         fitnesses = [];
         for trial in range(runnerConfig.numTrials):
             #startTime = time.time()
             #print('evaluating genome with id {0}, trial {1}'.format(genome.key,trial));
             fitness = 0;
-            runningGame = self.game.start(runnerConfig,training_datum = trainingDatum, process_num = processNum);
+            runningGame = game.start(runnerConfig,training_datum = trainingDatum, process_num = cls.pnum);
             if runnerConfig.fitness_collection_type != None and 'delta' in runnerConfig.fitness_collection_type:
                 fitness -= runningGame.getFitnessScore();
             while (runningGame.isRunning()):
@@ -342,7 +415,4 @@ class GameRunner:
         fitness = runnerConfig.fitnessFromArray()(fitnesses);
         return fitness;
         #print(genome.fitness);
-
-
-
-        
+    

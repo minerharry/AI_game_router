@@ -932,7 +932,7 @@ class Segment(tools.State):
         enemy_grid = self.get_enemy_grid()
         self.no_obstruction = True;
         
-        return {'done':self.done,'task_position':self.task,'pos':[self.player.rect.centerx,self.player.rect.centery],'vel':[self.player.x_vel,self.player.y_vel],'state':self.player.get_powerup_state(),'enemy_grid':enemy_grid,'collision_grid': collision_grid,'powerup_grid':self.get_powerup_grid(),'box_grid':self.get_box_grid(),'brick_grid':self.get_brick_grid(),'task_obstructions':self.get_task_obstructions()};
+        return {'done':self.done,'task_position_offset':[self.task[0]-self.player.rect.centerx,self.task[1]-self.player.rect.centery],'task_position':self.task,'pos':[self.player.rect.centerx,self.player.rect.centery],'vel':[self.player.x_vel,self.player.y_vel],'state':self.player.get_powerup_state(),'enemy_grid':enemy_grid,'collision_grid': collision_grid,'powerup_grid':self.get_powerup_grid(),'box_grid':self.get_box_grid(),'brick_grid':self.get_brick_grid(),'task_obstructions':self.get_task_obstructions()};
 
     def update_rect_grid(self,runConfig):
         if self.grid_rects is None:

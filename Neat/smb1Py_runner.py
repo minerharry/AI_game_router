@@ -33,24 +33,16 @@ if __name__ == "__main__":
     multiprocessing.freeze_support();
 
 
-    run_state = 'continue';
+    run_state = 'new';
     #run_state = 'rerun';
     #run_state = 'rerun_all'
     #run_state = 'new';
     #run_state = 'id_rerun'
-    currentRun = 1;
+    currentRun = 3;
     reRunGeneration = 1;
     reRunId = 88;
 
-    if (False):
-        f = open(f'memories\\smb1Py\\run-{currentRun}-data','rb')
-        training_data = pickle.load(f);
-        f.close();
-        print(training_data[0].static_data);
-        while (True):
-            x=3;
-
-
+    
 
 
 
