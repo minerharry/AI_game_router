@@ -84,9 +84,8 @@ class GameRunner:
         if self.runConfig.parallel:
             manager = multiprocessing.Manager()
             idQueue = manager.Queue()
-            lock = manager.Lock();
             [idQueue.put(i) for i in range(self.runConfig.parallel_processes)];
-            self.pool = multiprocessing.pool.Pool(self.runConfig.parallel_processes, Genome_Executor.initProcess,(idQueue,self.game.gameClass,lock));
+            self.pool = multiprocessing.pool.Pool(self.runConfig.parallel_processes, Genome_Executor.initProcess,(idQueue,self.game.gameClass));
 
         winner = pop.run(self.eval_genomes,self.runConfig.generations if not single_gen else 1);
 
@@ -277,7 +276,9 @@ class GameRunner:
 
                 batch_func = functools.partial(Genome_Executor.map_eval_genome_feedforward,config,self.runConfig,self.game);
                 
-                self.pool.map(batch_func,genomes);
+                fitnesses = self.pool.map(batch_func,genomes);
+                for genome_id,genome in genomes:
+                    genome.fitness += fitnesses[genome_id];
                 # processes = [];
                 # genome_batches = np.array_split(genomes,self.runConfig.parallel_processes);
                 # for i in range(runConfig.parallel_processes):
@@ -298,7 +299,11 @@ class GameRunner:
 
                 batch_func = functools.partial(Genome_Executor.map_eval_genomes_feedforward,config,self.runConfig,self.game,genomes);
 
-                self.pool.map(batch_func,self.runConfig.training_data);
+                datum_fitnesses = self.pool.map(batch_func,self.runConfig.training_data);
+                for fitnesses in datum_fitnesses:
+                    for genome_id,genome in genomes:
+                        genome.fitness += fitnesses[genome_id];
+
 
                 # for i in range(self.runConfig.parallel_processes):
                 #     process = multiprocessing.Process(target=self.eval_training_data_batch_feedforward,args=(genomes,config,data_batches[i],i,lock));
@@ -328,14 +333,13 @@ class GameRunner:
 
 #Class that handles any and all genome processing, packaged and globalized for easier interface with parallelism
 class Genome_Executor:
-    pid = None;
+    pnum = None;
     global_game = None;
-    lock = None;
     count = 0;
 
     #TODO: Abstractify this using gameClass methods
     @classmethod
-    def initProcess(cls,id_queue,gameClass,lock):
+    def initProcess(cls,id_queue,gameClass):
         cls.pnum = id_queue.get();
         from py_mario_bros.PythonSuperMario_master.source import tools
         from py_mario_bros.PythonSuperMario_master.source import constants as c
@@ -344,43 +348,49 @@ class Genome_Executor:
         state_dict = {c.LEVEL: Segment()};
         cls.global_game.setup_states(state_dict, c.LEVEL);
         cls.global_game.state.startup(0,{c.LEVEL_NUM:1});
-        cls.lock = lock;
         cls.count = 0;
 
 
     #process methods - iterate within
     @classmethod
     def eval_genome_batch_feedforward(cls,config,runnerConfig,game,genomes):
+        fitnesses = {genome_id:0 for genome_id,genome in genomes};
         for genome_id, genome in genomes:
             cls.count += 1;
             if count % 100 == 0:
                 print(f'Parallel Checkpoint - Process #{cls.pnum} at {datetime.now()}');
-            genome.fitness += cls.eval_genome_feedforward(genome,config,runnerConfig,game);
+            fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game);
+        return fitnesses;
 
     @classmethod
     def eval_training_data_batch_feedforward(cls,config,runnerConfig,game,genomes,data):
         count = 0;
+        fitnesses = {genome_id:0 for genome_id,genome in genomes};
         for datum in data:
             for genome_id,genome in genomes:
-                genome.increment_fitness(lock,cls.eval_genome_feedforward(genome,config,runnerConfig,game,trainingDatum=datum));
+                fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game,trainingDatum=datum);
                 cls.count += 1;
                 if cls.count % 100 == 0:
                     print(f'Parallel Checkpoint - Process #{cls.pnum} at {datetime.now()}');
+        return fitnesses;
 
     #map methods - iterate externally
     @classmethod
     def map_eval_genomes_feedforward(cls,config,runnerConfig,game,genomes,datum):
+        fitnesses = {genome_id:0 for genome_id,genome in genomes};
         for genome_id,genome in genomes:
                 cls.count += 1;
-                if count % 100 == 0:
+                if cls.count % 100 == 0:
                     print(f'Parallel Checkpoint - Process #{cls.pnum} at {datetime.now()}');
-                genome.increment_fitness(cls.lock,cls.eval_genome_feedforward(genome,config,runnerConfig,game,trainingDatum=datum));
+                fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game,trainingDatum=datum);
+        return fitnesses;
+
     @classmethod
     def map_eval_genome_feedforward(cls,config,runnerConfig,game,genome):
         cls.count += 1;
-        if count % 100 == 0:
+        if cls.count % 100 == 0:
             print(f'Parallel Checkpoint - Process #{cls.pnum} at {datetime.now()}');
-        genome.increment_fitness(cls.lock,cls.eval_genome_feedforward(genome,config,runnerConfig,game));
+        return cls.eval_genome_feedforward(genome,config,runnerConfig,game);
 
     @classmethod
     def eval_genome_feedforward(cls,genome,config,runnerConfig,game,trainingDatum=None):
