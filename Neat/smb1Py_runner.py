@@ -33,12 +33,12 @@ if __name__ == "__main__":
     multiprocessing.freeze_support();
 
 
-    run_state = 'new';
+    run_state = 'continue';
     #run_state = 'rerun';
     #run_state = 'rerun_all'
     #run_state = 'new';
     #run_state = 'id_rerun'
-    currentRun = 3;
+    currentRun = 1;
     reRunGeneration = 1;
     reRunId = 88;
 

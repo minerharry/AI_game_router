@@ -353,7 +353,7 @@ class Genome_Executor:
     def eval_genome_batch_feedforward(cls,config,runnerConfig,game,genomes):
         for genome_id, genome in genomes:
             cls.count += 1;
-            if count % 100 == 0:
+            if cls.count % 100 == 0:
                 print(f'Parallel Checkpoint - Process #{cls.pnum} at {datetime.now()}');
             genome.fitness += cls.eval_genome_feedforward(genome,config,runnerConfig,game);
 
@@ -372,13 +372,13 @@ class Genome_Executor:
     def map_eval_genomes_feedforward(cls,config,runnerConfig,game,genomes,datum):
         for genome_id,genome in genomes:
                 cls.count += 1;
-                if count % 100 == 0:
+                if cls.count % 100 == 0:
                     print(f'Parallel Checkpoint - Process #{cls.pnum} at {datetime.now()}');
                 genome.increment_fitness(cls.lock,cls.eval_genome_feedforward(genome,config,runnerConfig,game,trainingDatum=datum));
     @classmethod
     def map_eval_genome_feedforward(cls,config,runnerConfig,game,genome):
         cls.count += 1;
-        if count % 100 == 0:
+        if cls.count % 100 == 0:
             print(f'Parallel Checkpoint - Process #{cls.pnum} at {datetime.now()}');
         genome.increment_fitness(cls.lock,cls.eval_genome_feedforward(genome,config,runnerConfig,game));
 
