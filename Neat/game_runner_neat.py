@@ -357,7 +357,7 @@ class Genome_Executor:
         fitnesses = {genome_id:0 for genome_id,genome in genomes};
         for genome_id, genome in genomes:
             cls.count += 1;
-            if count % 100 == 0:
+            if cls.count % 100 == 0:
                 print(f'Parallel Checkpoint - Process #{cls.pnum} at {datetime.now()}');
             fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game);
         return fitnesses;
