@@ -38,7 +38,7 @@ if __name__ == "__main__":
     #run_state = 'rerun_all'
     #run_state = 'new';
     #run_state = 'id_rerun'
-    currentRun = 1;
+    currentRun = 3;
     reRunGeneration = 1;
     reRunId = 88;
 
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     training_data = [];
     if (run_state == 'new'):
         inital_config = GenerationOptions(num_blocks=[0,5],ground_height=[7,10]);
-        training_data = SegmentGenerator.generateBatch(inital_config,75);
+        training_data = SegmentGenerator.generateBatch(inital_config,100);
         f = open(f'memories\\smb1Py\\run-{currentRun}-data','wb');
         pickle.dump(training_data,f);
         f.close();
