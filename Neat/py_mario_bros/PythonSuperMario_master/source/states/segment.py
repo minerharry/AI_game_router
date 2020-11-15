@@ -66,6 +66,7 @@ class Segment(tools.State):
         self.grid_rects = None;
         self.task_bounds = None;
         self.task = None;
+        self.task_reached = False;
 
         #self.moving_score_list = []
         #self.overhead_info = info.Info(self.game_info, c.LEVEL)
@@ -514,6 +515,7 @@ class Segment(tools.State):
             self.dying_group.update(time_info, self)
             self.update_player_position()
             self.check_for_player_death()
+            self.check_for_player_win()
             self.update_viewport()
 
     
@@ -829,6 +831,11 @@ class Segment(tools.State):
         elif not ((self.player.rect.centerx < self.task_bounds[1] and self.player.rect.centerx>self.task_bounds[0]) and (self.player.rect.centery < self.task_bounds[3] and self.player.rect.centery > self.task_bounds[2])):
             self.player.die();
 
+    def check_for_player_win(self):
+        if self.player.hitbox.collidepoint(self.task):
+            self.done = True;
+            self.task_reached = True;
+
     def check_if_player_on_IN_pipe(self):
         '''check if player is on the pipe which can go down in to it '''
         self.player.rect.y += 1
@@ -932,7 +939,7 @@ class Segment(tools.State):
         enemy_grid = self.get_enemy_grid()
         self.no_obstruction = True;
         
-        return {'done':self.done,'task_position_offset':[self.task[0]-self.player.rect.centerx,self.task[1]-self.player.rect.centery],'task_position':self.task,'pos':[self.player.rect.centerx,self.player.rect.centery],'vel':[self.player.x_vel,self.player.y_vel],'state':self.player.get_powerup_state(),'enemy_grid':enemy_grid,'collision_grid': collision_grid,'powerup_grid':self.get_powerup_grid(),'box_grid':self.get_box_grid(),'brick_grid':self.get_brick_grid(),'task_obstructions':self.get_task_obstructions()};
+        return {'task_reached':self.task_reached,'done':self.done,'task_position_offset':[self.task[0]-self.player.rect.centerx,self.task[1]-self.player.rect.centery],'task_position':self.task,'pos':[self.player.rect.centerx,self.player.rect.centery],'vel':[self.player.x_vel,self.player.y_vel],'state':self.player.get_powerup_state(),'enemy_grid':enemy_grid,'collision_grid': collision_grid,'powerup_grid':self.get_powerup_grid(),'box_grid':self.get_box_grid(),'brick_grid':self.get_brick_grid(),'task_obstructions':self.get_task_obstructions()};
 
     def update_rect_grid(self,runConfig):
         if self.grid_rects is None:
