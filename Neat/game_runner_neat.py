@@ -144,12 +144,16 @@ class GameRunner:
             else:
                 self.render_genome_feedforward(genome,config,net=net);
         else:
+            if (net):
+                flattened_data = self.runConfig.flattened_return_data();
+                shaped_data = self.runConfig.return_data_shape();
+                visualize.draw_net(config,genome,view=True,node_names=dict([(-i-1,flattened_data[i]) for i in range(len(flattened_data))]),nodes_shape=shaped_data);
+            
             for datum in self.runConfig.training_data:
-                self.runConfig.training_datum = datum;
                 if (self.runConfig.recurrent):  
-                    self.render_genome_recurrent(genome,config,net=False);
+                    self.render_genome_recurrent(genome,config,net=False,training_datum = datum);
                 else:
-                    self.render_genome_feedforward(genome,config,net=False);
+                    self.render_genome_feedforward(genome,config,net=False,training_datum = datum);
 
 
 
@@ -187,7 +191,7 @@ class GameRunner:
         
 
     #render a genome with the game as a feedforward neural net
-    def render_genome_feedforward(self, genome, config,net=False):
+    def render_genome_feedforward(self, genome, config,net=False,training_datum=None):
         runnerConfig = self.runConfig;
         if (net):
             flattened_data = runnerConfig.flattened_return_data();
@@ -201,7 +205,7 @@ class GameRunner:
         else:
             
             net = neat.nn.FeedForwardNetwork.create(genome,config);
-            runningGame = self.game.start(runnerConfig);
+            runningGame = self.game.start(runnerConfig,training_datum = training_datum);
             images = [];
             while (runningGame.isRunning()):
                 #get the current inputs from the running game, as specified by the runnerConfig
@@ -320,8 +324,8 @@ class GameRunner:
 
 
 
-    def eval_genome_feedforward(self,genome,config,trainingDatum=None,processNum=None):
-        return Genome_Executor.eval_genome_feedforward(genome,config,self.runConfig,self.game,trainingDatum=trainingDatum,processNum=processNum)
+    def eval_genome_feedforward(self,genome,config,trainingDatum=None):
+        return Genome_Executor.eval_genome_feedforward(genome,config,self.runConfig,self.game,trainingDatum=trainingDatum)
 
 
 
