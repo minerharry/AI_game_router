@@ -44,11 +44,18 @@ class GameRunner:
 
         return self.run(pop.config,run_name,render=render,pop=pop);
 
-    def replay_generation(self,generation,run_name,render=False):
+    def replay_generation(self,generation,run_name,render=False,genome_config_edits=None):
         checkpoint_folder = 'checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_');
         pop = neat.Checkpointer.restore_checkpoint(checkpoint_folder + '\\run-checkpoint-' + str(generation));
 
-        return self.run(pop.config,run_name,render=render,pop=pop,single_gen=True);
+        config = pop.config;
+
+        if (genome_config_edits is not None):
+            for k,v in genome_config_edits:
+                if hasattr(config.genome_config,k):
+                    setattr(config.genome_config,k,v);
+
+        return self.run(config,run_name,render=render,pop=pop,single_gen=True);
 
     def run(self,config,run_name,render=False,pop=None,single_gen=False):
         if (pop is None):
