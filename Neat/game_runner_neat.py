@@ -4,6 +4,7 @@ import runnerConfiguration
 import os.path
 import os
 import visualize
+import sys
 import random
 import numpy as np
 import functools
@@ -413,7 +414,12 @@ class Genome_Executor:
                 gameData = runningGame.getData();
 
                 #print('input: {0}'.format(gameData));
-                gameInput = net.activate(gameData);
+                try:
+                    gameInput = net.activate(gameData);
+                except:
+                    print('Error in activating net with data ', gameData, ' and mapped data ', runningGame.getMappedData());
+                    print('Error body: ', sys.exc_info()[0]);
+                    raise
 
                 
                 runningGame.processInput(gameInput);

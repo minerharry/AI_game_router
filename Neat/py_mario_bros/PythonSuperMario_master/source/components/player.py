@@ -9,7 +9,6 @@ from ..components import powerup
 
 class Player(pg.sprite.Sprite):
     #TODO: Fix player dying at full health
-    #TODO: remove animations of end of level, pipe, and powerup (aka remove any non-input frames)
     def __init__(self, player_name):
         pg.sprite.Sprite.__init__(self)
         self.player_name = player_name

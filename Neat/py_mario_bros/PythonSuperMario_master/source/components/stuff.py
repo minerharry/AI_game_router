@@ -266,7 +266,6 @@ class Pipe(Stuff):
         return False
 
 #TODO: investigate variable-width slider meaning
-#TODO: add placeholder image for sliders
 class Slider(Stuff):
     def __init__(self, x, y, num, direction, range_start, range_end, vel, name=c.MAP_SLIDER):
         Stuff.__init__(self, x, y, c.ITEM_SHEET,
