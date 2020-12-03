@@ -43,7 +43,6 @@ class SegmentState:
 
 class Segment(tools.State):
 #TODO: add back a level timer
-#TODO: Possible collision detection overhaul to make more accurate to smb1
     def __init__(self):
         tools.State.__init__(self)
         self.player = None
@@ -939,7 +938,7 @@ class Segment(tools.State):
         enemy_grid = self.get_enemy_grid()
         self.no_obstruction = True;
         
-        return {'task_reached':self.task_reached,'done':self.done,'task_position_offset':[self.task[0]-self.player.rect.centerx,self.task[1]-self.player.rect.centery],'task_position':self.task,'pos':[self.player.rect.centerx,self.player.rect.centery],'vel':[self.player.x_vel,self.player.y_vel],'state':self.player.get_powerup_state(),'enemy_grid':enemy_grid,'collision_grid': collision_grid,'powerup_grid':self.get_powerup_grid(),'box_grid':self.get_box_grid(),'brick_grid':self.get_brick_grid(),'task_obstructions':self.get_task_obstructions()};
+        return {'task_reached':self.task_reached,'done':self.done,'task_position_offset':[self.task[0]-self.player.rect.centerx,self.task[1]-self.player.rect.centery],'task_position':self.task,'pos':[self.player.rect.centerx,self.player.rect.centery],'vel':[self.player.x_vel,self.player.y_vel],'player_state':self.player.get_powerup_state(),'enemy_grid':enemy_grid,'collision_grid': collision_grid,'powerup_grid':self.get_powerup_grid(),'box_grid':self.get_box_grid(),'brick_grid':self.get_brick_grid(),'task_obstructions':self.get_task_obstructions()};
 
     def update_rect_grid(self,runConfig):
         if self.grid_rects is None:
@@ -955,6 +954,7 @@ class Segment(tools.State):
             offset = [self.player.rect.center[0] - self.grid_center[0],self.player.rect.center[1] - self.grid_center[1]];
             [[rect.move(offset[0],offset[1]) for rect in row] for row in self.grid_rects];
 
+#TODO: Fix - input grids always returning lists of 1s
 
     def get_enemy_grid(self):
         spriteRects = [sprite.rect for sprite in self.enemy_group];
