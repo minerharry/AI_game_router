@@ -896,6 +896,8 @@ class Segment(tools.State):
         print('score updated')
 
     def draw(self, surface):
+
+
         if (self.background is not None):
             self.level.blit(self.background, self.viewport, self.viewport)
         self.powerup_group.draw(self.level)
@@ -958,25 +960,25 @@ class Segment(tools.State):
 
     def get_enemy_grid(self):
         spriteRects = [sprite.rect for sprite in self.enemy_group];
-        return [[1 if rect.collidelist(spriteRects) else 0 for rect in row] for row in self.grid_rects];
+        return [[1 if rect.collidelist(spriteRects) >= 0 else 0 for rect in row] for row in self.grid_rects];
 
     def get_collision_grid(self):
         check_group = pg.sprite.Group(self.ground_step_pipe_group,
                             self.brick_group, self.box_group);
         spriteRects = [sprite.rect for sprite in check_group];
-        return [[1 if rect.collidelist(spriteRects) else 0 for rect in row] for row in self.grid_rects];
+        return [[1 if rect.collidelist(spriteRects) >= 0 else 0 for rect in row] for row in self.grid_rects];
 
     def get_powerup_grid(self):
         spriteRects = [sprite.rect for sprite in self.powerup_group];
-        return [[1 if rect.collidelist(spriteRects) else 0 for rect in row] for row in self.grid_rects];
+        return [[1 if rect.collidelist(spriteRects) >= 0 else 0 for rect in row] for row in self.grid_rects];
 
     def get_box_grid(self):
         spriteRects = [sprite.rect for sprite in self.box_group];
-        return [[1 if rect.collidelist(spriteRects) else 0 for rect in row] for row in self.grid_rects];
+        return [[1 if rect.collidelist(spriteRects) >= 0 else 0 for rect in row] for row in self.grid_rects];
 
     def get_brick_grid(self):
         spriteRects = [sprite.rect for sprite in self.brick_group];
-        return [[1 if rect.collidelist(spriteRects) else 0 for rect in row] for row in self.grid_rects];
+        return [[1 if rect.collidelist(spriteRects) >= 0 else 0 for rect in row] for row in self.grid_rects];
 
 
     #return [distance,blocks,enemies], with [blocks,enemies] counting the number of objects between the player's center and the task. For fitness purposes only
