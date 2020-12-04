@@ -5,11 +5,9 @@ from .. import constants as c
 
 #TODO: add sliders, enemies, and density constraints. Essentially just make it better/exist lol
 class SegmentGenerator:
-    def __init__(self,generationOptions):
-        self.options = generationOptions;
-
+    
     @staticmethod
-    def generate(options,makeBatches=False):
+    def generate(options,makeBatches=False,return_raw=False):
         numTiles = options.size[0]*options.size[1];
         tiles = [(int(i/options.size[1]),i%options.size[1]) for i in range(numTiles)];
         outputGrid = [[0 for i in range(options.size[0])] for j in range(options.size[1])];
@@ -39,14 +37,19 @@ class SegmentGenerator:
         block_positions = random.sample(tiles,numBlocks);
         block_positions += groundPositions;
 
+        [innerRing.remove(pos) for pos in block_positions if pos in innerRing];
+
+
         bounds = options.inner_margins();
         bounds[1] = options.size[0]-bounds[1];
         bounds[3] = options.size[1]-bounds[3];
+
         if makeBatches:
-            return SegmentGenerator.export(options.size,block_positions,[],[],[],player_position,[random.choice(innerRing)],bounds);
-        else:
             random.shuffle(innerRing);
-            return SegmentGenerator.export(options.size,block_positions,[],[],[],player_position,innerRing[:options.taskBatchSize],bounds);
+        raw_data = [options.size,block_positions,[],[],[],player_position,[random.choice(innerRing)] if not makeBatches else innerRing[:options.taskBatchSize],bounds]
+        if return_raw:
+            return [{k:v for k,v in zip(['size','blocks','bricks','boxes','dynamics','start','tasks','bounds'],raw_data)}];
+        return SegmentGenerator.export(*raw_data);
         
         
 
@@ -64,8 +67,8 @@ class SegmentGenerator:
         output_dict[c.MAP_MAPS] = [{c.MAP_BOUNDS:[0,size[0]*c.TILE_SIZE,0,size[1]*c.TILE_SIZE],c.MAP_START:[player_start[0]*c.TILE_SIZE,player_start[1]*c.TILE_SIZE]}];
         result = [];
         scaled_bounds = [bound*c.TILE_SIZE for bound in task_bounds]
-        print(task_bounds);
-        print(scaled_bounds);
+        #print(task_bounds);
+        #print(scaled_bounds);
         for pos in task_positions:
             pos = [(i + 0.5) * c.TILE_SIZE for i in pos];
             result.append(SegmentState(None,output_dict,task=pos,task_bounds=scaled_bounds));
@@ -76,10 +79,10 @@ class SegmentGenerator:
         
 
     @staticmethod
-    def generateBatch(options,batchSize):
+    def generateBatch(options,batchSize,**kwargs):
         output = [];
         while len(output) < batchSize:
-            output += SegmentGenerator.generate(options,makeBatches=True);
+            output += SegmentGenerator.generate(options,makeBatches=True,**kwargs);
         return output[:batchSize];
 
 
