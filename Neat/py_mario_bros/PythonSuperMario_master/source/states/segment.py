@@ -957,8 +957,9 @@ class Segment(tools.State):
             shader_surface.fill((0,255,0,c.SHADER_ALPHA),task_rect);
             self.level.blit(shader_surface,self.viewport.topleft,self.viewport);
         
-        pg.draw.circle(self.level,c.PURPLE,self.map_list[0][1],1/16*c.TILE_SIZE);
-        pg.draw.rect(self.level,c.PLAYER_PLACEHOLDER_COLOR,pg.Rect(self.player.rect.centerx-10,self.player.rect.centery-10,20,20));
+        
+        pg.draw.circle(self.level,c.PURPLE,self.map_list[0][1],2/16*c.TILE_SIZE);
+        #pg.draw.rect(self.level,c.PLAYER_PLACEHOLDER_COLOR,pg.Rect(self.player.rect.centerx-10,self.player.rect.centery-10,20,20));
 
         surface.fill(c.BLACK);
         surface.blit(self.level, (0,0), self.viewport)

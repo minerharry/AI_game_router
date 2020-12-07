@@ -40,15 +40,15 @@ enabled_mutate_rate     = 0.05
 
 feed_forward            = True
 
-# Create 50% partially connected network
-initial_connection = partial_direct 0.5
+# Create 2% partially connected network
+initial_connection = partial_direct 0.02
 
 # node add/remove rates
 node_add_prob           = 0.6
 node_delete_prob        = 0.4
 
 # network parameters
-num_hidden              = 150
+num_hidden              = 50
 num_inputs              = 1132
 num_outputs             = 5
 
