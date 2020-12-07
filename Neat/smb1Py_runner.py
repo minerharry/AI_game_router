@@ -82,6 +82,7 @@ if __name__ == "__main__":
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
     runConfig.parallel_processes = 4;
+    runConfig.chunkFactor = 32;
 
     runConfig.logPath = f'logs\\smb1Py\\run-{currentRun}-log.txt';
     runConfig.fitness_collection_type='delta';

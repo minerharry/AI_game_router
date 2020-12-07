@@ -288,6 +288,12 @@ class GameRunner:
 
                 batch_func = functools.partial(Genome_Executor.map_eval_genome_feedforward,config,self.runConfig,self.game);
                 
+                chunkFactor = 4;
+                if hasattr(self.runConfig,'chunkFactor') and self.runConfig.chunkFactor is not None:
+                    chunkFactor = self.runConfig.chunkFactor;
+                
+                chunkSize = divmod(len(genomes),os.cpu_count()*chunkFactor);
+
                 fitnesses = self.pool.map(batch_func,genomes);
                 for genome_id,genome in genomes:
                     genome.fitness += fitnesses[genome_id];
