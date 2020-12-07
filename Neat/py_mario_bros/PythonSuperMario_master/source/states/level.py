@@ -46,7 +46,7 @@ class Level(tools.State):
         
     def setup_background(self):
         img_name = self.map_data[c.MAP_IMAGE]
-        self.background = setup.GFX[img_name]
+        self.background = setup.get_GFX()[img_name]
         self.bg_rect = self.background.get_rect()
         self.background = pg.transform.scale(self.background, 
                                     (int(self.bg_rect.width*c.BACKGROUND_MULTIPLER),
@@ -54,7 +54,7 @@ class Level(tools.State):
         self.bg_rect = self.background.get_rect()
 
         self.level = pg.Surface((self.bg_rect.w, self.bg_rect.h)).convert()
-        self.viewport = setup.SCREEN.get_rect(bottom=self.bg_rect.bottom)
+        self.viewport = pg.display.get_surface().get_rect(bottom=self.bg_rect.bottom)
 
     def setup_maps(self):
         self.map_list = []

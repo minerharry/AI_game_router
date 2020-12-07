@@ -1,0 +1,6 @@
+
+NEW = 0;
+CONTINUE = 1;
+RERUN = 2;
+RERUN_ALL = 3;
+RERUN_ID = 4;

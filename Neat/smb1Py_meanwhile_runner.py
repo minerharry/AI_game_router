@@ -12,7 +12,7 @@ except:
 from py_mario_bros.PythonSuperMario_master.source import setup, tools
 from py_mario_bros.PythonSuperMario_master.source import constants as c
 from py_mario_bros.PythonSuperMario_master.source.states.segment import Segment
-
+import run_states
 
 
 gameEnv = tools.Control()
@@ -21,9 +21,7 @@ gameEnv.setup_states(state_dict, c.LEVEL)
 gameEnv.state.startup(0,{c.LEVEL_NUM:1});
 
 
-#run_state = 'continue';
-run_state = 'rerun';
-#run_state = 'new';
+run_state = run_states.RERUN
 currentRun = 3;
 reRunGeneration = 20
 

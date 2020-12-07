@@ -48,7 +48,7 @@ class Info():
         character_string = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ -*'
         
         for character, image_rect in zip(character_string, image_rect_list):
-            self.image_dict[character] = tools.get_image(setup.GFX['text_images'], 
+            self.image_dict[character] = tools.get_image(setup.get_GFX()['text_images'], 
                                             *image_rect, (92, 148, 252), 2.9)
 
     def create_info_labels(self):
@@ -83,7 +83,7 @@ class Info():
             self.create_time_out_labels()
 
     def create_player_image(self):
-        self.life_times_image = tools.get_image(setup.GFX['text_images'], 
+        self.life_times_image = tools.get_image(setup.get_GFX()['text_images'], 
                                 75, 247, 6, 6, (92, 148, 252), 2.9)
         self.life_times_rect = self.life_times_image.get_rect(center=(378, 295))
         self.life_total_label = []
@@ -93,7 +93,7 @@ class Info():
             rect = (178, 32, 12, 16)
         else:
             rect = (178, 128, 12, 16)
-        self.player_image = tools.get_image(setup.GFX['mario_bros'], 
+        self.player_image = tools.get_image(setup.get_GFX()['mario_bros'], 
                                 *rect, (92, 148, 252), 2.9)
         self.player_rect = self.player_image.get_rect(center=(320, 290))
 

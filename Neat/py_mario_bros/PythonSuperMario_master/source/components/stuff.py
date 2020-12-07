@@ -47,7 +47,7 @@ class Stuff(pg.sprite.Sprite):
         
         if (c.GRAPHICS_SETTINGS >= c.MED):
             for image_rect in image_rect_list:
-                self.frames.append(tools.get_image(setup.GFX[sheet_name], 
+                self.frames.append(tools.get_image(setup.get_GFX()[sheet_name], 
                         *image_rect, c.BLACK, scale))
         elif(c.GRAPHICS_SETTINGS == c.LOW):
             sizes = [];
@@ -84,7 +84,7 @@ class Stuff(pg.sprite.Sprite):
                 self.frames = [];
                 if (c.GRAPHICS_SETTINGS >= c.MED):
                     for image_rect in self.image_rect_list:
-                        self.frames.append(tools.get_image(setup.GFX[self.sheet_name], 
+                        self.frames.append(tools.get_image(setup.get_GFX()[self.sheet_name], 
                                 *image_rect, c.BLACK, self.scale))
                 else:
                     sizes = [];
@@ -168,7 +168,7 @@ class Score():
                             (20, 168, 4, 8), (0, 0, 0, 0)]
         digit_string = '0123456789'
         for digit, image_rect in zip(digit_string, digit_rect_list):
-            self.image_dict[digit] = tools.get_image(setup.GFX[c.ITEM_SHEET],
+            self.image_dict[digit] = tools.get_image(setup.get_GFX()[c.ITEM_SHEET],
                                     *image_rect, c.BLACK, c.BRICK_SIZE_MULTIPLIER)
     
     def create_score_digit(self):

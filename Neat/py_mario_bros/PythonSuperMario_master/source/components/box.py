@@ -60,7 +60,7 @@ class Box(pg.sprite.Sprite):
 
         
     def load_frames(self):
-        sheet = setup.GFX['tile_set']
+        sheet = setup.get_GFX()['tile_set']
         if (c.GRAPHICS_SETTINGS >= c.MED):
             for frame_rect in self.frame_rect_list:
                 self.frames.append(tools.get_image(sheet, *frame_rect, 

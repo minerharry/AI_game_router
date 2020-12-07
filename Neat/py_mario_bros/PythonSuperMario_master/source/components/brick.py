@@ -82,7 +82,7 @@ class Brick(stuff.Stuff):
     def decompress(self,level):
         if c.GRAPHICS_SETTINGS >= c.MED:
             for image_rect in self.image_rect_list:
-                self.frames.append(tools.get_image(setup.GFX[self.sheet_name], 
+                self.frames.append(tools.get_image(setup.get_GFX()[self.sheet_name], 
                         *image_rect, c.BLACK, self.scale))
         elif c.GRAPHICS_SETTINGS == c.LOW:
             sizes = [];
