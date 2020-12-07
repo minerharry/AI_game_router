@@ -37,8 +37,8 @@ if __name__ == "__main__":
     multiprocessing.freeze_support();
 
 
-    run_state = run_states.CONTINUE;
-    currentRun = 5;
+    run_state = run_states.NEW;
+    currentRun = 2;
     reRunGeneration = 1;
     reRunId = 88;
 
@@ -49,9 +49,9 @@ if __name__ == "__main__":
 
 
     configs = [
-        GenerationOptions(num_blocks=[0,4],ground_height=[7,9]),
-        GenerationOptions(num_blocks=[0,8],ground_height=[7,10]),
-        GenerationOptions(num_blocks=[0,6],ground_height=[7,9],num_enemies={c.ENEMY_TYPE_GOOMBA:[0,1]}),
+        GenerationOptions(num_blocks=[0,4],ground_height=[7,9],task_batch_size=[1,4]),
+        GenerationOptions(num_blocks=[0,8],ground_height=[7,10],task_batch_size=[1,4]),
+        GenerationOptions(num_blocks=[0,6],ground_height=[7,9],task_batch_size=[1,4],num_enemies={c.ENEMY_TYPE_GOOMBA:[0,1]}),
         ];
 
     training_data = [];

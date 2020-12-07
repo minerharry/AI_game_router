@@ -17,6 +17,8 @@ class SegmentGenerator:
         innerTiles = [(int(i/options.innerSize[1])+margins[0],i%options.innerSize[1]+margins[2]) for i in range(numInner)];
         innerRing = options.inner_ring();
 
+
+
         groundPositions = [];
         if (options.hasGround and options.groundHeight is not None):
             groundHeight = options.groundHeight;
@@ -31,7 +33,7 @@ class SegmentGenerator:
 
         #print(tiles)
         player_position = random.choice(innerTiles);
-        print(player_position in groundPositions)
+        #print(player_position in groundPositions)
         if player_position in tiles:
              tiles.remove(player_position)
         if player_position in innerRing:
@@ -66,9 +68,14 @@ class SegmentGenerator:
 
 
         dynamics = {'enemies':enemies};
+        batchSize = 1;
         if makeBatches:
-            random.shuffle(innerRing);
-        raw_data = [options.size,block_positions,[],[],dynamics,player_position,[random.choice(innerRing)] if not makeBatches else innerRing[:options.taskBatchSize],bounds]
+            if isinstance(options.taskBatchSize,list):
+                batchSize = random.choice(range(options.taskBatchSize[0],options.taskBatchSize[1]+1));
+            else:
+                batchSize = options.taskBatchSize;
+
+        raw_data = [options.size,block_positions,[],[],dynamics,player_position, random.sample(innerRing,batchSize),bounds]
         if return_raw:
             return [{k:v for k,v in zip(['size','blocks','bricks','boxes','dynamics','start','tasks','bounds'],raw_data)}];
         return SegmentGenerator.export(*raw_data);
@@ -93,8 +100,8 @@ class SegmentGenerator:
                     item = {"x":enemy_dat[1][0]*c.TILE_SIZE,"y":enemy_dat[1][1]*c.TILE_SIZE,"type":enemy_dat[0],"direction":enemy_dat[2],"color":0}
                     enemy_output.append(item);
                 output_statics["enemy"]={"-1":enemy_output};
-                print('doing_enemies')
-                print(output_dynamics)
+                #print('doing_enemies')
+                #print(output_dynamics)
             else:
                 print("ERROR: non-enemy dynamic object generation not done yet");
         output_statics[c.MAP_MAPS] = [{c.MAP_BOUNDS:[0,size[0]*c.TILE_SIZE,0,size[1]*c.TILE_SIZE],c.MAP_START:[(player_start[0] + 0.5)*c.TILE_SIZE,(player_start[1] + 1)*c.TILE_SIZE]}]; #Add 1 to y and 0.5 to x because player map start is bottom middle not top left
@@ -106,7 +113,7 @@ class SegmentGenerator:
         for pos in task_positions:
             pos = [(i + 0.5) * c.TILE_SIZE for i in pos];
             result.append(SegmentState(output_dynamics,output_statics,task=pos,task_bounds=scaled_bounds));
-        print(result[0].dynamic_data)
+        #print(result[0].dynamic_data)
         return result;
 
         
@@ -126,7 +133,7 @@ class GenerationOptions:
     enemy_list = [c.ENEMY_TYPE_GOOMBA,c.ENEMY_TYPE_KOOPA,c.ENEMY_TYPE_FLY_KOOPA,c.ENEMY_TYPE_PIRANHA,c.ENEMY_TYPE_FIRE_KOOPA,c.ENEMY_TYPE_FIRESTICK]
 
 
-    def __init__(self,size=[13,13],inner_size=[7,7],has_ground=True,num_blocks=0,num_enemies={},enemy_options={},valid_task_blocks = c.EDGE, valid_start_blocks = c.EDGE, valid_task_positions = c.CENTER,task_batch_size = 4,ground_height = 2):
+    def __init__(self,size=[13,13],inner_size=[7,7],has_ground=True,num_blocks=0,num_enemies={},enemy_options={},valid_task_blocks = c.EDGE, valid_start_blocks = c.EDGE, valid_task_positions = c.CENTER,task_batch_size = 3,ground_height = 2):
         self.size = size;
         self.innerSize = inner_size;
         self.hasGround = has_ground;
@@ -154,12 +161,11 @@ class GenerationOptions:
             size = self.size;
             inner_size = self.innerSize;
             self._margins = [int((size[0]-inner_size[0])/2),int(0.5+(size[0]-inner_size[0])/2),int((size[1]-inner_size[1])/2),int(0.5+(size[1]-inner_size[1])/2)] #left, right, top, bottom
-        return self._margins;
+        return self._margins.copy();
 
 
 
 if __name__ == "__main__":
     options = GenerationOptions();
-    print(options.inner_ring());
 
 
