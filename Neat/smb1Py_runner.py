@@ -14,7 +14,7 @@ from py_mario_bros.PythonSuperMario_master.source import tools
 from py_mario_bros.PythonSuperMario_master.source import constants as c
 import run_states
 
-steps_threshold = 1000;
+steps_threshold = 800;
 
 
 def task_obstruction_score(obstructions):
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
     runConfig.parallel_processes = 4;
-    runConfig.chunkFactor = 32;
+    runConfig.chunkFactor = 24;
 
     runConfig.logPath = f'logs\\smb1Py\\run-{currentRun}-log.txt';
     runConfig.fitness_collection_type='delta';
