@@ -33,6 +33,7 @@ class GameRunner:
     def __init__(self,game,runnerConfig):
         self.game = game;
         self.runConfig = runnerConfig;
+        self.generation = None;
 
     def continue_run(self,run_name,render=False):
         checkpoint_folder = 'checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_');
@@ -94,6 +95,8 @@ class GameRunner:
             idQueue = manager.Queue()
             [idQueue.put(i) for i in range(self.runConfig.parallel_processes)];
             self.pool = multiprocessing.pool.Pool(self.runConfig.parallel_processes, Genome_Executor.initProcess,(idQueue,self.game.gameClass));
+
+        self.generation = pop.generation;
 
         winner = pop.run(self.eval_genomes,self.runConfig.generations if not single_gen else 1);
 
@@ -239,6 +242,8 @@ class GameRunner:
             self.eval_genomes_recurrent(genomes,config);
         else:
             self.eval_genomes_feedforward(genomes,config);
+        if self.generation is not None:
+            self.generation += 1;
     
 
     #evaluate a population with the game as a recurrent neural net
@@ -286,16 +291,18 @@ class GameRunner:
         if (self.runConfig.training_data is None):
             if (self.runConfig.parallel):
 
-                batch_func = functools.partial(Genome_Executor.map_eval_genome_feedforward,config,self.runConfig,self.game);
+                batch_func = functools.partial(Genome_Executor.map_eval_genome_feedforward,config,self.runConfig,self.game,gen=self.generation);
                 
                 chunkFactor = 4;
                 if hasattr(self.runConfig,'chunkFactor') and self.runConfig.chunkFactor is not None:
                     chunkFactor = self.runConfig.chunkFactor;
                 
-                chunkSize,extra  = divmod(len(genomes),os.cpu_count()*chunkFactor);
+                chunkSize,extra  = divmod(len(genomes),self.runConfig.parallel_processes * chunkFactor);
 
                 if extra:
                     chunkSize += 1;
+
+                print(f'Starting parallel processing for {len(genomes)} evals over {self.runConfig.parallel_processes} processes');
 
                 fitnesses = self.pool.map(batch_func,genomes,chunksize=chunkSize);
                 for genome_id,genome in genomes:
@@ -318,15 +325,16 @@ class GameRunner:
                 
                 #data_batches = np.array_split(self.runConfig.training_data,self.runConfig.parallel_processes);
 
-                batch_func = functools.partial(Genome_Executor.map_eval_genomes_feedforward,config,self.runConfig,self.game,genomes);
+                batch_func = functools.partial(Genome_Executor.map_eval_genomes_feedforward,config,self.runConfig,self.game,genomes,gen=self.generation);
 
                 chunkFactor = 4;
                 if hasattr(self.runConfig,'chunkFactor') and self.runConfig.chunkFactor is not None:
                     chunkFactor = self.runConfig.chunkFactor;
                 
-                chunkSize,extra = divmod(len(self.runConfig.training_data),os.cpu_count()*chunkFactor);
+                chunkSize,extra = divmod(len(self.runConfig.training_data), self.runConfig.parallel_processes * chunkFactor);
                 if extra:
                     chunkSize += 1;
+                print(f'Starting parallel processing for {len(genomes)*len(self.runConfig.training_data)} evals over {self.runConfig.parallel_processes} processes');
 
                 datum_fitnesses = self.pool.map(batch_func,self.runConfig.training_data,chunksize=chunkSize);
                 for fitnesses in datum_fitnesses:
@@ -365,6 +373,7 @@ class Genome_Executor:
     pnum = None;
     global_game = None;
     count = 0;
+    generation = None;
 
     #TODO: Abstractify this using gameClass methods
     @classmethod
@@ -382,17 +391,25 @@ class Genome_Executor:
 
     #process methods - iterate within
     @classmethod
-    def eval_genome_batch_feedforward(cls,config,runnerConfig,game,genomes):
+    def eval_genome_batch_feedforward(cls,config,runnerConfig,game,genomes,gen=None):
+        if gen is not None:
+            if gen != cls.generation:
+                cls.count = 0;
+            cls.generation = gen;
         fitnesses = {genome_id:0 for genome_id,genome in genomes};
         for genome_id, genome in genomes:
             cls.count += 1;
             if cls.count % 100 == 0:
-                print(f'Parallel Checkpoint - Process #{cls.pnum} at {datetime.now()}');
+                print(f'Parallel Checkpoint - Process #{cls.pnum} at {datetime.now()}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})'));
             fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game);
         return fitnesses;
 
     @classmethod
-    def eval_training_data_batch_feedforward(cls,config,runnerConfig,game,genomes,data):
+    def eval_training_data_batch_feedforward(cls,config,runnerConfig,game,genomes,data,gen=None):
+        if gen is not None:
+            if gen != cls.generation:
+                cls.count = 0;
+            cls.generation = gen;
         count = 0;
         fitnesses = {genome_id:0 for genome_id,genome in genomes};
         for datum in data:
@@ -400,25 +417,33 @@ class Genome_Executor:
                 fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game,trainingDatum=datum);
                 cls.count += 1;
                 if cls.count % 100 == 0:
-                    print(f'Parallel Checkpoint - Process #{cls.pnum} at {datetime.now()}');
+                    print(f'Parallel Checkpoint - Process #{cls.pnum} at {datetime.now()}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})'));
         return fitnesses;
 
     #map methods - iterate externally
     @classmethod
-    def map_eval_genomes_feedforward(cls,config,runnerConfig,game,genomes,datum):
+    def map_eval_genomes_feedforward(cls,config,runnerConfig,game,genomes,datum,gen=None):
+        if gen is not None:
+            if gen != cls.generation:
+                cls.count = 0;
+            cls.generation = gen;
         fitnesses = {genome_id:0 for genome_id,genome in genomes};
         for genome_id,genome in genomes:
                 cls.count += 1;
                 if cls.count % 100 == 0:
-                    print(f'Parallel Checkpoint - Process #{cls.pnum} at {datetime.now()}');
+                    print(f'Parallel Checkpoint - Process #{cls.pnum} at {datetime.now()}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})'));
                 fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game,trainingDatum=datum);
         return fitnesses;
 
     @classmethod
-    def map_eval_genome_feedforward(cls,config,runnerConfig,game,genome):
+    def map_eval_genome_feedforward(cls,config,runnerConfig,game,genome,gen=None):
+        if gen is not None:
+            if gen != cls.generation:
+                cls.count = 0;
+            cls.generation = gen;
         cls.count += 1;
         if cls.count % 100 == 0:
-            print(f'Parallel Checkpoint - Process #{cls.pnum} at {datetime.now()}');
+            print(f'Parallel Checkpoint - Process #{cls.pnum} at {datetime.now()}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})'));
         return cls.eval_genome_feedforward(genome,config,runnerConfig,game);
 
     @classmethod
