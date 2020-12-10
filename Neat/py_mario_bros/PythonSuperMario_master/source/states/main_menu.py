@@ -29,15 +29,15 @@ class Menu(tools.State):
         self.setup_cursor()
         
     def setup_background(self):
-        self.background = setup.GFX['level_1']
+        self.background = setup.get_GFX()['level_1']
         self.background_rect = self.background.get_rect()
         self.background = pg.transform.scale(self.background,
                                     (int(self.background_rect.width*c.BACKGROUND_MULTIPLER),
                                     int(self.background_rect.height*c.BACKGROUND_MULTIPLER)))
 
-        self.viewport = setup.SCREEN.get_rect(bottom=setup.SCREEN_RECT.bottom)
+        self.viewport = pg.display.get_surface().get_rect()
         self.image_dict = {}
-        image = tools.get_image(setup.GFX['title_screen'], 1, 60, 176, 88,
+        image = tools.get_image(setup.get_GFX()['title_screen'], 1, 60, 176, 88,
                             (255, 0, 220), c.SIZE_MULTIPLIER)
         rect = image.get_rect()
         rect.x, rect.y = (170, 100)
@@ -47,7 +47,7 @@ class Menu(tools.State):
         self.player_list = []
         player_rect_info = [(178, 32, 12, 16), (178, 128, 12, 16)]
         for rect in player_rect_info:
-            image = tools.get_image(setup.GFX['mario_bros'],
+            image = tools.get_image(setup.get_GFX()['mario_bros'],
                                 *rect, c.BLACK, 2.9)
             rect = image.get_rect()
             rect.x, rect.bottom = 110, c.GROUND_HEIGHT
@@ -56,7 +56,7 @@ class Menu(tools.State):
 
     def setup_cursor(self):
         self.cursor = pg.sprite.Sprite()
-        self.cursor.image = tools.get_image(setup.GFX[c.ITEM_SHEET], 24, 160, 8, 8, c.BLACK, 3)
+        self.cursor.image = tools.get_image(setup.get_GFX()[c.ITEM_SHEET], 24, 160, 8, 8, c.BLACK, 3)
         rect = self.cursor.image.get_rect()
         rect.x, rect.y = (220, 358)
         self.cursor.rect = rect

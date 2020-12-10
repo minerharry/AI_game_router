@@ -9,7 +9,6 @@ from ..components import powerup
 
 class Player(pg.sprite.Sprite):
     #TODO: Fix player dying at full health
-    #TODO: remove animations of end of level, pipe, and powerup (aka remove any non-input frames)
     def __init__(self, player_name):
         pg.sprite.Sprite.__init__(self)
         self.player_name = player_name
@@ -126,7 +125,8 @@ class Player(pg.sprite.Sprite):
 
     def load_images(self):
         #NOTE: For convenience, if graphics settings is none, the frames are just rect width,height values instead of images. They are consequently not compressed/decompressed
-        sheet = setup.GFX['mario_bros']
+        sheet = setup.get_GFX()['mario_bros']
+        #print(sheet)
         frames_list = self.player_data[c.PLAYER_FRAMES]
 
         self.right_frames = [];
@@ -170,6 +170,7 @@ class Player(pg.sprite.Sprite):
                             if c.GRAPHICS_SETTINGS == c.LOW:
                                 frame = pg.Surface((rect[0]*c.SIZE_MULTIPLIER,rect[1]*c.SIZE_MULTIPLIER)).convert();
                                 frame.fill(c.PLAYER_PLACEHOLDER_COLOR);
+                                #print('image filled')
                                 self.right_small_normal_frames.append(frame);
                             else:
                                 self.right_small_normal_frames.append(rect);

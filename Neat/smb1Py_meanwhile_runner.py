@@ -12,7 +12,7 @@ except:
 from py_mario_bros.PythonSuperMario_master.source import setup, tools
 from py_mario_bros.PythonSuperMario_master.source import constants as c
 from py_mario_bros.PythonSuperMario_master.source.states.segment import Segment
-
+import run_states
 
 
 gameEnv = tools.Control()
@@ -21,11 +21,9 @@ gameEnv.setup_states(state_dict, c.LEVEL)
 gameEnv.state.startup(0,{c.LEVEL_NUM:1});
 
 
-#run_state = 'continue';
-run_state = 'rerun';
-#run_state = 'new';
-currentRun = 0;
-reRunGeneration = 10
+run_state = run_states.RERUN
+currentRun = 3;
+reRunGeneration = 20
 
 if (False):
     f = open(f'memories\\smb1Py\\run-{currentRun}-data','rb')
@@ -64,7 +62,7 @@ else:
     f.close();
 
 
-runConfig = RunnerConfig(getFitness,getRunning,logging=True,parallel=False,gameName='smb1Py',returnData=[IOData('task_position','array',array_size=[2]),IOData('pos','array',array_size=[2]),IOData('collision_grid','array',[15,15]),IOData('enemy_grid','array',[15,15]),IOData('box_grid','array',[15,15]),IOData('brick_grid','array',[15,15]),IOData('powerup_grid','array',[15,15])],num_trials=1,num_generations=None);
+runConfig = RunnerConfig(getFitness,getRunning,logging=True,parallel=False,gameName='smb1Py',returnData=['player_state',IOData('vel','array',array_size=[2]),IOData('task_position','array',array_size=[2]),IOData('pos','array',array_size=[2]),IOData('collision_grid','array',[15,15]),IOData('enemy_grid','array',[15,15]),IOData('box_grid','array',[15,15]),IOData('brick_grid','array',[15,15]),IOData('powerup_grid','array',[15,15])],num_trials=1,num_generations=None);
 runConfig.tile_scale = 2;
 runConfig.view_distance = 4 * runConfig.tile_scale - 1;
 runConfig.training_data = training_data;
@@ -91,5 +89,5 @@ else:
         winner = runner.run(config,'run_' + str(currentRun));
         print('\nBest genome:\n{!s}'.format(winner))
     if (run_state == 'rerun'):
-        runner.render_genome_by_id(4149,reRunGeneration,config,'run_' + str(currentRun),net=True);
+        runner.replay_best(reRunGeneration,config,'run_' + str(currentRun),net=False);
     #runner.check_output_connections(10,config,'run_' + str(currentRun),3);

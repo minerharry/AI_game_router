@@ -43,7 +43,6 @@ class SegmentState:
 
 class Segment(tools.State):
 #TODO: add back a level timer
-#TODO: Possible collision detection overhaul to make more accurate to smb1
     def __init__(self):
         tools.State.__init__(self)
         self.player = None
@@ -51,7 +50,7 @@ class Segment(tools.State):
     def accepts_player_input(self):
         return self.player.accepts_input();
 
-    def startup(self, current_time, persist):
+    def startup(self, current_time, persist, initial_state = None):
         self.loaded_segment = None;
         self.last_load = False; #whether the load state button was held last frame
         self.last_save = False; #whether the save state button was held last frame
@@ -66,26 +65,37 @@ class Segment(tools.State):
         self.grid_rects = None;
         self.task_bounds = None;
         self.task = None;
+        self.task_reached = False;
 
         #self.moving_score_list = []
         #self.overhead_info = info.Info(self.game_info, c.LEVEL)
-        self.level_num = persist[c.LEVEL_NUM];
-        self.load_map()
-        self.setup_background() #look into how to remove
-        self.setup_maps()
-        self.ground_group = self.setup_collide(c.MAP_GROUND)
-        self.step_group = self.setup_collide(c.MAP_STEP)
-        self.setup_pipe()
-        self.setup_slider()
+        if initial_state is None:
+            self.level_num = persist[c.LEVEL_NUM];
+            self.load_map()
+            self.setup_background() #look into how to remove
+            self.setup_maps()
+            self.ground_group = self.setup_collide(c.MAP_GROUND)
+            self.step_group = self.setup_collide(c.MAP_STEP)
+            self.setup_pipe()
+            self.setup_slider()
         #self.setup_static_coin()
-        self.setup_brick_and_box()
-        self.setup_player()
-        self.setup_enemies()
-        self.setup_checkpoints()
-        self.setup_flagpole()
-        self.setup_sprite_groups()
+            self.setup_brick_and_box()
+            self.setup_player()
+            self.setup_sprite_groups()
+            self.setup_enemies()
+            self.setup_checkpoints()
+            self.setup_flagpole()
+
+        else:
+            self.map_data = None;
+            self.blank_groups();
+            self.load(initial_state);
+
         self.setup_group_map();
         
+
+    def blank_groups(self):
+        self.shell_group = self.dying_group = self.player_group = self.ground_step_pipe_group = self.powerup_group = self.ground_group = self.box_group = self.brick_group = self.brickpiece_group = self.checkpoint_group = self.coin_group = self.enemy_group = self.flagpole_group = pg.sprite.Group();
 
     def setup_group_map(self):
         self.group_map = {self.shell_group: c.SHELL_GROUP, self.dying_group: c.DYING_GROUP, self.player_group: c.PLAYER_GROUP, self.ground_step_pipe_group: c.GROUND_STEP_PIPE_GROUP, self.powerup_group: c.POWERUP_GROUP, self.ground_group: c.GROUND_GROUP, self.box_group: c.BOX_GROUP, self.brick_group: c.BRICK_GROUP, self.brickpiece_group: c.BRICKPIECE_GROUP, self.checkpoint_group: c.CHECKPOINT_GROUP, self.coin_group: c.COIN_GROUP, self.enemy_group: c.ENEMY_GROUP, self.flagpole_group: c.FLAGPOLE_GROUP}
@@ -98,7 +108,7 @@ class Segment(tools.State):
         self.map_data = json.load(f)
         f.close()
 
-    def load_map_data(self,data):
+    def load_map_data(self,data,load_enemies=False):
         self.map_data = data;
         #print(data);
         self.setup_maps()
@@ -106,7 +116,8 @@ class Segment(tools.State):
         self.ground_group = self.setup_collide(c.MAP_GROUND)
         self.step_group = self.setup_collide(c.MAP_STEP)
         self.setup_pipe()
-
+        if load_enemies:
+            self.setup_enemies();
 
     def save_internal_state(self):
         self.saved_state = pickle.dumps(self.save_state());
@@ -164,7 +175,8 @@ class Segment(tools.State):
     def load_dynamic(self,data):
         if data is None:
            data = {};
-        [sprite.kill() for sprite in self.enemy_group];
+        if self.enemy_group is not None:
+            [sprite.kill() for sprite in self.enemy_group];
         self.enemy_group = pg.sprite.Group();
         self.coin_group = pg.sprite.Group();
         self.dying_group = pg.sprite.Group();
@@ -188,10 +200,14 @@ class Segment(tools.State):
         #print(self.viewport.x)
         if 'player' in data:
             self.player = data['player'].sprites()[0];
-            self.player_x = self.player.rect.x;
+            self.player_x = self.player.rect.centerx;
             self.player_y = self.player.rect.bottom;
             self.player_group = data['player'];
         else:
+            #print(self.player_x);
+            #print(self.player_y);
+            #print(self.task_bounds)
+            #print(do_viewport)
             self.setup_player(do_viewport=do_viewport);            
         if 'shells' in data:
             self.shell_group = data['shells'];
@@ -235,7 +251,7 @@ class Segment(tools.State):
         self.loaded_segment = data;
         self.task = data.task;
         self.task_bounds = data.task_bounds;
-        if (not data.equal_static_data(self.map_data)):
+        if (self.map_data is None or not data.equal_static_data(self.map_data)):
             self.load_map_data(data.static_data);
         self.load_dynamic(data.dynamic_data);
 
@@ -256,7 +272,7 @@ class Segment(tools.State):
     def setup_background(self):
         if (c.MAP_IMAGE in self.map_data):
             img_name = self.map_data[c.MAP_IMAGE]
-            self.background = setup.GFX[img_name]
+            self.background = setup.get_GFX()[img_name]
             self.bg_rect = self.background.get_rect()
             self.background = pg.transform.scale(self.background, 
                                         (int(self.bg_rect.width*c.BACKGROUND_MULTIPLER),
@@ -264,7 +280,7 @@ class Segment(tools.State):
             self.bg_rect = self.background.get_rect()
             
             self.level = pg.Surface((self.bg_rect.w, self.bg_rect.h)).convert()
-            self.viewport = setup.SCREEN.get_rect(bottom=self.bg_rect.bottom)
+            self.viewport = pg.display.get_surface().get_rect(bottom=self.bg_rect.bottom)
             self.bg_image = True;
         else:
             self.bg_image = False;
@@ -272,7 +288,7 @@ class Segment(tools.State):
             self.background = pg.Surface((rect[1]-rect[0],rect[3]-rect[2])).convert();
             self.background.fill(c.SKY_BLUE)
             self.level = pg.Surface((rect[1]-rect[0],rect[3]-rect[2])).convert();
-            self.viewport = setup.SCREEN.get_rect(bottom=rect[3]);
+            self.viewport = pg.display.get_surface().get_rect(bottom=rect[3]);
 
 
     def setup_maps(self):
@@ -310,12 +326,12 @@ class Segment(tools.State):
 
         #print(self.viewport);
         if type == c.CHECKPOINT_TYPE_MAP:
-            self.player.rect.x = self.player_x
+            self.player.rect.centerx = self.player_x
             self.player.rect.bottom = self.player_y
             self.player.update_hitbox();
             self.player.state = c.STAND
         elif type == c.CHECKPOINT_TYPE_PIPE_UP:
-            self.player.rect.x = self.player_x
+            self.player.rect.centerx = self.player_x
             self.player.rect.bottom = c.GROUND_HEIGHT
             self.player.update_hitbox();
             self.player.state = c.UP_OUT_PIPE
@@ -380,9 +396,10 @@ class Segment(tools.State):
     def setup_player(self,do_viewport = True):
         if self.player is None:
             self.player = player.Player(c.PLAYER_MARIO)
+            #print("newplayer")
         else:
             self.player.restart()
-        self.player.rect.x = self.player_x
+        self.player.rect.centerx = self.player_x
         self.player.rect.bottom = self.player_y
         self.player.update_hitbox();
         if c.DEBUG:
@@ -403,15 +420,17 @@ class Segment(tools.State):
 
     def setup_enemies(self):
         self.enemy_group_list = []
-        index = 0
         if c.MAP_ENEMY not in self.map_data:
             return
-        for data in self.map_data[c.MAP_ENEMY]:
+        for index,data in self.map_data[c.MAP_ENEMY].items():
             group = pg.sprite.Group()
-            for item in data[str(index)]:
-                group.add(enemy.create_enemy(item, self))
+            for item in data:
+                group.add(enemy.create_enemy(item))
             self.enemy_group_list.append(group)
-            index += 1
+
+            if int(index) == -1:
+                self.enemy_group.add(group);
+                
             
     def setup_checkpoints(self):
         self.checkpoint_group = pg.sprite.Group()
@@ -461,7 +480,9 @@ class Segment(tools.State):
     def handle_states(self, keys):
         self.update_all_sprites(keys)
 
-        
+        #print(self.player.rect.centerx);
+        #print(self.player.rect.centery);
+
         if (pg.K_PAGEUP in keys and keys[pg.K_PAGEUP] is not None and keys[pg.K_PAGEUP]):
             if (not self.last_save):
                 self.save_internal_state();
@@ -514,6 +535,7 @@ class Segment(tools.State):
             self.dying_group.update(time_info, self)
             self.update_player_position()
             self.check_for_player_death()
+            self.check_for_player_win()
             self.update_viewport()
 
     
@@ -826,8 +848,14 @@ class Segment(tools.State):
             #print(self.player.rect);
             #print(self.player.hitbox);
             self.player.die();
-        elif not ((self.player.rect.centerx < self.task_bounds[1] and self.player.rect.centerx>self.task_bounds[0]) and (self.player.rect.centery < self.task_bounds[3] and self.player.rect.centery > self.task_bounds[2])):
-            self.player.die();
+        elif self.task_bounds is not None:
+            if not ((self.player.rect.centerx < self.task_bounds[1] and self.player.rect.centerx>self.task_bounds[0]) and (self.player.rect.centery < self.task_bounds[3] and self.player.rect.centery > self.task_bounds[2])):
+                self.player.die();
+
+    def check_for_player_win(self):
+        if self.task is not None and self.player.hitbox.collidepoint(self.task):
+            self.done = True;
+            self.task_reached = True;
 
     def check_if_player_on_IN_pipe(self):
         '''check if player is on the pipe which can go down in to it '''
@@ -890,8 +918,12 @@ class Segment(tools.State):
         print('score updated')
 
     def draw(self, surface):
+
         if (self.background is not None):
             self.level.blit(self.background, self.viewport, self.viewport)
+        
+#        print(self.player.image.get_rect())
+
         self.powerup_group.draw(self.level)
         self.brick_group.draw(self.level)
         self.box_group.draw(self.level)
@@ -902,6 +934,9 @@ class Segment(tools.State):
             self.flagpole_group.draw(self.level)
         self.shell_group.draw(self.level)
         self.enemy_group.draw(self.level)
+        #for enemy in self.enemy_group:
+            #pg.draw.rect(self.level,c.ENEMY_PLACEHOLDER_COLOR,pg.Rect(enemy.rect.centerx-10,enemy.rect.centery-10,20,20));
+
         #print(self.enemy_group in self.chosen_enemy.groups());
         #print(self.enemy_group.has(self.chosen_enemy));
         self.player_group.draw(self.level)
@@ -921,6 +956,10 @@ class Segment(tools.State):
             task_rect = pg.rect.Rect(self.task[0]-c.TILE_SIZE/2,self.task[1]-c.TILE_SIZE/2,c.TILE_SIZE,c.TILE_SIZE);
             shader_surface.fill((0,255,0,c.SHADER_ALPHA),task_rect);
             self.level.blit(shader_surface,self.viewport.topleft,self.viewport);
+        
+        
+        pg.draw.circle(self.level,c.PURPLE,self.map_list[0][1],2/16*c.TILE_SIZE);
+        #pg.draw.rect(self.level,c.PLAYER_PLACEHOLDER_COLOR,pg.Rect(self.player.rect.centerx-10,self.player.rect.centery-10,20,20));
 
         surface.fill(c.BLACK);
         surface.blit(self.level, (0,0), self.viewport)
@@ -932,7 +971,7 @@ class Segment(tools.State):
         enemy_grid = self.get_enemy_grid()
         self.no_obstruction = True;
         
-        return {'done':self.done,'task_position_offset':[self.task[0]-self.player.rect.centerx,self.task[1]-self.player.rect.centery],'task_position':self.task,'pos':[self.player.rect.centerx,self.player.rect.centery],'vel':[self.player.x_vel,self.player.y_vel],'state':self.player.get_powerup_state(),'enemy_grid':enemy_grid,'collision_grid': collision_grid,'powerup_grid':self.get_powerup_grid(),'box_grid':self.get_box_grid(),'brick_grid':self.get_brick_grid(),'task_obstructions':self.get_task_obstructions()};
+        return {'task_reached':self.task_reached,'done':self.done,'task_position_offset':[self.task[0]-self.player.rect.centerx,self.task[1]-self.player.rect.centery],'task_position':self.task,'pos':[self.player.rect.centerx,self.player.rect.centery],'vel':[self.player.x_vel,self.player.y_vel],'player_state':self.player.get_powerup_state(),'enemy_grid':enemy_grid,'collision_grid': collision_grid,'powerup_grid':self.get_powerup_grid(),'box_grid':self.get_box_grid(),'brick_grid':self.get_brick_grid(),'task_obstructions':self.get_task_obstructions()};
 
     def update_rect_grid(self,runConfig):
         if self.grid_rects is None:
@@ -948,28 +987,29 @@ class Segment(tools.State):
             offset = [self.player.rect.center[0] - self.grid_center[0],self.player.rect.center[1] - self.grid_center[1]];
             [[rect.move(offset[0],offset[1]) for rect in row] for row in self.grid_rects];
 
+#TODO: Fix - input grids always returning lists of 1s
 
     def get_enemy_grid(self):
         spriteRects = [sprite.rect for sprite in self.enemy_group];
-        return [[1 if rect.collidelist(spriteRects) else 0 for rect in row] for row in self.grid_rects];
+        return [[1 if rect.collidelist(spriteRects) >= 0 else 0 for rect in row] for row in self.grid_rects];
 
     def get_collision_grid(self):
         check_group = pg.sprite.Group(self.ground_step_pipe_group,
                             self.brick_group, self.box_group);
         spriteRects = [sprite.rect for sprite in check_group];
-        return [[1 if rect.collidelist(spriteRects) else 0 for rect in row] for row in self.grid_rects];
+        return [[1 if rect.collidelist(spriteRects) >= 0 else 0 for rect in row] for row in self.grid_rects];
 
     def get_powerup_grid(self):
         spriteRects = [sprite.rect for sprite in self.powerup_group];
-        return [[1 if rect.collidelist(spriteRects) else 0 for rect in row] for row in self.grid_rects];
+        return [[1 if rect.collidelist(spriteRects) >= 0 else 0 for rect in row] for row in self.grid_rects];
 
     def get_box_grid(self):
         spriteRects = [sprite.rect for sprite in self.box_group];
-        return [[1 if rect.collidelist(spriteRects) else 0 for rect in row] for row in self.grid_rects];
+        return [[1 if rect.collidelist(spriteRects) >= 0 else 0 for rect in row] for row in self.grid_rects];
 
     def get_brick_grid(self):
         spriteRects = [sprite.rect for sprite in self.brick_group];
-        return [[1 if rect.collidelist(spriteRects) else 0 for rect in row] for row in self.grid_rects];
+        return [[1 if rect.collidelist(spriteRects) >= 0 else 0 for rect in row] for row in self.grid_rects];
 
 
     #return [distance,blocks,enemies], with [blocks,enemies] counting the number of objects between the player's center and the task. For fitness purposes only

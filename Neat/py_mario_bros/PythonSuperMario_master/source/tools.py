@@ -4,6 +4,7 @@ import os
 import pygame as pg
 from abc import ABC, abstractmethod
 from . import constants as c
+from . import setup
 
 keybinding = {
     'action':pg.K_s,
@@ -37,6 +38,7 @@ class State():
 
 class Control():
     def __init__(self,process_num=None):
+        setup.get_GFX();
         self.process_num = process_num;
         self.screen = pg.display.get_surface()
         if process_num is not None:
@@ -57,6 +59,8 @@ class Control():
         self.fps_counter = 0;
         self.last_fps_time = pg.time.get_ticks();
         self.fps_cycle = 50;
+
+
     
     def setup_states(self, state_dict, start_state):
         self.state_dict = state_dict
@@ -149,19 +153,3 @@ def get_image(sheet, x, y, width, height, colorkey, scale):
             return image
         return None;
 
-def load_all_gfx(directory, colorkey=(255,0,255), accept=('.png', '.jpg', '.bmp', '.gif')):
-    graphics = {}
-    for pic in os.listdir(directory):
-        name, ext = os.path.splitext(pic)
-        if c.GRAPHICS_SETTINGS >= c.MED or name.startswith('level'):
-            if ext.lower() in accept:
-                img = pg.image.load(os.path.join(directory, pic))
-                if img.get_alpha():
-                    img = img.convert_alpha()
-                else:
-                    img = img.convert()
-                    img.set_colorkey(colorkey)
-                graphics[name] = img
-        else:
-            graphics[name] = None;
-    return graphics
