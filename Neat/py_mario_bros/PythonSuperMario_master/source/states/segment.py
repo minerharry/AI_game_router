@@ -72,8 +72,8 @@ class Segment(tools.State):
         if initial_state is None:
             self.level_num = persist[c.LEVEL_NUM];
             self.load_map()
-            self.setup_background() #look into how to remove
             self.setup_maps()
+            self.setup_background() #look into how to remove
             self.ground_group = self.setup_collide(c.MAP_GROUND)
             self.step_group = self.setup_collide(c.MAP_STEP)
             self.setup_pipe()
