@@ -473,11 +473,13 @@ class Segment(tools.State):
         
     def update(self, surface, keys, current_time,show_game=True):
         self.current_time = current_time
+
         self.handle_states(keys)
         if c.GRAPHICS_SETTINGS != c.NONE and show_game:
             self.draw(surface)
     
     def handle_states(self, keys):
+        
         self.update_all_sprites(keys)
 
         #print(self.player.rect.centerx);
@@ -503,6 +505,7 @@ class Segment(tools.State):
     
     def update_all_sprites(self, keys):
         time_info = {c.CURRENT_TIME:self.current_time};
+        
         if self.player.dead:
             self.player.update(keys, time_info, self.powerup_group)
             if self.current_time - self.death_timer >= 0:
@@ -521,6 +524,7 @@ class Segment(tools.State):
             self.update_viewport()
 
         else:
+
             self.player.update(keys, time_info, self.powerup_group)
             self.flagpole_group.update()
             self.check_checkpoints()
@@ -533,10 +537,12 @@ class Segment(tools.State):
             self.coin_group.update(time_info)
             self.brickpiece_group.update()
             self.dying_group.update(time_info, self)
-            self.update_player_position()
+
+            self.update_player_position() #2 dicts, 1 group within
             self.check_for_player_death()
             self.check_for_player_win()
             self.update_viewport()
+
 
     
     def check_checkpoints(self):
@@ -593,6 +599,7 @@ class Segment(tools.State):
         if self.player.state == c.UP_OUT_PIPE:
             return
 
+        
         self.player.hitbox.x += round(self.player.x_vel)
         if self.player.hitbox.left < self.map_bounds[0]:
             self.player.hitbox.left = self.map_bounds[0];
@@ -600,12 +607,17 @@ class Segment(tools.State):
             self.player.hitbox.right = self.map_bounds[1];
         self.check_player_x_collisions()
 
+        
+
         if not self.player.dead:
+
             self.player.hitbox.y += round(self.player.y_vel)
             self.check_player_y_collisions()
             if self.player.hitbox.top < self.map_bounds[2]:
                 self.player.hitbox.top = self.map_bounds[2];
         
+
+
         self.player.rect_from_hitbox();
 
         
@@ -756,7 +768,9 @@ class Segment(tools.State):
                     else:
                         shell.direction = c.LEFT
                         shell.rect.right = self.player.hitbox.left - 7
+
         self.check_is_falling(self.player)
+        
         self.check_if_player_on_IN_pipe()
     
     def prevent_collision_conflict(self, sprite1, sprite2):
@@ -829,9 +843,9 @@ class Segment(tools.State):
 
     def check_is_falling(self, sprite):
         sprite.rect.y += 1
+
         check_group = pg.sprite.Group(self.ground_step_pipe_group,
                             self.brick_group, self.box_group)
-        
         if pg.sprite.spritecollideany(sprite, check_group) is None:
             if (sprite.state == c.WALK_AUTO or
                 sprite.state == c.END_OF_LEVEL_FALL):
@@ -841,6 +855,9 @@ class Segment(tools.State):
                 not self.in_frozen_state()):
                 sprite.state = c.FALL
         sprite.rect.y -= 1
+
+        check_group.empty()
+        del check_group
     
     def check_for_player_death(self):
         if (self.player.rect.y > self.map_bounds[3]):
@@ -997,6 +1014,8 @@ class Segment(tools.State):
         check_group = pg.sprite.Group(self.ground_step_pipe_group,
                             self.brick_group, self.box_group);
         spriteRects = [sprite.rect for sprite in check_group];
+        check_group.empty();
+        del check_group
         return [[1 if rect.collidelist(spriteRects) >= 0 else 0 for rect in row] for row in self.grid_rects];
 
     def get_powerup_grid(self):

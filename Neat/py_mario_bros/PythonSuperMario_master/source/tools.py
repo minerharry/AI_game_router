@@ -78,6 +78,7 @@ class Control():
         self.current_time = pg.time.get_ticks()
         if self.state.done and auto_advance_state:
             self.flip_state()
+
         if show_game is not None:
             self.state.update(self.screen, self.keys, self.current_time, show_game = show_game);
         else:
@@ -115,6 +116,7 @@ class Control():
         for name,val in named_inputs.items():
             keys[keybinding[name]] = val;
         self.keys = keys;
+
         self.update(auto_advance_state=False,show_game=show_game);
 
         #print('updated');

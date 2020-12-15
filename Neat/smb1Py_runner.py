@@ -31,14 +31,17 @@ def getRunning(inputs):
 
 
 if __name__ == "__main__":
-
+    import gc
+    #gc.set_debug(gc.DEBUG_LEAK);
     #TODO: add training data manager class
 
     multiprocessing.freeze_support();
 
 
-    run_state = run_states.CONTINUE;
-    currentRun = 2;
+    run_state = run_states.NEW;
+    currentRun = 4;
+    manual_continue_generation = 35;
+
     reRunGeneration = 1;
     reRunId = 88;
 
@@ -94,7 +97,7 @@ if __name__ == "__main__":
 #    print(game.initInputs);
     runner = GameRunner(game,runConfig);
     if (run_state == run_states.CONTINUE):
-        winner = runner.continue_run('run_' + str(currentRun));
+        winner = runner.continue_run('run_' + str(currentRun),manual_generation=manual_continue_generation);
         print('\nBest genome:\n{!s}'.format(winner));
     else:
         local_dir = os.path.dirname(__file__)

@@ -27,6 +27,7 @@ class SMB1Game(RunGame):
 
 
     def getOutputData(self):
+
         data = self.game.get_game_data(self.runConfig);
         #print(data);
         obstruction_score = self.runConfig.task_obstruction_score(data['task_obstructions'])
@@ -43,8 +44,8 @@ class SMB1Game(RunGame):
         #print('input processed')
         output = [key > 0 for key in inputs];
         named_actions = dict(zip(['action','jump','left','right','down'],output));
-        self.game.tick_inputs(named_actions);
 
+        self.game.tick_inputs(named_actions);
         while (self.isRunning() and not self.game.accepts_player_input()):
             self.game.tick_inputs(empty_actions);
             #print('skipping bad frames...');
