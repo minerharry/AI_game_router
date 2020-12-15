@@ -37,7 +37,7 @@ if __name__ == "__main__":
     multiprocessing.freeze_support();
 
 
-    run_state = run_states.NEW;
+    run_state = run_states.CONTINUE;
     currentRun = 2;
     reRunGeneration = 1;
     reRunId = 88;
