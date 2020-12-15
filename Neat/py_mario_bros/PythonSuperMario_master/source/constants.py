@@ -60,8 +60,8 @@ BGCOLOR = WHITE
 SHADER_ALPHA = 128
 
 SIZE_MULTIPLIER = 2.5
-BRICK_SIZE_MULTIPLIER = 2.73
-BACKGROUND_MULTIPLER = 2.7
+BRICK_SIZE_MULTIPLIER = 2.5
+BACKGROUND_MULTIPLER = 2.5
 PLAYER_WIDTH_MODIFIER = -0.25 #Player hitbox width is actually two pixels smaller on either side than it visually appears - 12 pixels wide instead of 16. Necessary so player can fit through 1 block gaps
 GROUND_HEIGHT = SCREEN_HEIGHT - 62
 TILE_SIZE = SIZE_MULTIPLIER*16
