@@ -38,9 +38,9 @@ if __name__ == "__main__":
     multiprocessing.freeze_support();
 
 
-    run_state = run_states.NEW;
+    run_state = run_states.CONTINUE;
     currentRun = 4;
-    manual_continue_generation = 35;
+    manual_continue_generation = None;
 
     reRunGeneration = 1;
     reRunId = 88;
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     training_data = [];
     if (run_state == run_states.NEW):
         inital_config = configs[0]
-        training_data = SegmentGenerator.generateBatch(inital_config,125);
+        training_data = SegmentGenerator.generateBatch(inital_config,150);
         f = open(f'memories\\smb1Py\\run-{currentRun}-data','wb');
         pickle.dump(training_data,f);
         f.close();

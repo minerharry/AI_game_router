@@ -11,7 +11,7 @@ def get_GFX():
     if _GFX is None:
         pg.init()
         pg.event.set_allowed([pg.KEYDOWN, pg.KEYUP, pg.QUIT])
-        pg.display.set_caption(c.ORIGINAL_CAPTION)
+        if c. pg.display.set_caption(c.ORIGINAL_CAPTION)
         pg.display.set_mode(c.SCREEN_SIZE)
         _GFX = load_all_gfx("py_mario_bros\\PythonSuperMario_master\\resources\\graphics")
         return _GFX

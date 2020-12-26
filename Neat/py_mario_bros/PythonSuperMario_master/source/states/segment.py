@@ -278,9 +278,9 @@ class Segment(tools.State):
                                         (int(self.bg_rect.width*c.BACKGROUND_MULTIPLER),
                                         int(self.bg_rect.height*c.BACKGROUND_MULTIPLER)))
             self.bg_rect = self.background.get_rect()
-            
             self.level = pg.Surface((self.bg_rect.w, self.bg_rect.h)).convert()
-            self.viewport = pg.display.get_surface().get_rect(bottom=self.bg_rect.bottom)
+            self.viewport = pg.Rect((0,0),c.SCREEN_SIZE);
+            self.viewport.bottom = self.bg_rect.bottom;
             self.bg_image = True;
         else:
             self.bg_image = False;
@@ -288,7 +288,8 @@ class Segment(tools.State):
             self.background = pg.Surface((rect[1]-rect[0],rect[3]-rect[2])).convert();
             self.background.fill(c.SKY_BLUE)
             self.level = pg.Surface((rect[1]-rect[0],rect[3]-rect[2])).convert();
-            self.viewport = pg.display.get_surface().get_rect(bottom=rect[3]);
+            self.viewport = pg.Rect((0,0),c.SCREEN_SIZE);
+            self.viewport.bottom = rect[3];
 
 
     def setup_maps(self):
