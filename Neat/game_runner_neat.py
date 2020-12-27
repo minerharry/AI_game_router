@@ -385,13 +385,13 @@ class Genome_Executor:
     @classmethod
     def initProcess(cls,id_queue,gameClass):
         cls.pnum = id_queue.get();
-        from py_mario_bros.PythonSuperMario_master.source import tools
-        from py_mario_bros.PythonSuperMario_master.source import constants as c
-        from py_mario_bros.PythonSuperMario_master.source.states.segment import Segment
-        cls.global_game = tools.Control(process_num=cls.pnum);
-        state_dict = {c.LEVEL: Segment()};
-        cls.global_game.setup_states(state_dict, c.LEVEL);
-        cls.global_game.state.startup(0,{c.LEVEL_NUM:1});
+        # from py_mario_bros.PythonSuperMario_master.source import tools
+        # from py_mario_bros.PythonSuperMario_master.source import constants as c
+        # from py_mario_bros.PythonSuperMario_master.source.states.segment import Segment
+        # cls.global_game = tools.Control(process_num=cls.pnum);
+        # state_dict = {c.LEVEL: Segment()};
+        # cls.global_game.setup_states(state_dict, c.LEVEL);
+        # cls.global_game.state.startup(0,{c.LEVEL_NUM:None});
         cls.count = 0;
         cls.tr = tracker.SummaryTracker();
         cls.tr.diff();

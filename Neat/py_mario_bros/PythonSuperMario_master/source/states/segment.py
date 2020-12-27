@@ -66,25 +66,31 @@ class Segment(tools.State):
         self.task_bounds = None;
         self.task = None;
         self.task_reached = False;
+        self.blank = False;
 
         #self.moving_score_list = []
         #self.overhead_info = info.Info(self.game_info, c.LEVEL)
         if initial_state is None:
-            self.level_num = persist[c.LEVEL_NUM];
-            self.load_map()
-            self.setup_maps()
-            self.setup_background() #look into how to remove
-            self.ground_group = self.setup_collide(c.MAP_GROUND)
-            self.step_group = self.setup_collide(c.MAP_STEP)
-            self.setup_pipe()
-            self.setup_slider()
-        #self.setup_static_coin()
-            self.setup_brick_and_box()
-            self.setup_player()
-            self.setup_sprite_groups()
-            self.setup_enemies()
-            self.setup_checkpoints()
-            self.setup_flagpole()
+            if persist[c.LEVEL_NUM] is None:
+                self.blank = True;
+                self.map_data = None;
+                self.blank_groups();
+            else:
+                self.level_num = persist[c.LEVEL_NUM];
+                self.load_map()
+                self.setup_maps()
+                self.setup_background() #look into how to remove
+                self.ground_group = self.setup_collide(c.MAP_GROUND)
+                self.step_group = self.setup_collide(c.MAP_STEP)
+                self.setup_pipe()
+                self.setup_slider()
+            #self.setup_static_coin()
+                self.setup_brick_and_box()
+                self.setup_player()
+                self.setup_sprite_groups()
+                self.setup_enemies()
+                self.setup_checkpoints()
+                self.setup_flagpole()
 
         else:
             self.map_data = None;

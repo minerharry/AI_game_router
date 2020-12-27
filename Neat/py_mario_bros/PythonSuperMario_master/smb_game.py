@@ -2,6 +2,7 @@ from baseGame import RunGame
 from abc import abstractmethod
 from .source import tools
 from .source import constants as c
+from .source.states.segment import Segment
 
 
 empty_actions = dict(zip(['action','jump','left','right','down'],[False for i in range(5)]))
@@ -11,16 +12,15 @@ class SMB1Game(RunGame):
         self.steps = 0;
         self.runConfig = runnerConfig;
         if 'game' not in kwargs: #only as an emergergency backup
-            from .source.states.segment import Segment
             self.process_num = kwargs['process_num']
             self.game = tools.Control(process_num=self.process_num)
             state_dict = {c.LEVEL: Segment()}
             self.game.setup_states(state_dict, c.LEVEL)
-            self.game.state.startup(0,{c.LEVEL_NUM:1});
+            self.game.state.startup(0,{c.LEVEL_NUM:1},initial_state=kwargs['training_datum']);
             kwargs['game'] = self.game;
         else:
             self.game = kwargs["game"];
-        self.game.load_segment(kwargs['training_datum']);
+            self.game.load_segment(kwargs['training_datum']);
         self.min_obstructions = None;
         self.stillness_time = 0;
         

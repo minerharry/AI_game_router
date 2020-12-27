@@ -41,10 +41,9 @@ class Control():
         setup.get_GFX();
         self.process_num = process_num;
         self.screen = None;
-        if c.GRAPHICS_SETTINGS >= c.LOW:
-            self.screen = pg.display.get_surface()
-            if process_num is not None:
-                pg.display.set_caption(f'{c.ORIGINAL_CAPTION} - Process #{process_num}')
+        self.screen = pg.display.get_surface()
+        if process_num is not None:
+            pg.display.set_caption(f'{c.ORIGINAL_CAPTION} - Process #{process_num}')
         self.done = False
         self.clock = pg.time.Clock()
         self.fps = 60
@@ -107,8 +106,7 @@ class Control():
             self.event_loop()
             self.update()
             if (timer <= 10):
-                if c.GRAPHICS_SETTINGS >= c.LOW:
-                    pg.display.update()
+                pg.display.update()
                 
             #self.clock.tick(self.fps)
 
@@ -126,8 +124,7 @@ class Control():
         if (show_game):
             pg.event.pump();
             #print('display updated')
-            if c.GRAPHICS_SETTINGS >= c.LOW:
-                pg.display.update();
+            pg.display.update();
 
 
     def get_game_data(self,config):
