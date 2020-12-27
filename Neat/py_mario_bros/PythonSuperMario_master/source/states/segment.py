@@ -214,7 +214,9 @@ class Segment(tools.State):
             #print(self.player_y);
             #print(self.task_bounds)
             #print(do_viewport)
-            self.setup_player(do_viewport=do_viewport);            
+            self.setup_player(do_viewport=do_viewport);
+            if self.player not in self.player_group:
+                self.player_group = pg.sprite.Group(self.player);           
         if 'shells' in data:
             self.shell_group = data['shells'];
         else:
@@ -482,6 +484,7 @@ class Segment(tools.State):
         self.current_time = current_time
 
         self.handle_states(keys)
+        
         if c.GRAPHICS_SETTINGS != c.NONE and show_game:
             self.draw(surface)
     
