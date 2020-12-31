@@ -23,7 +23,7 @@ def load_all_gfx(directory, colorkey=(255,0,255), accept=('.png', '.jpg', '.bmp'
     graphics = {}
     for pic in os.listdir(directory):
         name, ext = os.path.splitext(pic)
-        if c.GRAPHICS_SETTINGS >= c.MED or name.startswith('level'):
+        if c.GRAPHICS_SETTINGS >= c.MED or (name.startswith('level') and c.GRAPHICS_SETTINGS != c.NONE):
             if ext.lower() in accept:
                 img = pg.image.load(os.path.join(directory, pic))
                 if img.get_alpha():

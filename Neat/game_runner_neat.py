@@ -15,7 +15,7 @@ from logReporting import LoggingReporter
 from renderer import Renderer as RendererReporter
 from videofig import videofig as vidfig
 from neat.six_util import iteritems, itervalues
-
+from pympler import tracker
 
 
 #requires get_genome_frame.images to be set before call
@@ -35,14 +35,17 @@ class GameRunner:
         self.runConfig = runnerConfig;
         self.generation = None;
 
-    def continue_run(self,run_name,render=False):
+    def continue_run(self,run_name,render=False,manual_generation=None):
         checkpoint_folder = 'checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_');
-        files = os.listdir(checkpoint_folder);
-        maxGen = -1;
-        for file in files:
-            if (int(file.split('run-checkpoint-')[1])>maxGen):
-                maxGen = int(file.split('run-checkpoint-')[1]);
-        pop = neat.Checkpointer.restore_checkpoint(checkpoint_folder + '\\run-checkpoint-' + str(maxGen));
+        if manual_generation is None:
+            files = os.listdir(checkpoint_folder);
+            maxGen = -1;
+            for file in files:
+                if (int(file.split('run-checkpoint-')[1])>maxGen):
+                    maxGen = int(file.split('run-checkpoint-')[1]);
+            pop = neat.Checkpointer.restore_checkpoint(checkpoint_folder + '\\run-checkpoint-' + str(maxGen));
+        else:
+            pop = neat.Checkpointer.restore_checkpoint(checkpoint_folder + '\\run-checkpoint-' + str(manual_generation));
 
         return self.run(pop.config,run_name,render=render,pop=pop);
 
@@ -375,19 +378,28 @@ class Genome_Executor:
     count = 0;
     generation = None;
     last_checkpoint_time = None;
+    tr = None;
+    iterations_between = 0;
 
     #TODO: Abstractify this using gameClass methods
     @classmethod
     def initProcess(cls,id_queue,gameClass):
         cls.pnum = id_queue.get();
-        from py_mario_bros.PythonSuperMario_master.source import tools
-        from py_mario_bros.PythonSuperMario_master.source import constants as c
-        from py_mario_bros.PythonSuperMario_master.source.states.segment import Segment
-        cls.global_game = tools.Control(process_num=cls.pnum);
-        state_dict = {c.LEVEL: Segment()};
-        cls.global_game.setup_states(state_dict, c.LEVEL);
-        cls.global_game.state.startup(0,{c.LEVEL_NUM:1});
+        # from py_mario_bros.PythonSuperMario_master.source import tools
+        # from py_mario_bros.PythonSuperMario_master.source import constants as c
+        # if (cls.pnum == 0):
+        #     c.GRAPHICS_SETTINGS = c.LOW;
+        # else:
+        #     c.GRAPHICS_SETTINGS = c.NONE;
+        # # from py_mario_bros.PythonSuperMario_master.source.states.segment import Segment
+        # cls.global_game = tools.Control(process_num=cls.pnum);
+        # state_dict = {c.LEVEL: Segment()};
+        # cls.global_game.setup_states(state_dict, c.LEVEL);
+        # cls.global_game.state.startup(0,{c.LEVEL_NUM:None});
         cls.count = 0;
+        cls.tr = tracker.SummaryTracker();
+        cls.tr.diff();
+
 
 
     #process methods - iterate within
@@ -439,7 +451,9 @@ class Genome_Executor:
                     time = datetime.now()
                     print(f'Parallel Checkpoint - Process #{cls.pnum} at {time}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})') + ('' if cls.last_checkpoint_time is None else f'; Eval Speed: {100/(time-cls.last_checkpoint_time).total_seconds()}'));
                     cls.last_checkpoint_time = time;
+                
                 fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game,trainingDatum=datum);
+                
         return fitnesses;
 
     @classmethod
@@ -460,6 +474,7 @@ class Genome_Executor:
         #print('genome evaluation triggered');
         net = neat.nn.FeedForwardNetwork.create(genome,config);
         fitnesses = [];
+        
         for trial in range(runnerConfig.numTrials):
             #startTime = time.time()
             #print('evaluating genome with id {0}, trial {1}'.format(genome.key,trial));
@@ -467,9 +482,13 @@ class Genome_Executor:
             runningGame = game.start(runnerConfig,training_datum = trainingDatum, process_num = cls.pnum);
             if runnerConfig.fitness_collection_type != None and 'delta' in runnerConfig.fitness_collection_type:
                 fitness -= runningGame.getFitnessScore();
+
+
             while (runningGame.isRunning()):
                 #get the current data from the running game, as specified by the runnerConfig
+                
                 gameData = runningGame.getData();
+
 
                 #print('input: {0}'.format(gameData));
                 try:
@@ -479,12 +498,11 @@ class Genome_Executor:
                     print('Error body: ', sys.exc_info()[0]);
                     raise
 
-                
                 runningGame.processInput(gameInput);
 
                 if (runnerConfig.fitness_collection_type != None and 'continuous' in runnerConfig.fitness_collection_type):
                     fitness += runningGame.getFitnessScore();
-                    
+
             fitness += runningGame.getFitnessScore();
             fitnesses.append(fitness);
             runningGame.close();
