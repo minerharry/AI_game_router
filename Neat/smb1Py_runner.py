@@ -40,7 +40,7 @@ if __name__ == "__main__":
 
     run_state = run_states.CONTINUE;
     currentRun = 4;
-    manual_continue_generation = 17;
+    manual_continue_generation = None;
 
     reRunGeneration = 1;
     reRunId = 88;
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     runConfig.training_data = training_data;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
-    runConfig.parallel_processes = 5;
+    runConfig.parallel_processes = 4;
     runConfig.chunkFactor = 24;
 
     runConfig.logPath = f'logs\\smb1Py\\run-{currentRun}-log.txt';

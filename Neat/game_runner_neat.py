@@ -387,7 +387,11 @@ class Genome_Executor:
         cls.pnum = id_queue.get();
         # from py_mario_bros.PythonSuperMario_master.source import tools
         # from py_mario_bros.PythonSuperMario_master.source import constants as c
-        # from py_mario_bros.PythonSuperMario_master.source.states.segment import Segment
+        # if (cls.pnum == 0):
+        #     c.GRAPHICS_SETTINGS = c.LOW;
+        # else:
+        #     c.GRAPHICS_SETTINGS = c.NONE;
+        # # from py_mario_bros.PythonSuperMario_master.source.states.segment import Segment
         # cls.global_game = tools.Control(process_num=cls.pnum);
         # state_dict = {c.LEVEL: Segment()};
         # cls.global_game.setup_states(state_dict, c.LEVEL);

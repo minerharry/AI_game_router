@@ -485,8 +485,12 @@ class Segment(tools.State):
 
         self.handle_states(keys)
         
-        if c.GRAPHICS_SETTINGS != c.NONE and show_game:
+        if (c.GRAPHICS_SETTINGS != c.NONE and show_game):
             self.draw(surface)
+        else:
+            self.level.fill((0,0,0))
+            pg.draw.circle(self.level,c.RED,(self.player.rect.centerx,self.player.rect.centery),5);
+            surface.blit(self.level,(0,0),self.viewport);
     
     def handle_states(self, keys):
         
