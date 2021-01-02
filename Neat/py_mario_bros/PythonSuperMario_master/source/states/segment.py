@@ -259,6 +259,9 @@ class Segment(tools.State):
         self.loaded_segment = data;
         self.task = data.task;
         self.task_bounds = data.task_bounds;
+        self.task_reached = False;
+        self.death_timer = 0; #TODO: Save & reload these timer values instead of resetting them
+        self.castle_timer = 0;
         if (self.map_data is None or not data.equal_static_data(self.map_data)):
             self.load_map_data(data.static_data);
         self.load_dynamic(data.dynamic_data);

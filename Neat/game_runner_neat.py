@@ -15,7 +15,10 @@ from logReporting import LoggingReporter
 from renderer import Renderer as RendererReporter
 from videofig import videofig as vidfig
 from neat.six_util import iteritems, itervalues
-from pympler import tracker
+try:
+    from pympler import tracker
+except:
+    pass;
 
 
 #requires get_genome_frame.images to be set before call
@@ -206,6 +209,7 @@ class GameRunner:
 
     #render a genome with the game as a feedforward neural net
     def render_genome_feedforward(self, genome, config,net=False,training_datum=None):
+        fitness_list = [];
         runnerConfig = self.runConfig;
         if (net):
             flattened_data = runnerConfig.flattened_return_data();
@@ -227,10 +231,13 @@ class GameRunner:
 
                 gameInput = net.activate(gameData);
 
+                fitness_list.append(runningGame.getFitnessScore());
+
                 if (self.runConfig.external_render):
                     images.append(runningGame.renderInput(gameInput));
                 else:
                     runningGame.renderInput(gameInput);
+
 
                         
             runningGame.close();
@@ -238,6 +245,7 @@ class GameRunner:
                 get_genome_frame.images = images;
                 get_genome_frame.initialized = False;
                 vidfig(len(images),get_genome_frame,play_fps=runnerConfig.playback_fps);
+            self.runConfig.fitness_list.append(fitness_list);
 
             
     def eval_genomes(self,genomes,config):

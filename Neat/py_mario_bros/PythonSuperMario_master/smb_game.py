@@ -12,8 +12,11 @@ class SMB1Game(RunGame):
         self.steps = 0;
         self.runConfig = runnerConfig;
         if 'game' not in kwargs: #only as an emergergency backup
-            self.process_num = kwargs['process_num']
-            self.game = tools.Control(process_num=self.process_num)
+            if 'process_num' in kwargs:
+                self.process_num = kwargs['process_num']
+                self.game = tools.Control(process_num=self.process_num)
+            else:
+                self.game = tools.Control();
             state_dict = {c.LEVEL: Segment()}
             self.game.setup_states(state_dict, c.LEVEL)
             self.game.state.startup(0,{c.LEVEL_NUM:1},initial_state=kwargs['training_datum']);

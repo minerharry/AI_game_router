@@ -98,7 +98,7 @@ class Player(pg.sprite.Sprite):
 
     def setup_state(self):
         self.facing_right = True
-        self.allow_jump = True
+        self.allow_jump = False
         self.allow_fireball = True
         self.dead = False
         self.big = False
