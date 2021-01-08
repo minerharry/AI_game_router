@@ -38,11 +38,11 @@ if __name__ == "__main__":
     multiprocessing.freeze_support();
 
 
-    run_state = run_states.CONTINUE;
-    currentRun = 4;
+    run_state = run_states.RERUN;
+    currentRun = 5;
     manual_continue_generation = None;
 
-    reRunGeneration = 1;
+    reRunGeneration = 50;
     reRunId = 88;
 
     
@@ -109,7 +109,7 @@ if __name__ == "__main__":
             winner = runner.run(config,'run_' + str(currentRun));
             print('\nBest genome:\n{!s}'.format(winner))
         if (run_state == run_states.RERUN):
-            runner.replay_best(reRunGeneration,config,'run_' + str(currentRun),net=True,randomReRoll=True);
+            runner.replay_best(reRunGeneration,config,'run_' + str(currentRun),net=False,randomReRoll=True);
         if (run_state == run_states.RERUN_ALL):
             runner.replay_generation(reRunGeneration,'run_' + str(currentRun));
         if (run_state == run_states.RERUN_ID):

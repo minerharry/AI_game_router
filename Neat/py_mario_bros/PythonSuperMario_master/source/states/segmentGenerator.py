@@ -20,6 +20,7 @@ class SegmentGenerator:
 
 
         groundPositions = [];
+        floorPositions = [];
         if (options.hasGround and options.groundHeight is not None):
             groundHeight = options.groundHeight;
             if (isinstance(groundHeight,list)):
@@ -28,6 +29,7 @@ class SegmentGenerator:
             [innerRing.remove(el) for el in groundPositions if el in innerRing];
             [tiles.remove(el) for el in groundPositions if el in tiles];
             [innerTiles.remove(el) for el in groundPositions if el in innerTiles];
+            floorPositions = 
         
 
 
@@ -75,7 +77,13 @@ class SegmentGenerator:
             else:
                 batchSize = options.taskBatchSize;
 
-        raw_data = [options.size,block_positions,[],[],dynamics,player_position, random.sample(innerRing,batchSize),bounds]
+        task_options = [];
+        if options.valid_task_blocks == c.EDGE:
+            task_options = innerRing;
+        elif options.valid_task_blocks == c.FLOOR:
+            task_options = 
+
+        raw_data = [options.size,block_positions,[],[],dynamics,player_position, random.sample(task_options,min(len(task_options,batchSize)),bounds]
         if return_raw:
             return [{k:v for k,v in zip(['size','blocks','bricks','boxes','dynamics','start','tasks','bounds'],raw_data)}];
         return SegmentGenerator.export(*raw_data);
