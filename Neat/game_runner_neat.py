@@ -66,6 +66,7 @@ class GameRunner:
         return self.run(config,run_name,render=render,pop=pop,single_gen=True);
 
     def run(self,config,run_name,render=False,pop=None,single_gen=False):
+        self.run_name = run_name.replace(' ','_');
         if (pop is None):
             pop = neat.Population(config);
             continuing = False;
@@ -80,16 +81,18 @@ class GameRunner:
         pop.add_reporter(neat.StdOutReporter(True));
 
         if not single_gen:
-            if (not(os.path.exists('checkpoints'))):
-                os.mkdir('checkpoints');
-            if (not(os.path.exists('checkpoints\\games'))):
-                os.mkdir('checkpoints\\games');
-            if (not(os.path.exists('checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')))):
-                os.mkdir('checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_'));
-            if (not(os.path.exists('checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_')))):
-                os.mkdir('checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_'));
+            os.makedirs("checkpoints\\games\\"+self.runConfig.gameName.replace(' ','_')+f'\\{self.run_name}',exist_ok=True);
             
-            pop.add_reporter(neat.Checkpointer(1,filename_prefix='checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_')+'\\run-checkpoint-'));
+            # if (not(os.path.exists('checkpoints'))):
+            #     os.mkdir('checkpoints');
+            # if (not(os.path.exists('checkpoints\\games'))):
+            #     os.mkdir('checkpoints\\games');
+            # if (not(os.path.exists('checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')))):
+            #     os.mkdir('checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_'));
+            # if (not(os.path.exists('checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_')))):
+            #     os.mkdir();
+            
+            pop.add_reporter(neat.Checkpointer(1,filename_prefix='checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+self.run_name+'\\run-checkpoint-'));
 
         if (render):
             pop.add_reporter(RendererReporter(self));
@@ -103,7 +106,7 @@ class GameRunner:
             self.pool = multiprocessing.pool.Pool(self.runConfig.parallel_processes, Genome_Executor.initProcess,(idQueue,self.game.gameClass));
 
         self.generation = pop.generation;
-
+        
         winner = pop.run(self.eval_genomes,self.runConfig.generations if not single_gen else 1);
 
         return winner;
@@ -351,6 +354,12 @@ class GameRunner:
                 for fitnesses in datum_fitnesses:
                     for genome_id,genome in genomes:
                         genome.fitness += fitnesses[genome_id];
+
+                if hasattr(self.runConfig,"saveFitness") and self.runConfig.saveFitness:
+                    os.makedirs(f"memories\\{self.runConfig.gameName.replace(' ','_')}\\{self.run_name}_history",exist_ok=True);
+                    
+
+                
 
 
                 # for i in range(self.runConfig.parallel_processes):
