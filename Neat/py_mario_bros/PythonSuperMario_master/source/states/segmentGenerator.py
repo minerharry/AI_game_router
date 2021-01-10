@@ -29,19 +29,26 @@ class SegmentGenerator:
             [innerRing.remove(el) for el in groundPositions if el in innerRing];
             [tiles.remove(el) for el in groundPositions if el in tiles];
             [innerTiles.remove(el) for el in groundPositions if el in innerTiles];
-            floorPositions = 
-        
+            floorPositions = [(i,groundHeight-1) for i in range(options.inner_margins()[0],options.size[0]-options.inner_margins()[1])];
 
 
-        #print(tiles)
-        player_position = random.choice(innerTiles);
-        #print(player_position in groundPositions)
+        player_position = None;
+        if options.startBlocks == c.INNER:
+            player_position = random.choice(innerTiles);
+        elif options.startBlocks == c.EDGE:
+            player_position = random.choice(innerRing);
+        elif options.startBlocks == c.FLOOR:
+            player_position = random.choice(floorPositions);
+
+
         if player_position in tiles:
-             tiles.remove(player_position)
+            tiles.remove(player_position)
         if player_position in innerRing:
             innerRing.remove(player_position);
         if player_position in innerTiles:
             innerTiles.remove(player_position);
+        if player_position in floorPositions:
+            floorPositions.remove(player_position);
         numBlocks = options.numBlocks
         if (isinstance(options.numBlocks,list)):
             numBlocks = random.choice(range(numBlocks[0],numBlocks[1]+1));
@@ -78,12 +85,12 @@ class SegmentGenerator:
                 batchSize = options.taskBatchSize;
 
         task_options = [];
-        if options.valid_task_blocks == c.EDGE:
+        if options.taskBlocks == c.EDGE:
             task_options = innerRing;
-        elif options.valid_task_blocks == c.FLOOR:
-            task_options = 
+        elif options.taskBlocks == c.FLOOR:
+            task_options = floorPositions;
 
-        raw_data = [options.size,block_positions,[],[],dynamics,player_position, random.sample(task_options,min(len(task_options,batchSize)),bounds]
+        raw_data = [options.size,block_positions,[],[],dynamics,player_position, random.sample(task_options,min(len(task_options),batchSize)),bounds];
         if return_raw:
             return [{k:v for k,v in zip(['size','blocks','bricks','boxes','dynamics','start','tasks','bounds'],raw_data)}];
         return SegmentGenerator.export(*raw_data);
@@ -141,7 +148,7 @@ class GenerationOptions:
     enemy_list = [c.ENEMY_TYPE_GOOMBA,c.ENEMY_TYPE_KOOPA,c.ENEMY_TYPE_FLY_KOOPA,c.ENEMY_TYPE_PIRANHA,c.ENEMY_TYPE_FIRE_KOOPA,c.ENEMY_TYPE_FIRESTICK]
 
 
-    def __init__(self,size=[13,13],inner_size=[7,7],has_ground=True,num_blocks=0,num_enemies={},enemy_options={},valid_task_blocks = c.EDGE, valid_start_blocks = c.EDGE, valid_task_positions = c.CENTER,task_batch_size = 3,ground_height = 2):
+    def __init__(self,size=[13,13],inner_size=[7,7],has_ground=True,num_blocks=0,num_enemies={},enemy_options={},valid_task_blocks = c.INNER, valid_start_blocks = c.INNER, valid_task_positions = c.CENTER,task_batch_size = 3,ground_height = 2):
         self.size = size;
         self.innerSize = inner_size;
         self.hasGround = has_ground;

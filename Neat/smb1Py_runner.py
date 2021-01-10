@@ -52,6 +52,7 @@ if __name__ == "__main__":
 
 
     configs = [
+        GenerationOptions(num_blocks=0,ground_height=[7,9],valid_task_blocks=c.FLOOR,valid_start_blocks=c.FLOOR),
         GenerationOptions(num_blocks=[0,4],ground_height=[7,9],task_batch_size=[1,4]),
         GenerationOptions(num_blocks=[0,8],ground_height=[7,10],task_batch_size=[1,4]),
         GenerationOptions(num_blocks=[0,6],ground_height=[7,9],task_batch_size=[1,4],num_enemies={c.ENEMY_TYPE_GOOMBA:[0,1]}),
@@ -60,7 +61,7 @@ if __name__ == "__main__":
     training_data = [];
     if (run_state == run_states.NEW):
         inital_config = configs[0]
-        training_data = SegmentGenerator.generateBatch(inital_config,150);
+        training_data = SegmentGenerator.generateBatch(inital_config,40);
         f = open(f'memories\\smb1Py\\run-{currentRun}-data','wb');
         pickle.dump(training_data,f);
         f.close();

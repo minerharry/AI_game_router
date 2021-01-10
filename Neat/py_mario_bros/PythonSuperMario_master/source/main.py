@@ -18,9 +18,8 @@ def main():
     else:
         state_dict = {c.LEVEL: segment.Segment()}
         game.setup_states(state_dict,c.LEVEL);
-        inital_config = GenerationOptions(num_blocks=[0,5],ground_height=[7,10],num_enemies={c.ENEMY_TYPE_GOOMBA:[0,1]});
+        inital_config = GenerationOptions(num_blocks=0,ground_height=[7,10],num_enemies={c.ENEMY_TYPE_GOOMBA:0},valid_start_blocks=c.FLOOR,valid_task_blocks=c.FLOOR);
         
         training_datum = SegmentGenerator.generate(inital_config)[0];
-
-        game.state.startup(0,{c.LEVEL_NUM:1}),initial_state=training_datum);
+        game.state.startup(0,{c.LEVEL_NUM:1},initial_state=training_datum);
     game.main()
