@@ -242,9 +242,18 @@ EXPLODING = 'exploding'
 ENEMY_SHEET = 'smb_enemies_sheet'
 ITEM_SHEET = 'item_objects'
 
-#SEGMENT_GENERATION
+#SEGMENT GENERATION
 EDGE = 'edge'; #on the outer ring within the task area
 CENTER = 'center'; 
 INNER = 'inner'; #all tiles within the task area
 FLOOR = 'floor'; #tiles above a floor
 AREA = 'area'; #tiles within a specified area
+
+#INPUT TYPES
+NO_GRID = "no grid";
+COLLISION_GRID = "collision grid";
+ENEMY_GRID = "enemy grid";
+BOX_GRID = "box grid";
+BRICK_GRID = "brick grid";
+POWERUP_GRID = "powerup grid";
+FULL = "full";

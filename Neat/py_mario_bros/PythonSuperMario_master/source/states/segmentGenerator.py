@@ -85,10 +85,13 @@ class SegmentGenerator:
                 batchSize = options.taskBatchSize;
 
         task_options = [];
+        print(options.taskBlocks)
         if options.taskBlocks == c.EDGE:
             task_options = innerRing;
         elif options.taskBlocks == c.FLOOR:
             task_options = floorPositions;
+        elif options.taskBlocks == c.INNER:
+            task_options = innerTiles;
 
         raw_data = [options.size,block_positions,[],[],dynamics,player_position, random.sample(task_options,min(len(task_options),batchSize)),bounds];
         if return_raw:
@@ -125,6 +128,7 @@ class SegmentGenerator:
         #print(task_bounds);
         #print(player_start);
         #print(scaled_bounds);
+        print(task_positions)
         for pos in task_positions:
             pos = [(i + 0.5) * c.TILE_SIZE for i in pos];
             result.append(SegmentState(output_dynamics,output_statics,task=pos,task_bounds=scaled_bounds));
@@ -138,8 +142,11 @@ class SegmentGenerator:
     @staticmethod
     def generateBatch(options,batchSize,**kwargs):
         output = [];
+        print(batchSize)
         while len(output) < batchSize:
             output += SegmentGenerator.generate(options,makeBatches=True,**kwargs);
+            print(output);
+            print(len(output));
         return output[:batchSize];
 
 

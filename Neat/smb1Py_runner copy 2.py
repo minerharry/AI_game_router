@@ -61,7 +61,8 @@ if __name__ == "__main__":
     training_data = [];
     if (run_state == run_states.NEW):
         inital_config = configs[0]
-        training_data = SegmentGenerator.generateBatch(inital_config,40);
+        training_data = SegmentGenerator.generateBatch(inital_config,4);
+        os.makedirs(f"memories\\smb1Py\\",exist_ok=True);
         f = open(f'memories\\smb1Py\\run-{currentRun}-data','wb');
         pickle.dump(training_data,f);
         f.close();
@@ -78,7 +79,6 @@ if __name__ == "__main__":
         training_data += SegmentGenerator.generateBatch(additional_config,50);
 
 
-
     runConfig = RunnerConfig(getFitness,getRunning,logging=True,parallel=True,gameName='smb1Py',returnData=['player_state',IOData('vel','array',array_size=[2]),IOData('task_position','array',array_size=[2]),IOData('pos','array',array_size=[2]),IOData('collision_grid','array',[15,15]),IOData('enemy_grid','array',[15,15]),IOData('box_grid','array',[15,15]),IOData('brick_grid','array',[15,15]),IOData('powerup_grid','array',[15,15])],num_trials=1,num_generations=None);
     runConfig.tile_scale = 2;
     runConfig.view_distance = 4 * runConfig.tile_scale - 1;
@@ -87,6 +87,7 @@ if __name__ == "__main__":
     runConfig.external_render = False;
     runConfig.parallel_processes = 4;
     runConfig.chunkFactor = 24;
+    runConfig.saveFitness = True;
 
     runConfig.logPath = f'logs\\smb1Py\\run-{currentRun}-log.txt';
     runConfig.fitness_collection_type='delta';

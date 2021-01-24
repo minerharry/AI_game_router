@@ -74,10 +74,16 @@ class Checkpointer(BaseReporter):
             pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     @staticmethod
-    def restore_checkpoint(filename):
+    def restore_checkpoint(filename,config_transfer=None):
         """Resumes the simulation from a previous saved point."""
         with gzip.open(filename) as f:
             generation, config, population, species_set, rndstate = pickle.load(f)
             random.setstate(rndstate)
+            if config_transfer: #transfer configuration and update population and species_set from config
+                newconfig = config_transfer[0];
+                
+
+
+                config = newconfig
             pop = Population(config, (population, species_set, generation))
             return pop;
