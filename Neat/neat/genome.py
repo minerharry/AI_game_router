@@ -575,3 +575,24 @@ class DefaultGenome(object):
         for input_id, output_id in all_connections[:num_to_add]:
             connection = self.create_connection(config, input_id, output_id)
             self.connections[connection.key] = connection
+
+    #TODO: Add iterator/function remapping support to allow easier generic remapping
+    def remap_inputs(self,inputIdMap: dict,oldConfig,newConfig): 
+        #each node has a memory of its id, and the connections dict has keys of (first_node_id,second_node_id). Changing these values should successfully remap all nodes.
+        if set(inputIdMap.keys()) != set(oldConfig.input_keys):            
+            raise AssertionError("Assertion Error: Invalid mapping - attempts to map keys that aren't there");
+        if set(inputIdMap.values()) != set(newConfig.input_keys):            
+            raise AssertionError("Assertion Error: Invalid mapping - attempts to map keys that aren't there");
+        self._remap_nodes(inputIdMap);
+        
+
+    #Should only be called by the class's remap functions for remapping validation and behavioral quirks
+    def _remap_nodes(self,idMap):
+        #each node has a memory of its id, and the connections dict has keys of (first_node_id,second_node_id). Changing these values should successfully remap all nodes.
+        newNodes = list(len());
+        newConns = {};
+        for key,node in iteritems(self.nodes):
+            if key in idMap.keys():
+                key = key;
+
+        return;

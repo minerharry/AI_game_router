@@ -38,9 +38,11 @@ if __name__ == "__main__":
     multiprocessing.freeze_support();
 
 
-    run_state = run_states.RERUN;
-    currentRun = 5;
+    run_state = run_states.NEW;
+    currentRun = 9;
     manual_continue_generation = None;
+    manual_config_override = False;
+    inputOptions = c.NO_GRID;
 
     reRunGeneration = 50;
     reRunId = 88;
@@ -62,6 +64,7 @@ if __name__ == "__main__":
     if (run_state == run_states.NEW):
         inital_config = configs[0]
         training_data = SegmentGenerator.generateBatch(inital_config,40);
+        os.makedirs(f"memories\\smb1Py\\",exist_ok=True);
         f = open(f'memories\\smb1Py\\run-{currentRun}-data','wb');
         pickle.dump(training_data,f);
         f.close();
@@ -78,8 +81,25 @@ if __name__ == "__main__":
         training_data += SegmentGenerator.generateBatch(additional_config,50);
 
 
+    inputData = [
+        'player_state',
+        IOData('vel','array',array_size=[2]),
+        IOData('task_position','array',array_size=[2]),
+        IOData('pos','array',array_size=[2])];
+    config_suffix = "-nogrid"
+    if inputOptions == c.FULL:
+        inputData += [
+            IOData('collision_grid','array',[15,15]),
+            IOData('enemy_grid','array',[15,15]),
+            IOData('box_grid','array',[15,15]),
+            IOData('brick_grid','array',[15,15]),
+            IOData('powerup_grid','array',[15,15])]
+        config_suffix = "-full"
+    if inputOptions == c.COLLISION_GRID:
+        inputData.append(IOData('collision_grid','array',[15,15]))
+        config_suffix = "-blockgrid"
 
-    runConfig = RunnerConfig(getFitness,getRunning,logging=True,parallel=True,gameName='smb1Py',returnData=['player_state',IOData('vel','array',array_size=[2]),IOData('task_position','array',array_size=[2]),IOData('pos','array',array_size=[2]),IOData('collision_grid','array',[15,15]),IOData('enemy_grid','array',[15,15]),IOData('box_grid','array',[15,15]),IOData('brick_grid','array',[15,15]),IOData('powerup_grid','array',[15,15])],num_trials=1,num_generations=None);
+    runConfig = RunnerConfig(getFitness,getRunning,logging=True,parallel=True,gameName='smb1Py',returnData=inputData,num_trials=1,num_generations=None);
     runConfig.tile_scale = 2;
     runConfig.view_distance = 4 * runConfig.tile_scale - 1;
     runConfig.training_data = training_data;
@@ -87,6 +107,7 @@ if __name__ == "__main__":
     runConfig.external_render = False;
     runConfig.parallel_processes = 6;
     runConfig.chunkFactor = 24;
+    runConfig.saveFitness = True;
 
     runConfig.logPath = f'logs\\smb1Py\\run-{currentRun}-log.txt';
     runConfig.fitness_collection_type='delta';
@@ -97,15 +118,16 @@ if __name__ == "__main__":
     
 #    print(game.initInputs);
     runner = GameRunner(game,runConfig);
+    config_path = os.path.join(os.path.dirname(__file__), 'config-pygame-smb1' + config_suffix);
+    config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                        neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                        config_path);
     if (run_state == run_states.CONTINUE):
-        winner = runner.continue_run('run_' + str(currentRun),manual_generation=manual_continue_generation);
+        winner = runner.continue_run('run_' + str(currentRun),manual_generation=manual_continue_generation,manual_config_override=(config if override_config else None));
         print('\nBest genome:\n{!s}'.format(winner));
     else:
         local_dir = os.path.dirname(__file__)
-        config_path = os.path.join(local_dir, 'config-pygame-smb1')
-        config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
-                                neat.DefaultSpeciesSet, neat.DefaultStagnation,
-                                config_path)
+
         if (run_state == run_states.NEW):
             winner = runner.run(config,'run_' + str(currentRun));
             print('\nBest genome:\n{!s}'.format(winner))

@@ -8,6 +8,7 @@ import sys
 import random
 import numpy as np
 import functools
+from fitnessReporter import FitnessReporter
 from datetime import datetime
 #import concurrent.futures
 import multiprocessing
@@ -18,6 +19,7 @@ from neat.six_util import iteritems, itervalues
 try:
     from pympler import tracker
 except:
+    tracker = None;
     pass;
 
 
@@ -38,7 +40,7 @@ class GameRunner:
         self.runConfig = runnerConfig;
         self.generation = None;
 
-    def continue_run(self,run_name,render=False,manual_generation=None):
+    def continue_run(self,run_name,render=False,manual_generation=None,manual_config_override=None):
         checkpoint_folder = 'checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_');
         if manual_generation is None:
             files = os.listdir(checkpoint_folder);
@@ -46,9 +48,9 @@ class GameRunner:
             for file in files:
                 if (int(file.split('run-checkpoint-')[1])>maxGen):
                     maxGen = int(file.split('run-checkpoint-')[1]);
-            pop = neat.Checkpointer.restore_checkpoint(checkpoint_folder + '\\run-checkpoint-' + str(maxGen));
+            pop = neat.Checkpointer.restore_checkpoint(checkpoint_folder + '\\run-checkpoint-' + str(maxGen),config_transfer=manual_config_override);
         else:
-            pop = neat.Checkpointer.restore_checkpoint(checkpoint_folder + '\\run-checkpoint-' + str(manual_generation));
+            pop = neat.Checkpointer.restore_checkpoint(checkpoint_folder + '\\run-checkpoint-' + str(manual_generation),config_transfer=manual_config_override);
 
         return self.run(pop.config,run_name,render=render,pop=pop);
 
@@ -104,6 +106,9 @@ class GameRunner:
             idQueue = manager.Queue()
             [idQueue.put(i) for i in range(self.runConfig.parallel_processes)];
             self.pool = multiprocessing.pool.Pool(self.runConfig.parallel_processes, Genome_Executor.initProcess,(idQueue,self.game.gameClass));
+            if not single_gen:
+                self.fitness_reporter = FitnessReporter(self.runConfig.gameName,self.run_name);
+                pop.add_reporter(self.fitness_reporter);
 
         self.generation = pop.generation;
         
@@ -351,8 +356,13 @@ class GameRunner:
                 for fitnesses in datum_fitnesses:
                     for genome_id,genome in genomes:
                         genome.fitness += fitnesses[genome_id];
-
+                
                 if hasattr(self.runConfig,"saveFitness") and self.runConfig.saveFitness:
+                    fitness_data = zip(self.runConfig.training_data,datum_fitnesses);
+                    self.fitness_reporter.save_data(fitness_data)
+
+
+                
                     os.makedirs(f"memories\\{self.runConfig.gameName.replace(' ','_')}\\{self.run_name}_history",exist_ok=True);
                     
 
@@ -368,9 +378,22 @@ class GameRunner:
                 #     process.join();
                 # return;
             else:
-                for datum in self.runConfig.training_data:
-                    for genome_id, genome in genomes:
-                        genome.fitness += self.eval_genome_feedforward(genome,config,trainingDatum=datum)
+                if hasattr(self.runConfig,"saveFitness") and self.runConfig.saveFitness:
+                    fitness_data = {};
+                    for datum in self.runConfig.training_data:
+                        fitnesses = {};
+                        for genome_id, genome in genomes:
+                            fitness = self.eval_genome_feedforward(genome,config,trainingDatum=datum)
+                            fitnesses[genome_id] = fitness;
+                            genome.fitness += fitness;
+                        fitness_data[datum] = fitnesses;
+                
+                    fitness_data = zip(self.runConfig.training_data,datum_fitnesses);
+                    self.fitness_reporter.save_data(fitness_data)
+                else:
+                    for datum in self.runConfig.training_data:
+                        for genome_id, genome in genomes:
+                            genome.fitness += self.eval_genome_feedforward(genome,config,trainingDatum=datum)                
 
 
 
@@ -411,8 +434,9 @@ class Genome_Executor:
         # cls.global_game.setup_states(state_dict, c.LEVEL);
         # cls.global_game.state.startup(0,{c.LEVEL_NUM:None});
         cls.count = 0;
-        cls.tr = tracker.SummaryTracker();
-        cls.tr.diff();
+        if tracker is not None:
+            cls.tr = tracker.SummaryTracker();
+            cls.tr.diff();
 
 
 
@@ -509,7 +533,7 @@ class Genome_Executor:
                     gameInput = net.activate(gameData);
                 except:
                     print('Error in activating net with data ', gameData, ' and mapped data ', runningGame.getMappedData());
-                    print('Error body: ', sys.exc_info()[0]);
+                    print('Error body: ', sys.exc_info());
                     raise
 
                 runningGame.processInput(gameInput);
