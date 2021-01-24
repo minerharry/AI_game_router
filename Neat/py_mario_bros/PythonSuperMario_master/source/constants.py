@@ -5,7 +5,7 @@ LOW = 1;
 MED = 2;
 HIGH = 3;
 
-GRAPHICS_SETTINGS = LOW; 
+GRAPHICS_SETTINGS = NONE; 
 #NONE: no sprite images ever assigned nor loaded from memory; draw function never called
 #LOW: all sprite images are placeholders (not loeaded from memory)
 #MED: sprite images loaded from memory, but all animations deactivated
@@ -13,6 +13,7 @@ GRAPHICS_SETTINGS = LOW;
 
 #NOTE: it is assumed that medium and high quality means that loaded maps have image backgrounds, meaning ground tiles do not render. ground will render with a placeholder on low quality
 #NOTE: Certain enemies (only koopas, so far) change their hitbox between frames; specifically, when they turn into shells. All other enemies, so far, have the same hitbox independent of their animation, meaning the exact same image can be used for all frames. If any new enemies get added (and they change hitbox based on animation), the collision needs to be updated accordingly on low/medium graphics settings
+#NOTE: Above issue irrelevant - all unique animation frames are properly stored
 
 DISPLAY_FRAMERATE = False;
 

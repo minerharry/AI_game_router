@@ -38,8 +38,8 @@ if __name__ == "__main__":
     multiprocessing.freeze_support();
 
 
-    run_state = run_states.RERUN;
-    currentRun = 5;
+    run_state = run_states.CONTINUE;
+    currentRun = 6;
     manual_continue_generation = None;
 
     reRunGeneration = 50;
@@ -85,7 +85,7 @@ if __name__ == "__main__":
     runConfig.training_data = training_data;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
-    runConfig.parallel_processes = 6;
+    runConfig.parallel_processes = 7;
     runConfig.chunkFactor = 24;
 
     runConfig.logPath = f'logs\\smb1Py\\run-{currentRun}-log.txt';

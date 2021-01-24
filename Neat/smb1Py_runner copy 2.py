@@ -13,7 +13,6 @@ except:
 from py_mario_bros.PythonSuperMario_master.source import tools
 from py_mario_bros.PythonSuperMario_master.source import constants as c
 import run_states
-import numpy as np
 
 steps_threshold = 800;
 
@@ -39,11 +38,11 @@ if __name__ == "__main__":
     multiprocessing.freeze_support();
 
 
-    run_state = run_states.RERUN;
-    currentRun = 4;
-    manual_continue_generation = None;
+    run_state = run_states.CONTINUE;
+    currentRun = 6;
+    manual_continue_generation = 18;
 
-    reRunGeneration = 22;
+    reRunGeneration = 50;
     reRunId = 88;
 
     
@@ -53,6 +52,7 @@ if __name__ == "__main__":
 
 
     configs = [
+        GenerationOptions(num_blocks=0,ground_height=[7,9],valid_task_blocks=c.FLOOR,valid_start_blocks=c.FLOOR),
         GenerationOptions(num_blocks=[0,4],ground_height=[7,9],task_batch_size=[1,4]),
         GenerationOptions(num_blocks=[0,8],ground_height=[7,10],task_batch_size=[1,4]),
         GenerationOptions(num_blocks=[0,6],ground_height=[7,9],task_batch_size=[1,4],num_enemies={c.ENEMY_TYPE_GOOMBA:[0,1]}),
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     training_data = [];
     if (run_state == run_states.NEW):
         inital_config = configs[0]
-        training_data = SegmentGenerator.generateBatch(inital_config,150);
+        training_data = SegmentGenerator.generateBatch(inital_config,40);
         f = open(f'memories\\smb1Py\\run-{currentRun}-data','wb');
         pickle.dump(training_data,f);
         f.close();
@@ -70,18 +70,16 @@ if __name__ == "__main__":
         training_data = pickle.load(f);
         f.close();
 
-    training_data = training_data
-
-    add_data = False;
+    add_data = True;
     additional_data_index = 1;
 
     if add_data:
         additional_config = configs[additional_data_index];
         training_data += SegmentGenerator.generateBatch(additional_config,50);
-    
 
 
-    runConfig = RunnerConfig(getFitness,getRunning,logging=True,parallel=False,gameName='smb1Py',returnData=['player_state',IOData('vel','array',array_size=[2]),IOData('task_position','array',array_size=[2]),IOData('pos','array',array_size=[2]),IOData('collision_grid','array',[15,15]),IOData('enemy_grid','array',[15,15]),IOData('box_grid','array',[15,15]),IOData('brick_grid','array',[15,15]),IOData('powerup_grid','array',[15,15])],num_trials=1,num_generations=None);
+
+    runConfig = RunnerConfig(getFitness,getRunning,logging=True,parallel=True,gameName='smb1Py',returnData=['player_state',IOData('vel','array',array_size=[2]),IOData('task_position','array',array_size=[2]),IOData('pos','array',array_size=[2]),IOData('collision_grid','array',[15,15]),IOData('enemy_grid','array',[15,15]),IOData('box_grid','array',[15,15]),IOData('brick_grid','array',[15,15]),IOData('powerup_grid','array',[15,15])],num_trials=1,num_generations=None);
     runConfig.tile_scale = 2;
     runConfig.view_distance = 4 * runConfig.tile_scale - 1;
     runConfig.training_data = training_data;
@@ -93,8 +91,7 @@ if __name__ == "__main__":
     runConfig.logPath = f'logs\\smb1Py\\run-{currentRun}-log.txt';
     runConfig.fitness_collection_type='delta';
     print(runConfig.gameName);
-    
-    runConfig.fitness_list = [];
+
 
     game = EvalGame(SMB1Game);
     
@@ -114,28 +111,6 @@ if __name__ == "__main__":
             print('\nBest genome:\n{!s}'.format(winner))
         if (run_state == run_states.RERUN):
             runner.replay_best(reRunGeneration,config,'run_' + str(currentRun),net=False,randomReRoll=True);
-
-            list_1 = np.array(runConfig.fitness_list.copy());
-
-            c.GRAPHICS_SETTINGS = c.NONE;
-
-            runConfig.fitness_list = [];
-
-            runner.replay_best(reRunGeneration,config,'run_' + str(currentRun),net=False,randomReRoll=True);
-
-            list_2 = np.array(runConfig.fitness_list.copy());
-
-            print(list_1[0]);
-            print(list_2[0]);
-            print(np.all(list_1[0] == list_2[0]))
-
-            differenceses = [(np.array(l1)==np.array(l2)) for l1,l2 in zip(list_1,list_2)]
-
-            matches = [np.all(l) for l in differenceses];
-            
-            print(matches)
-            #print(list_1[differences],list_2[differences]);
-
         if (run_state == run_states.RERUN_ALL):
             runner.replay_generation(reRunGeneration,'run_' + str(currentRun));
         if (run_state == run_states.RERUN_ID):
