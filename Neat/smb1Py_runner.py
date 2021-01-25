@@ -39,7 +39,7 @@ if __name__ == "__main__":
 
 
     run_state = run_states.NEW;
-    currentRun = 9;
+    currentRun = 8;
     manual_continue_generation = None;
     manual_config_override = False;
     inputOptions = c.NO_GRID;
@@ -105,7 +105,7 @@ if __name__ == "__main__":
     runConfig.training_data = training_data;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
-    runConfig.parallel_processes = 7;
+    runConfig.parallel_processes = 6;
     runConfig.chunkFactor = 24;
     runConfig.saveFitness = True;
 
