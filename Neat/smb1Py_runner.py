@@ -38,10 +38,10 @@ if __name__ == "__main__":
     multiprocessing.freeze_support();
 
 
-    run_state = run_states.NEW;
+    run_state = run_states.CONTINUE;
     currentRun = 8;
     manual_continue_generation = None;
-    manual_config_override = False;
+    override_config = False;
     inputOptions = c.NO_GRID;
 
     reRunGeneration = 50;
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     inputData = [
         'player_state',
         IOData('vel','array',array_size=[2]),
-        IOData('task_position','array',array_size=[2]),
+        IOData('task_position_offset','array',array_size=[2]),
         IOData('pos','array',array_size=[2])];
     config_suffix = "-nogrid"
     if inputOptions == c.FULL:
@@ -99,7 +99,15 @@ if __name__ == "__main__":
         inputData.append(IOData('collision_grid','array',[15,15]))
         config_suffix = "-blockgrid"
 
-    runConfig = RunnerConfig(getFitness,getRunning,logging=True,parallel=True,gameName='smb1Py',returnData=inputData,num_trials=1,num_generations=None);
+    runConfig = RunnerConfig(
+        getFitness,
+        getRunning,
+        logging=True,
+        parallel=True,
+        gameName='smb1Py',
+        returnData=inputData,
+        num_trials=1,
+        num_generations=None);
     runConfig.tile_scale = 2;
     runConfig.view_distance = 4 * runConfig.tile_scale - 1;
     runConfig.training_data = training_data;

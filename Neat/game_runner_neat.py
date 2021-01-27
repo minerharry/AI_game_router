@@ -363,7 +363,7 @@ class GameRunner:
 
 
                 
-                    os.makedirs(f"memories\\{self.runConfig.gameName.replace(' ','_')}\\{self.run_name}_history",exist_ok=True);
+                   
                     
 
                 
