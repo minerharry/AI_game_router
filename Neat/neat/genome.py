@@ -14,6 +14,8 @@ from neat.genes import DefaultConnectionGene, DefaultNodeGene
 from neat.graphs import creates_cycle
 from neat.six_util import iteritems, iterkeys
 
+from functools import partial
+
 
 class DefaultGenomeConfig(object):
     """Sets up and holds configuration information for the DefaultGenome class."""
@@ -576,23 +578,44 @@ class DefaultGenome(object):
             connection = self.create_connection(config, input_id, output_id)
             self.connections[connection.key] = connection
 
-    #TODO: Add iterator/function remapping support to allow easier generic remapping
-    def remap_inputs(self,inputIdMap: dict,oldConfig,newConfig): 
+    def remap_inputs(self,inputIdMap,oldConfig,newConfig): 
         #each node has a memory of its id, and the connections dict has keys of (first_node_id,second_node_id). Changing these values should successfully remap all nodes.
         if set(inputIdMap.keys()) != set(oldConfig.input_keys):            
             raise AssertionError("Assertion Error: Invalid mapping - attempts to map keys that aren't there");
         if set(inputIdMap.values()) != set(newConfig.input_keys):            
             raise AssertionError("Assertion Error: Invalid mapping - attempts to map keys that aren't there");
-        self._remap_nodes(inputIdMap);
+        def mapFunc(map,inKey):
+            if inKey in inputIdMap:
+                return map[inKey];
+            elif inKey is None:
+                return [];
+            else:
+                return inKey;
+        if type(inputIdMap) is dict:
+            self._remap_nodes(partial(mapFunc,inputIdMap),newConfig);
+        else:
+            self._remap_nodes(inputIdMap,newConfig);
         
+#TODO: add output remapping remap_outputs; remember to offset all other nodes if new length different from old
 
-    #Should only be called by the class's remap functions for remapping validation and behavioral quirks
-    def _remap_nodes(self,idMap):
+    #Should only be called by the class's remap functions for remapping validation and behavioral quirks; simply remaps nodes and connections given the input function idMap
+    def _remap_nodes(self,idMap,newConfig):
         #each node has a memory of its id, and the connections dict has keys of (first_node_id,second_node_id). Changing these values should successfully remap all nodes.
-        newNodes = list(len());
+        #idMap is actually a function
+        newNodes = {};
         newConns = {};
         for key,node in iteritems(self.nodes):
-            if key in idMap.keys():
-                key = key;
+            newKey = idMap(key)
+            if newKey is not None:
+                newNodes[newKey] = node;
+                node.key = newKey;
+        
+        for keys,conn in iteritems(self.connections):
+            newKeys = (idMap(keys[0]),idMap(keys[1]);
+            if None not in newKeys:
+                newConns[newKeys] = conn;
+        
+        for key in idMap(None):
+            newNodes[key] = self.create_node(key,newConfig);
 
         return;

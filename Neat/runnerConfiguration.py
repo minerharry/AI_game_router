@@ -45,6 +45,7 @@ class RunnerConfig:
         else:
             print(f'error: fitness aggregation function {self.trialFitnessAggregation} not defined')
 
+    #named input data, flattened
     def flattened_return_data(self):
         result = [];
         for datum in self.returnData:
@@ -52,9 +53,10 @@ class RunnerConfig:
                 [result.append(x) for x in datum.getSplitData()];
             else:
                 result.append(datum);
-        print(result);
+#        print(result);
         return result;
 
+    #named input data, shaped
     def return_data_shape(self):
         result = [];
         for datum in self.returnData:
@@ -64,7 +66,21 @@ class RunnerConfig:
             else:
                 result.append(datum);
         return result;          
-                
+    
+    def get_input_transfer(self,prevData:list):
+        newData = self.flattened_return_data();
+        map = {};
+        unused_keys = list(range(len(newData)));
+        for i in range(len(prevData)):
+            name = prevData[i];
+            if name in newData:
+                index = newData.index(name);
+                unused_keys.remove(index);
+                map[i] = index;
+            else:
+                map[i] = None
+        map[None] = unused_keys;
+        return map;
 
 
 def get_array_cell_names(array_size):
@@ -80,6 +96,7 @@ class IOData:
         self.name = name;
         self.array_size = array_size;
         
+    #returned a flattened list of all return data
     def getSplitData(self):
         if (self.data_type == 'float'):
             return [self.name];
