@@ -46,7 +46,7 @@ class Control():
             pg.display.set_caption(f'{c.ORIGINAL_CAPTION} - Process #{process_num}')
         self.done = False
         self.clock = pg.time.Clock()
-        self.fps = 60
+        self.fps = 20
         self.current_time = 0.0
         manual_mode = True;
         if (manual_mode):
@@ -119,7 +119,7 @@ class Control():
         self.keys = keys;
 
         self.update(auto_advance_state=False,show_game=show_game);
-
+        #self.clock.tick(self.fps)
         #print('updated');
         if (show_game):
             pg.event.pump();

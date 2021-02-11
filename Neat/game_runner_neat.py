@@ -116,7 +116,7 @@ class GameRunner:
 
         return winner;
 
-    def check_output_connections(self,generation,config,run_name,target_output,render=False):
+    def check_output_connections(self,generation,run_name,target_output,render=False):
         file = 'checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_')+'\\run-checkpoint-' + str(generation);
         pop = neat.Checkpointer.restore_checkpoint(file);
         connected = [];
@@ -125,7 +125,7 @@ class GameRunner:
                 if (connection[1] == target_output):
                     connected.append(g);
                     break;
-        [print (connectedGenome) for connectedGenome in connected];
+        [print (connectedGenome.key) for connectedGenome in connected];
 
     def render_worst_genome(self,generation,config,run_name,net=False):
         file = 'checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_')+'\\run-checkpoint-' + str(generation);
@@ -146,7 +146,8 @@ class GameRunner:
                 break;
         self.render_genome(genome,config,net=net);
                     
-                
+    def render_custom_genome_object(self,obj,config,net=False):
+        self.render_genome(obj,config,net=net)
 
     def replay_best(self,generation,config,run_name,net=False,randomReRoll=False):
         file = 'checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_')+'\\run-checkpoint-' + str(generation);
@@ -238,6 +239,9 @@ class GameRunner:
 
                 gameInput = net.activate(gameData);
 
+                #print(gameInput)
+
+                #print(runningGame.getFitnessScore())
 
                 if (self.runConfig.external_render):
                     images.append(runningGame.renderInput(gameInput));
@@ -535,6 +539,8 @@ class Genome_Executor:
                     print('Error in activating net with data ', gameData, ' and mapped data ', runningGame.getMappedData());
                     print('Error body: ', sys.exc_info());
                     raise
+                
+                #print(runningGame.getFitnessScore())
 
                 runningGame.processInput(gameInput);
 
