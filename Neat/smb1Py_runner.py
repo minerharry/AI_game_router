@@ -86,7 +86,7 @@ if __name__ == "__main__":
     if add_data:
         additional_config = configs[additional_data_index];
         training_data += SegmentGenerator.generateBatch(additional_config,20);
-        f = open(f'memories\\smb1Py\\run-{currentRun}-data','rb')
+        f = open(f'memories\\smb1Py\\run-{currentRun}-data','wb')
         pickle.dump(training_data,f);
         f.close();
 

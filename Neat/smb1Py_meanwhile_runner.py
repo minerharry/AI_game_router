@@ -38,14 +38,14 @@ if __name__ == "__main__":
     multiprocessing.freeze_support();
 
 
-    run_state = run_states.CONTINUE;
+    run_state = run_states.RERUN;
     currentRun = 10;
     manual_continue_generation = None;
     override_config = False;
     inputOptions = c.NO_GRID;
 
 
-    reRunGeneration = 20;
+    reRunGeneration = 75;
     reRunId = 88;
 
     customGenome = None;
