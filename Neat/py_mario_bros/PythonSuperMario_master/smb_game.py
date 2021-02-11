@@ -45,7 +45,7 @@ class SMB1Game(RunGame):
 
     def processInput(self, inputs):
         #print('input processed')
-        output = [key > 0 for key in inputs];
+        output = [key > 0.5 for key in inputs];
         named_actions = dict(zip(['action','jump','left','right','down'],output));
 
         self.game.tick_inputs(named_actions);
@@ -57,7 +57,8 @@ class SMB1Game(RunGame):
 
     def renderInput(self,inputs):
         #print('input rendered')
-        output = [key > 0 for key in inputs];
+        output = [key > 0.5 for key in inputs];
+        
         named_actions = dict(zip(['action','jump','left','right','down'],output));
 
         self.game.tick_inputs(named_actions,show_game=True);
