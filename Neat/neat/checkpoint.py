@@ -16,6 +16,7 @@ except ImportError:
 
 from neat.population import Population
 from neat.reporting import BaseReporter
+from neat.six_util import itervalues
 
 
 class Checkpointer(BaseReporter):
@@ -80,13 +81,14 @@ class Checkpointer(BaseReporter):
             generation, config, population, species_set, rndstate = pickle.load(f)
             random.setstate(rndstate)
             if config_transfer: #transfer configuration and update population and species_set from config
+                print(f'config transfer: {config_transfer}');
                 newConfig, inputMap, outputMap = config_transfer;
                 if inputMap:
-                    for genome in population:
-                        genome.remap_inputs(inputMap,config,newConfig);
+                    for genome in itervalues(population):
+                        genome.remap_inputs(inputMap,config.genome_config,newConfig.genome_config);
                 if outputMap:
-                    for genome in population:
-                        genome.remap_outputs(outputMap,config,newConfig);
+                    for genome in itervalues(population):
+                        genome.remap_outputs(outputMap,config.genome_config,newConfig.genome_config);
                 config = newConfig;
             pop = Population(config, (population, species_set, generation))
             return pop;

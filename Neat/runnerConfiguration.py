@@ -76,10 +76,11 @@ class RunnerConfig:
             if name in newData:
                 index = newData.index(name);
                 unused_keys.remove(index);
-                map[i] = index;
+                map[-i-1] = -index-1;
             else:
-                map[i] = None
-        map[None] = unused_keys;
+                map[-i-1] = None
+        map[None] = [-key-1 for key in unused_keys]; #technically it doesn't actually add nodes when negative, but here for consistency's sake
+        print(map[None]);
         return map;
 
 
