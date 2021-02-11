@@ -50,6 +50,7 @@ if __name__ == "__main__":
 
     customGenome = None;
 
+    #c.GRAPHICS_SETTINGS = c.LOW
     
 
 
@@ -58,15 +59,18 @@ if __name__ == "__main__":
 
     configs = [
         GenerationOptions(num_blocks=0,ground_height=[7,9],valid_task_blocks=c.FLOOR,valid_start_blocks=c.FLOOR),
+        GenerationOptions(num_blocks=0,ground_height=[7,9],valid_task_blocks=c.INNER,valid_start_blocks=c.FLOOR),
         GenerationOptions(num_blocks=[0,4],ground_height=[7,9],task_batch_size=[1,4]),
         GenerationOptions(num_blocks=[0,8],ground_height=[7,10],task_batch_size=[1,4]),
         GenerationOptions(num_blocks=[0,6],ground_height=[7,9],task_batch_size=[1,4],num_enemies={c.ENEMY_TYPE_GOOMBA:[0,1]}),
         ];
+    
+    set_data = False;
 
     training_data = [];
-    if (run_state == run_states.NEW):
+    if (run_state == run_states.NEW or set_data):
         inital_config = configs[0]
-        training_data = SegmentGenerator.generateBatch(inital_config,40);
+        training_data = SegmentGenerator.generateBatch(inital_config,20);
         os.makedirs(f"memories\\smb1Py\\",exist_ok=True);
         f = open(f'memories\\smb1Py\\run-{currentRun}-data','wb');
         pickle.dump(training_data,f);
@@ -76,12 +80,15 @@ if __name__ == "__main__":
         training_data = pickle.load(f);
         f.close();
 
-    add_data = False;
+    add_data = True;
     additional_data_index = 1;
 
     if add_data:
         additional_config = configs[additional_data_index];
-        training_data += SegmentGenerator.generateBatch(additional_config,50);
+        training_data += SegmentGenerator.generateBatch(additional_config,20);
+        f = open(f'memories\\smb1Py\\run-{currentRun}-data','rb')
+        pickle.dump(training_data,f);
+        f.close();
 
 
     inputData = [

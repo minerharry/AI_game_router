@@ -37,20 +37,20 @@ if __name__ == "__main__":
 
     multiprocessing.freeze_support();
 
-    c.GRAPHICS_SETTINGS = c.LOW
 
-    run_state = run_states.RERUN;
+    run_state = run_states.CONTINUE;
     currentRun = 10;
-    manual_continue_generation = 24;
+    manual_continue_generation = None;
     override_config = False;
     inputOptions = c.NO_GRID;
 
 
-    reRunGeneration = 75;
-    reRunId = 1128;
+    reRunGeneration = 20;
+    reRunId = 88;
 
     customGenome = None;
 
+    #c.GRAPHICS_SETTINGS = c.LOW
     
 
 
@@ -59,15 +59,18 @@ if __name__ == "__main__":
 
     configs = [
         GenerationOptions(num_blocks=0,ground_height=[7,9],valid_task_blocks=c.FLOOR,valid_start_blocks=c.FLOOR),
+        GenerationOptions(num_blocks=0,ground_height=[7,9],valid_task_blocks=c.INNER,valid_start_blocks=c.FLOOR),
         GenerationOptions(num_blocks=[0,4],ground_height=[7,9],task_batch_size=[1,4]),
         GenerationOptions(num_blocks=[0,8],ground_height=[7,10],task_batch_size=[1,4]),
         GenerationOptions(num_blocks=[0,6],ground_height=[7,9],task_batch_size=[1,4],num_enemies={c.ENEMY_TYPE_GOOMBA:[0,1]}),
         ];
+    
+    set_data = False;
 
     training_data = [];
-    if (run_state == run_states.NEW):
+    if (run_state == run_states.NEW or set_data):
         inital_config = configs[0]
-        training_data = SegmentGenerator.generateBatch(inital_config,40);
+        training_data = SegmentGenerator.generateBatch(inital_config,20);
         os.makedirs(f"memories\\smb1Py\\",exist_ok=True);
         f = open(f'memories\\smb1Py\\run-{currentRun}-data','wb');
         pickle.dump(training_data,f);
@@ -82,7 +85,7 @@ if __name__ == "__main__":
 
     if add_data:
         additional_config = configs[additional_data_index];
-        training_data += SegmentGenerator.generateBatch(additional_config,50);
+        training_data += SegmentGenerator.generateBatch(additional_config,20);
 
 
     inputData = [
@@ -120,7 +123,7 @@ if __name__ == "__main__":
     runConfig.training_data = training_data;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
-    runConfig.parallel_processes = 5;
+    runConfig.parallel_processes = 4;
     runConfig.chunkFactor = 24;
     runConfig.saveFitness = True;
 
@@ -143,8 +146,6 @@ if __name__ == "__main__":
         customGenome.configure_new(config.genome_config);
         customGenome.add_connection(config.genome_config,-1,2,-1,True);
         customGenome.add_connection(config.genome_config,-1,3,1,True);
-    
-    #print(runner.check_output_connections(reRunGeneration,'run_' + str(currentRun),2))
     if (run_state == run_states.CONTINUE):
         winner = runner.continue_run('run_' + str(currentRun),manual_generation=manual_continue_generation,manual_config_override=(config if override_config else None));
         print('\nBest genome:\n{!s}'.format(winner));
