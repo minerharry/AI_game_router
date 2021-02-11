@@ -81,6 +81,7 @@ class Checkpointer(BaseReporter):
             generation, config, population, species_set, rndstate = pickle.load(f)
             random.setstate(rndstate)
             if config_transfer: #transfer configuration and update population and species_set from config
+                print(f'config transfer: {config_transfer}');
                 newConfig, inputMap, outputMap = config_transfer;
                 if inputMap:
                     for genome in itervalues(population):

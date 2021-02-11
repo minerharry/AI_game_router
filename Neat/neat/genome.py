@@ -580,10 +580,12 @@ class DefaultGenome(object):
 
     def remap_inputs(self,inputIdMap,oldConfig,newConfig): 
         #each node has a memory of its id, and the connections dict has keys of (first_node_id,second_node_id). Changing these values should successfully remap all nodes.
-        if set(inputIdMap.keys()) != set(oldConfig.input_keys):            
-            raise AssertionError("Assertion Error: Invalid mapping - attempts to map keys that aren't there");
-        if set(inputIdMap.values()) != set(newConfig.input_keys):            
-            raise AssertionError("Assertion Error: Invalid mapping - attempts to map keys that aren't there");
+        #INPUT NODES ARE NOT IN SELF.NODES, remapping for connection purposes only
+#        if (set(inputIdMap.keys()) - set([None])) != set(oldConfig.input_keys):            
+            #raise AssertionError("Assertion Error: Invalid mapping - attempts to map keys that aren't there");
+        #if set(inputIdMap.values()) != set(newConfig.input_keys):            
+            #raise AssertionError("Assertion Error: Invalid mapping - attempts to map keys that aren't there");
+        #TODO: Add better input validation
         def mapFunc(map,inKey):
             if inKey in inputIdMap:
                 return map[inKey];
@@ -591,10 +593,12 @@ class DefaultGenome(object):
                 return [];
             else:
                 return inKey;
+        print(f"previous nodes: {self.nodes.keys()}");
         if type(inputIdMap) is dict:
             self._remap_nodes(partial(mapFunc,inputIdMap),newConfig);
         else:
             self._remap_nodes(inputIdMap,newConfig);
+        print(f"new nodes: {self.nodes.keys()}");
         
 #TODO: add output remapping remap_outputs; remember to offset all other nodes if new length different from old
 
@@ -616,6 +620,10 @@ class DefaultGenome(object):
                 newConns[newKeys] = conn;
         
         for key in idMap(None):
-            newNodes[key] = self.create_node(key,newConfig);
+            if key >= 0:
+                newNodes[key] = self.create_node(newConfig,key);
+        
+        self.nodes = newNodes;
+        self.connections = newConns;
 
         return;
