@@ -69,6 +69,13 @@ class RunnerConfig:
     
     def get_input_transfer(self,prevData:list):
         newData = self.flattened_return_data();
+        result = []
+        for datum in prevData:
+            if (isinstance(datum,IOData)):
+                [result.append(x) for x in datum.getSplitData()];
+            else:
+                result.append(datum);
+        prevData = result;
         map = {};
         unused_keys = list(range(len(newData)));
         for i in range(len(prevData)):

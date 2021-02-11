@@ -42,6 +42,7 @@ if __name__ == "__main__":
     currentRun = 10;
     manual_continue_generation = None;
     override_config = False;
+    prevData = [IOData('task_position_offset','array',array_size=[2])]
     inputOptions = c.NO_GRID;
 
 
@@ -80,7 +81,7 @@ if __name__ == "__main__":
         training_data = pickle.load(f);
         f.close();
 
-    add_data = True;
+    add_data = False;
     additional_data_index = 1;
 
     if add_data:
@@ -143,6 +144,9 @@ if __name__ == "__main__":
     config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                         neat.DefaultSpeciesSet, neat.DefaultStagnation,
                         config_path);
+    config_transfer = None;
+    if override_config:
+        config_transfer = (config, runConfig.get_input_transfer(prevData),None)
 
     if (run_state == run_states.EVAL_CUSTOM):
         customGenome = neat.genome.DefaultGenome(0);
@@ -150,7 +154,7 @@ if __name__ == "__main__":
         customGenome.add_connection(config.genome_config,-1,2,-1,True);
         customGenome.add_connection(config.genome_config,-1,3,1,True);
     if (run_state == run_states.CONTINUE):
-        winner = runner.continue_run('run_' + str(currentRun),manual_generation=manual_continue_generation,manual_config_override=(config if override_config else None));
+        winner = runner.continue_run('run_' + str(currentRun),manual_generation=manual_continue_generation,manual_config_override=config_transfer);
         print('\nBest genome:\n{!s}'.format(winner));
     else:
         local_dir = os.path.dirname(__file__)

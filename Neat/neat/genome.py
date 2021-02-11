@@ -611,7 +611,7 @@ class DefaultGenome(object):
                 node.key = newKey;
         
         for keys,conn in iteritems(self.connections):
-            newKeys = (idMap(keys[0]),idMap(keys[1]);
+            newKeys = (idMap(keys[0]),idMap(keys[1]));
             if None not in newKeys:
                 newConns[newKeys] = conn;
         
