@@ -110,12 +110,15 @@ class DefaultGenomeConfig(object):
                                       if not 'initial_connection' in p.name])
 
     def get_new_node_key(self, node_dict):
-        if self.node_indexer is None:
-            self.node_indexer = count(max(list(iterkeys(node_dict))) + 1)
+        #if self.node_indexer is None:
+#            self.node_indexer = count(max(list(iterkeys(node_dict))) + 1)
 
-        new_id = next(self.node_indexer)
-
-        assert new_id not in node_dict
+        new_id = max(list(iterkeys(node_dict))) + 1;
+        try:
+            assert new_id not in node_dict
+        except:
+            print(f"assertion failed - id {new_id} already in node dict {node_dict}")
+            assert new_id not in node_dict
 
         return new_id
 
@@ -389,6 +392,8 @@ class DefaultGenome(object):
         connections_to_delete = set()
         for k, v in iteritems(self.connections):
             if del_key in v.key:
+                #print(v.key);
+                #print(v.__dir__())
                 connections_to_delete.add(v.key)
 
         for key in connections_to_delete:
@@ -579,7 +584,7 @@ class DefaultGenome(object):
             self.connections[connection.key] = connection
 
     def remap_inputs(self,inputIdMap,oldConfig,newConfig): 
-        #each node has a memory of its id, and the connections dict has keys of (first_node_id,second_node_id). Changing these values should successfully remap all nodes.
+        #each node has a memory of its id, and the connections dict has keys of (first_node_id,second_node_id) as well as a stored key. Changing these values should successfully remap all nodes.
         #INPUT NODES ARE NOT IN SELF.NODES, remapping for connection purposes only
 #        if (set(inputIdMap.keys()) - set([None])) != set(oldConfig.input_keys):            
             #raise AssertionError("Assertion Error: Invalid mapping - attempts to map keys that aren't there");
@@ -593,18 +598,18 @@ class DefaultGenome(object):
                 return [];
             else:
                 return inKey;
-        print(f"previous nodes: {self.nodes.keys()}");
+        #print(f"previous nodes: {self.nodes.keys()}");
         if type(inputIdMap) is dict:
             self._remap_nodes(partial(mapFunc,inputIdMap),newConfig);
         else:
             self._remap_nodes(inputIdMap,newConfig);
-        print(f"new nodes: {self.nodes.keys()}");
+        #print(f"new nodes: {self.nodes.keys()}");
         
 #TODO: add output remapping remap_outputs; remember to offset all other nodes if new length different from old
 
     #Should only be called by the class's remap functions for remapping validation and behavioral quirks; simply remaps nodes and connections given the input function idMap
     def _remap_nodes(self,idMap,newConfig):
-        #each node has a memory of its id, and the connections dict has keys of (first_node_id,second_node_id). Changing these values should successfully remap all nodes.
+        #each node has a memory of its id, and the connections dict has keys of (first_node_id,second_node_id) as well as a stored key. Changing these values should successfully remap all nodes.
         #idMap is actually a function
         newNodes = {};
         newConns = {};
@@ -618,12 +623,18 @@ class DefaultGenome(object):
             newKeys = (idMap(keys[0]),idMap(keys[1]));
             if None not in newKeys:
                 newConns[newKeys] = conn;
+                conn.key = newKeys;
+            else:
+                print("connection deleted; mapped to none")
         
         for key in idMap(None):
             if key >= 0:
+                print("adding remap node")
                 newNodes[key] = self.create_node(newConfig,key);
         
         self.nodes = newNodes;
         self.connections = newConns;
+
+        newConfig.node_indexer = None; #ensure it doesn't try to add any nodes that already exist
 
         return;

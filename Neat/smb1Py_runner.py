@@ -40,10 +40,16 @@ if __name__ == "__main__":
 
     run_state = run_states.CONTINUE;
     currentRun = 10;
-    manual_continue_generation = None;
     override_config = False;
-    prevData = [IOData('task_position_offset','array',array_size=[2])]
-    inputOptions = c.NO_GRID;
+    manual_continue_generation = None;
+    diff_inputs = False;
+    diff_outputs = False;
+    output_map = None;
+    prevData = ['player_state',
+        IOData('vel','array',array_size=[2]),
+        IOData('task_position_offset','array',array_size=[2]),
+        IOData('pos','array',array_size=[2])];
+    inputOptions = c.COLLISION_GRID;
 
 
     reRunGeneration = 20;
@@ -54,19 +60,21 @@ if __name__ == "__main__":
     #c.GRAPHICS_SETTINGS = c.LOW
     
 
-
+    set_data = False;
+    add_data = False;
+    additional_data_index = 2;
 
 
 
     configs = [
         GenerationOptions(num_blocks=0,ground_height=[7,9],valid_task_blocks=c.FLOOR,valid_start_blocks=c.FLOOR),
         GenerationOptions(num_blocks=0,ground_height=[7,9],valid_task_blocks=c.INNER,valid_start_blocks=c.FLOOR),
+        GenerationOptions(num_blocks=[1,3],ground_height=[7,9],valid_task_blocks=c.INNER,valid_start_blocks=c.FLOOR),
         GenerationOptions(num_blocks=[0,4],ground_height=[7,9],task_batch_size=[1,4]),
         GenerationOptions(num_blocks=[0,8],ground_height=[7,10],task_batch_size=[1,4]),
         GenerationOptions(num_blocks=[0,6],ground_height=[7,9],task_batch_size=[1,4],num_enemies={c.ENEMY_TYPE_GOOMBA:[0,1]}),
         ];
     
-    set_data = False;
 
     training_data = [];
     if (run_state == run_states.NEW or set_data):
@@ -81,8 +89,7 @@ if __name__ == "__main__":
         training_data = pickle.load(f);
         f.close();
 
-    add_data = False;
-    additional_data_index = 1;
+
 
     if add_data:
         additional_config = configs[additional_data_index];
@@ -97,9 +104,9 @@ if __name__ == "__main__":
         IOData('vel','array',array_size=[2]),
         IOData('task_position_offset','array',array_size=[2]),
         IOData('pos','array',array_size=[2])];
-    inputData = [IOData('task_position_offset','array',array_size=[2])];
+    #inputData = [IOData('task_position_offset','array',array_size=[2])];
     config_suffix = "-nogrid"
-    config_suffix ='-dx'
+    #config_suffix ='-dx'
 
     if inputOptions == c.FULL:
         inputData += [
@@ -127,7 +134,7 @@ if __name__ == "__main__":
     runConfig.training_data = training_data;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
-    runConfig.parallel_processes = 10;
+    runConfig.parallel_processes = 6;
     runConfig.chunkFactor = 24;
     runConfig.saveFitness = True;
 
@@ -146,7 +153,7 @@ if __name__ == "__main__":
                         config_path);
     config_transfer = None;
     if override_config:
-        config_transfer = (config, runConfig.get_input_transfer(prevData),None)
+        config_transfer = (config, runConfig.get_input_transfer(prevData) if diff_inputs else None, output_transfer if diff_outputs else None)
 
     if (run_state == run_states.EVAL_CUSTOM):
         customGenome = neat.genome.DefaultGenome(0);

@@ -125,17 +125,5 @@ class IOData:
         print(result);
         return (name,result);
 
-    @staticmethod
-    def convertableType(datum):
-        for convertType in convertable_types:
-            if (isinstance(datum,convertType)):
-                return true;
-        return false;
-
-    @classmethod
-    def datify(cls,datum,name):
-        if (isinstance(datum,list)):
-            return;
-
 
 

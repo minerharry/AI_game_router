@@ -146,7 +146,6 @@ def draw_net(config, genome, view=False, filename='Digraph', node_names=None, sh
     inputs = set();
     namedInputs = dict();
     for k in config.genome_config.input_keys:
-        
         inputs.add(k)
         name = node_names.get(k, str(k))
         namedInputs[name] = k

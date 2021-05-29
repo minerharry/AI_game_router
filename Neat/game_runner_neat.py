@@ -233,6 +233,9 @@ class GameRunner:
             net = neat.nn.FeedForwardNetwork.create(genome,config);
             runningGame = self.game.start(runnerConfig,training_datum = training_datum);
             images = [];
+            fitness = 0;
+            if runnerConfig.fitness_collection_type != None and 'delta' in runnerConfig.fitness_collection_type:
+                fitness -= runningGame.getFitnessScore();
             while (runningGame.isRunning()):
                 #get the current inputs from the running game, as specified by the runnerConfig
                 gameData = runningGame.getData();
@@ -248,6 +251,13 @@ class GameRunner:
                 else:
                     runningGame.renderInput(gameInput);
 
+
+                if (runnerConfig.fitness_collection_type != None and 'continuous' in runnerConfig.fitness_collection_type):
+                    fitness += runningGame.getFitnessScore();
+
+            fitness += runningGame.getFitnessScore();
+
+            print('final genome fitness: ' + str(fitness));
 
                         
             runningGame.close();
@@ -456,7 +466,7 @@ class Genome_Executor:
             cls.count += 1;
             if cls.count % 100 == 0:
                 time = datetime.now()
-                print(f'Parallel Checkpoint - Process #{cls.pnum} at {time}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})') + ('' if cls.last_checkpoint_time is None else f'; Eval Speed: {100/(time-cls.last_checkpoint_time).total_seconds()}'));
+                print(f'Parallel Checkpoint - Process #{cls.pnum} at {time}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})') + ('' if cls.last_checkpoint_time is None else f'; Eval Speed: {100/(time-cls.last_checkpoint_time).total_seconds():.5f}'));
                 cls.last_checkpoint_time = time;
             fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game);
         return fitnesses;
@@ -475,7 +485,7 @@ class Genome_Executor:
                 cls.count += 1;
                 if cls.count % 100 == 0:
                     time = datetime.now()
-                    print(f'Parallel Checkpoint - Process #{cls.pnum} at {time}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})') + ('' if cls.last_checkpoint_time is None else f'; Eval Speed: {100/(time-cls.last_checkpoint_time).total_seconds()}'));
+                    print(f'Parallel Checkpoint - Process #{cls.pnum} at {time}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})') + ('' if cls.last_checkpoint_time is None else f'; Eval Speed: {100/(time-cls.last_checkpoint_time).total_seconds():.5f}'));
                     cls.last_checkpoint_time = time;
         return fitnesses;
 
@@ -491,7 +501,7 @@ class Genome_Executor:
                 cls.count += 1;
                 if cls.count % 100 == 0:
                     time = datetime.now()
-                    print(f'Parallel Checkpoint - Process #{cls.pnum} at {time}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})') + ('' if cls.last_checkpoint_time is None else f'; Eval Speed: {100/(time-cls.last_checkpoint_time).total_seconds()}'));
+                    print(f'Parallel Checkpoint - Process #{cls.pnum} at {time}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})') + ('' if cls.last_checkpoint_time is None else f'; Eval Speed: {100/(time-cls.last_checkpoint_time).total_seconds():.5f}'));
                     cls.last_checkpoint_time = time;
                 
                 fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game,trainingDatum=datum);
@@ -507,7 +517,7 @@ class Genome_Executor:
         cls.count += 1;
         if cls.count % 100 == 0:
             time = datetime.now()
-            print(f'Parallel Checkpoint - Process #{cls.pnum} at {time}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})') + ('' if cls.last_checkpoint_time is None else f'; Eval Speed: {100/(time-cls.last_checkpoint_time).total_seconds()}'));
+            print(f'Parallel Checkpoint - Process #{cls.pnum} at {time}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})') + ('' if cls.last_checkpoint_time is None else f'; Eval Speed: {100/(time-cls.last_checkpoint_time).total_seconds():.5f}'));
             cls.last_checkpoint_time = time;
         return cls.eval_genome_feedforward(genome,config,runnerConfig,game);
 

@@ -3,6 +3,7 @@ from __future__ import division, print_function
 from neat.reporting import BaseReporter
 
 import time
+import datetime
 
 from neat.math_util import mean, stdev
 from neat.six_util import itervalues, iterkeys
@@ -53,6 +54,7 @@ class LoggingReporter(BaseReporter):
             outputString += ("Generation time: {0:.3f} sec ({1:.3f} average)".format(elapsed, average)) + '\n';
         else:
             outputString += ("Generation time: {0:.3f} sec".format(elapsed)) + '\n';
+        outputString += "Generation Commpletion time: {0}\n".format(datetime.datetime.now())
         self.output(outputString);
         
     def post_evaluate(self, config, population, species, best_genome):

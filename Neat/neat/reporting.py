@@ -6,6 +6,7 @@ may do something else such as checkpointing, or may do both.
 from __future__ import division, print_function
 
 import time
+import datetime
 
 from neat.math_util import mean, stdev
 from neat.six_util import itervalues, iterkeys
@@ -131,6 +132,7 @@ class StdOutReporter(BaseReporter):
             print("Generation time: {0:.3f} sec ({1:.3f} average)".format(elapsed, average))
         else:
             print("Generation time: {0:.3f} sec".format(elapsed))
+        print("Generation Commpletion time: {0}".format(datetime.datetime.now()))
 
     def post_evaluate(self, config, population, species, best_genome):
         # pylint: disable=no-self-use
