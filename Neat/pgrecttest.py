@@ -1,5 +1,5 @@
 import pygame as pg
-from py_mario_bros.PythonSuperMario_master.source.states.segmentGenerator import SegmentGenerator,GenerationOptions
+from games.smb1Py.py_mario_bros.PythonSuperMario_master.source.states.segmentGenerator import SegmentGenerator,GenerationOptions
 #pg.init();
 #SCREEN = pg.display.set_mode((400,400))
 

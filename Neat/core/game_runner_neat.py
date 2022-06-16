@@ -82,17 +82,7 @@ class GameRunner:
         pop.add_reporter(neat.StdOutReporter(True));
 
         if not single_gen:
-            os.makedirs("checkpoints\\games\\"+self.runConfig.gameName.replace(' ','_')+f'\\{self.run_name}',exist_ok=True);
-            
-            # if (not(os.path.exists('checkpoints'))):
-            #     os.mkdir('checkpoints');
-            # if (not(os.path.exists('checkpoints\\games'))):
-            #     os.mkdir('checkpoints\\games');
-            # if (not(os.path.exists('checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')))):
-            #     os.mkdir('checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_'));
-            # if (not(os.path.exists('checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_')))):
-            #     os.mkdir();
-            
+            os.makedirs("checkpoints\\games\\"+self.runConfig.gameName.replace(' ','_')+f'\\{self.run_name}',exist_ok=True);            
             pop.add_reporter(neat.Checkpointer(1,filename_prefix='checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+self.run_name+'\\run-checkpoint-'));
 
         if (render):
@@ -104,10 +94,11 @@ class GameRunner:
             manager = multiprocessing.Manager()
             idQueue = manager.Queue()
             [idQueue.put(i) for i in range(self.runConfig.parallel_processes)];
-            self.pool = multiprocessing.pool.Pool(self.runConfig.parallel_processes, Genome_Executor.initProcess,(idQueue,self.game.gameClass));
-            if not single_gen:
-                self.fitness_reporter = FitnessReporter(self.runConfig.gameName,self.run_name);
-                pop.add_reporter(self.fitness_reporter);
+            self.pool:multiprocessing.Pool = multiprocessing.Pool(self.runConfig.parallel_processes, Genome_Executor.initProcess,(idQueue,self.game.gameClass));
+
+        if not single_gen:
+            self.fitness_reporter = FitnessReporter(self.runConfig.gameName,self.run_name);
+            pop.add_reporter(self.fitness_reporter);
 
         self.generation = pop.generation;
         
@@ -336,24 +327,11 @@ class GameRunner:
                 fitnesses = self.pool.map(batch_func,genomes,chunksize=chunkSize);
                 for genome_id,genome in genomes:
                     genome.fitness += fitnesses[genome_id];
-                # processes = [];
-                # genome_batches = np.array_split(genomes,self.runConfig.parallel_processes);
-                # for i in range(runConfig.parallel_processes):
-                #     process = multiprocessing.Process(target=self.eval_genome_batch_feedforward,args=(genome_batches[i],config,i));
-                #     processes.append(process);
-                # for process in processes:
-                #     process.start();
-                # for process in processes:
-                #     process.join();
-                # return;
             else:
                 for genome_id, genome in genomes:
                     genome.fitness += self.eval_genome_feedforward(genome,config)
         else:
             if (self.runConfig.parallel):
-                
-                #data_batches = np.array_split(self.runConfig.training_data,self.runConfig.parallel_processes);
-
                 batch_func = functools.partial(Genome_Executor.map_eval_genomes_feedforward,config,self.runConfig,self.game,genomes,gen=self.generation);
 
                 chunkFactor = 4;
@@ -373,23 +351,6 @@ class GameRunner:
                 if hasattr(self.runConfig,"saveFitness") and self.runConfig.saveFitness:
                     fitness_data = zip(self.runConfig.training_data,datum_fitnesses);
                     self.fitness_reporter.save_data(fitness_data)
-
-
-                
-                   
-                    
-
-                
-
-
-                # for i in range(self.runConfig.parallel_processes):
-                #     process = multiprocessing.Process(target=self.eval_training_data_batch_feedforward,args=(genomes,config,data_batches[i],i,lock));
-                #     processes.append(process);
-                # for process in processes:
-                #     process.start();
-                # for process in processes:
-                #     process.join();
-                # return;
             else:
                 if hasattr(self.runConfig,"saveFitness") and self.runConfig.saveFitness:
                     fitness_data = {};

@@ -1,4 +1,4 @@
-from baseGame import RunGame
+from core.baseGame import RunGame
 from abc import abstractmethod
 from .source import tools
 from .source import constants as c

@@ -1,6 +1,6 @@
-from game_runner_neat import GameRunner 
-from runnerConfiguration import RunnerConfig, IOData
-from baseGame import EvalGame
+from core.game_runner_neat import GameRunner 
+from core.runnerConfiguration import RunnerConfig, IOData
+from core.baseGame import EvalGame
 from py_mario_bros.PythonSuperMario_master.smb_game import SMB1Game
 from py_mario_bros.PythonSuperMario_master.source.states.segmentGenerator import SegmentGenerator,GenerationOptions
 import os
@@ -12,7 +12,7 @@ except:
    import pickle
 from py_mario_bros.PythonSuperMario_master.source import tools
 from py_mario_bros.PythonSuperMario_master.source import constants as c
-import run_states
+import core.run_states as run_states
 
 steps_threshold = 800;
 
