@@ -4,14 +4,7 @@
 *.pyc
 */*.pyc
 *.cpython-37.pyc
-
-
 *.pyc
 *.pyc
-Neat/__pycache__/visualize.cpython-37.pyc
 *.pyc
-Neat/neat/__pycache__/genes.cpython-37.pyc
-Neat/logs/smb1Py/run-0-log.txt
-Neat/.vscode/settings.json
-Neat/fixed_net/data/grayscale_random.npy
-Neat/fixed_net/data/grayscale_random_average.npz
+.vscode/settings.json
