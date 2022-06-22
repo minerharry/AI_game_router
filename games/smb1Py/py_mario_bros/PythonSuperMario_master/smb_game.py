@@ -48,7 +48,7 @@ class SMB1Game(RunGame):
         named_actions = dict(zip(['action','jump','left','right','down'],output));
 
         self.game.tick_inputs(named_actions);
-        while (self.isRunning() and not self.game.accepts_player_input()):
+        while (self.isRunning() and not self.game.accepts_player_input()): #skip bad frames
             self.game.tick_inputs(empty_actions);
         
 

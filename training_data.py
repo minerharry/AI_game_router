@@ -20,7 +20,7 @@ class TrainingDataManager(Generic[TD]):
         return len(self.active_data);
 
     def clear_data(self,save=True):
-        for id,datum in self.active_data:
+        for id,datum in self.active_data.items():
             self.inactive_data[id] = datum;
         self.active_data = {};
         if save: self.save_data();

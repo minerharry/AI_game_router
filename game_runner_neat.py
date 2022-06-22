@@ -74,7 +74,6 @@ class GameRunner:
         if (pop is None):
             pop = neat.Population(config);
             continuing = False;
-            print(pop.population[1]);
         else:
             continuing = True;
         stats = neat.StatisticsReporter();
@@ -152,7 +151,6 @@ class GameRunner:
         for g in itervalues(pop.population):
             if best is None or g.fitness > best.fitness:
                 best = g
-        print(best);
         self.render_genome(best,config,net=net);
         
 
@@ -167,9 +165,8 @@ class GameRunner:
                 flattened_data = self.runConfig.flattened_return_data();
                 shaped_data = self.runConfig.return_data_shape();
                 visualize.draw_net(config,genome,view=True,node_names=dict([(-i-1,flattened_data[i]) for i in range(len(flattened_data))]),nodes_shape=shaped_data);
-                # except FileNotFoundError as e: print("error - could not render genome, graphviz not found",e.with_traceback(None)); raise e;
             
-            for datum in self.runConfig.training_data:
+            for datum in self.runConfig.training_data.active_data.values():
                 if (self.runConfig.recurrent):  
                     self.render_genome_recurrent(genome,config,net=False,training_datum = datum);
                 else:
@@ -235,10 +232,6 @@ class GameRunner:
                 gameData = runningGame.getData();
 
                 gameInput = net.activate(gameData);
-
-                #print(gameInput)
-
-                #print(runningGame.getFitnessScore())
 
                 if (self.runConfig.external_render):
                     images.append(runningGame.renderInput(gameInput));
@@ -322,14 +315,13 @@ class GameRunner:
                     chunkFactor = self.runConfig.chunkFactor;
                 
                 chunkSize,extra  = divmod(len(genomes),self.runConfig.parallel_processes * chunkFactor);
-
                 if extra:
                     chunkSize += 1;
 
                 print(f'Starting parallel processing for {len(genomes)} evals over {self.runConfig.parallel_processes} processes');
 
                 fitnesses = {};
-                for id,fitness in tqdm(self.pool.istarmap(batch_func,[(gen,id) for gen in genomes],chunksize=chunkSize),total=len(genomes)):
+                for id,fitness in tqdm(self.pool.istarmap(batch_func,[(gen,gid) for gid,gen in genomes],chunksize=chunkSize),total=len(genomes)):
                     fitnesses[id]=fitness;
                 for genome_id,genome in genomes:
                     genome.fitness += fitnesses[genome_id];
@@ -351,27 +343,26 @@ class GameRunner:
                 print(f'Starting parallel processing for {len(genomes)*len(tdata)} evals over {self.runConfig.parallel_processes} processes');
 
                 datum_fitnesses = {};
-                for id,fitnesses in tqdm(self.pool.istarmap(batch_func,[(datum,id) for datum,id in tdata],chunksize=chunkSize),total=len(tdata)):
+                for id,fitnesses in tqdm(self.pool.istarmap(batch_func,[(datum,id) for id,datum in tdata.items()],chunksize=chunkSize),total=len(tdata)):
                     datum_fitnesses[id] = fitnesses;
-                for fitnesses in datum_fitnesses.items():
-                    for genome_id,genome in genomes:
-                        genome.fitness += fitnesses[genome_id];
                 
                 if hasattr(self.runConfig,"saveFitness") and self.runConfig.saveFitness:
                     self.fitness_reporter.save_data(datum_fitnesses);
+                
+                for fitnesses in datum_fitnesses.items():
+                    for genome_id,genome in genomes:
+                        genome.fitness += fitnesses[genome_id];
             else:
                 if hasattr(self.runConfig,"saveFitness") and self.runConfig.saveFitness:
                     fitness_data = {};
-                    for datum in tqdm(self.runConfig.training_data):
+                    for did,datum in tqdm(self.runConfig.training_data.active_data.items()):
                         fitnesses = {};
                         for genome_id, genome in tqdm(genomes):
                             fitness = self.eval_genome_feedforward(genome,config,trainingDatum=datum)
                             fitnesses[genome_id] = fitness;
                             genome.fitness += fitness;
-                        fitness_data[datum] = fitnesses;
-                
-                    fitness_data = zip(self.runConfig.training_data,datum_fitnesses);
-                    self.fitness_reporter.save_data(fitness_data)
+                        fitness_data[did] = fitnesses;
+                    self.fitness_reporter.save_data(fitnesses);
                 else:
                     for datum in tqdm(self.runConfig.training_data):
                         for genome_id, genome in tqdm(genomes):
@@ -382,6 +373,8 @@ class GameRunner:
     def eval_genome_feedforward(self,genome,config,trainingDatum=None):
         return Genome_Executor.eval_genome_feedforward(genome,config,self.runConfig,self.game,trainingDatum=trainingDatum)
 
+
+class GenomeExecutorInterruptedException(Exception): pass; #idk man
 
 #Genome Executor: Class that handles any and all genome processing, packaged and globalized for easier interface with parallelism
 #Ok, so
@@ -397,6 +390,7 @@ class Genome_Executor:
     last_checkpoint_time = None;
     tr = None;
     iterations_between = 0;
+    CHECKPOINT_INTERVAL = 0; # interval <= 0 means no checkins
 
     #TODO: Abstractify this using gameClass methods
     @classmethod
@@ -411,100 +405,114 @@ class Genome_Executor:
     #process methods - iterate within
     @classmethod
     def eval_genome_batch_feedforward(cls,config,runnerConfig,game,genomes,return_id,gen=None):
-        if gen is not None:
-            if gen != cls.generation:
-                cls.count = 0;
-            cls.generation = gen;
-        fitnesses = {genome_id:0 for genome_id,genome in genomes};
-        for genome_id, genome in genomes:
-            cls.count += 1;
-            if cls.count % 10 == 0:
-                time = datetime.now()
-                print(f'Parallel Checkpoint - Process #{cls.pnum} at {time}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})') + ('' if cls.last_checkpoint_time is None else f'; Eval Speed: {100/(time-cls.last_checkpoint_time).total_seconds():.5f}'));
-                cls.last_checkpoint_time = time;
-            fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game);
-        return (return_id,fitnesses);
+        try:
+            if gen is not None:
+                if gen != cls.generation:
+                    cls.count = 0;
+                cls.generation = gen;
+            fitnesses = {genome_id:0 for genome_id,genome in genomes};
+            for genome_id, genome in genomes:
+                cls.count += 1;
+                if cls.CHECKPOINT_INTERVAL > 0 and cls.count % cls.CHECKPOINT_INTERVAL == 0:
+                    time = datetime.now()
+                    print(f'Parallel Checkpoint - Process #{cls.pnum} at {time}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})') + ('' if cls.last_checkpoint_time is None else f'; Eval Speed: {cls.CHECKPOINT_INTERVAL/(time-cls.last_checkpoint_time).total_seconds():.5f}'));
+                    cls.last_checkpoint_time = time;
+                fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game);
+            return (return_id,fitnesses);
+        except KeyboardInterrupt:
+            raise GenomeExecutorInterruptedException();
 
     @classmethod
     def eval_training_data_batch_feedforward(cls,config,runnerConfig,game,genomes,data,return_id,gen=None):
-        if gen is not None:
-            if gen != cls.generation:
-                cls.count = 0;
-            cls.generation = gen;
-        count = 0;
-        fitnesses = {genome_id:0 for genome_id,genome in genomes};
-        for datum in data:
-            for genome_id,genome in genomes:
-                fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game,trainingDatum=datum);
-                cls.count += 1;
-                if cls.count % 100 == 0:
-                    time = datetime.now()
-                    print(f'Parallel Checkpoint - Process #{cls.pnum} at {time}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})') + ('' if cls.last_checkpoint_time is None else f'; Eval Speed: {100/(time-cls.last_checkpoint_time).total_seconds():.5f}'));
-                    cls.last_checkpoint_time = time;
-        return (return_id,fitnesses);
+        try:
+            if gen is not None:
+                if gen != cls.generation:
+                    cls.count = 0;
+                cls.generation = gen;
+            count = 0;
+            fitnesses = {genome_id:0 for genome_id,genome in genomes};
+            for datum in data:
+                for genome_id,genome in genomes:
+                    fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game,trainingDatum=datum);
+                    cls.count += 1;
+                    if cls.CHECKPOINT_INTERVAL > 0 and cls.count % cls.CHECKPOINT_INTERVAL == 0:
+                        time = datetime.now()
+                        print(f'Parallel Checkpoint - Process #{cls.pnum} at {time}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})') + ('' if cls.last_checkpoint_time is None else f'; Eval Speed: {cls.CHECKPOINT_INTERVAL/(time-cls.last_checkpoint_time).total_seconds():.5f}'));
+                        cls.last_checkpoint_time = time;
+            return (return_id,fitnesses);
+        except KeyboardInterrupt:
+            raise GenomeExecutorInterruptedException();
 
     #map methods - iterate externally; return_id is used to recombine with i- or async- pool methods where order is not guaranteed
     @classmethod
     def map_eval_genomes_feedforward(cls,config,runnerConfig,game,genomes,datum,return_id,gen=None):
-        if gen is not None:
-            if gen != cls.generation:
-                cls.count = 0;
-            cls.generation = gen;
-        fitnesses = {genome_id:0 for genome_id,genome in genomes};
-        for genome_id,genome in genomes:
-                cls.count += 1;
-                if cls.count % 100 == 0:
-                    time = datetime.now()
-                    print(f'Parallel Checkpoint - Process #{cls.pnum} at {time}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})') + ('' if cls.last_checkpoint_time is None else f'; Eval Speed: {100/(time-cls.last_checkpoint_time).total_seconds():.5f}'));
-                    cls.last_checkpoint_time = time;
-                
-                fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game,trainingDatum=datum);
-                
-        return (return_id,fitnesses);
+        try:
+            if gen is not None:
+                if gen != cls.generation:
+                    cls.count = 0;
+                cls.generation = gen;
+            fitnesses = {genome_id:0 for genome_id,genome in genomes};
+            for genome_id,genome in genomes:
+                    cls.count += 1;
+                    if cls.CHECKPOINT_INTERVAL > 0 and cls.count % cls.CHECKPOINT_INTERVAL == 0:
+                        time = datetime.now()
+                        print(f'Parallel Checkpoint - Process #{cls.pnum} at {time}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})') + ('' if cls.last_checkpoint_time is None else f'; Eval Speed: {cls.CHECKPOINT_INTERVAL/(time-cls.last_checkpoint_time).total_seconds():.5f}'));
+                        cls.last_checkpoint_time = time;
+                    
+                    fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game,trainingDatum=datum);
+            return (return_id,fitnesses);
+        except KeyboardInterrupt:
+            raise GenomeExecutorInterruptedException();
 
     @classmethod
     def map_eval_genome_feedforward(cls,config,runnerConfig,game,genome,return_id,gen=None):
-        if gen is not None:
-            if gen != cls.generation:
-                cls.count = 0;
-            cls.generation = gen;
-        cls.count += 1;
-        if cls.count % 100 == 0:
-            time = datetime.now()
-            print(f'Parallel Checkpoint - Process #{cls.pnum} at {time}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})') + ('' if cls.last_checkpoint_time is None else f'; Eval Speed: {100/(time-cls.last_checkpoint_time).total_seconds():.5f}'));
-            cls.last_checkpoint_time = time;
-        return (return_id,cls.eval_genome_feedforward(genome,config,runnerConfig,game));
+        try:
+            if gen is not None:
+                if gen != cls.generation:
+                    cls.count = 0;
+                cls.generation = gen;
+            cls.count += 1;
+            if cls.CHECKPOINT_INTERVAL > 0 and cls.count % cls.CHECKPOINT_INTERVAL == 0:
+                time = datetime.now()
+                print(f'Parallel Checkpoint - Process #{cls.pnum} at {time}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})') + ('' if cls.last_checkpoint_time is None else f'; Eval Speed: {cls.CHECKPOINT_INTERVAL/(time-cls.last_checkpoint_time).total_seconds():.5f}'));
+                cls.last_checkpoint_time = time;
+            return (return_id,cls.eval_genome_feedforward(genome,config,runnerConfig,game));
+        except KeyboardInterrupt:
+            raise GenomeExecutorInterruptedException();
 
     @classmethod
     def eval_genome_feedforward(cls,genome,config,runnerConfig,game,trainingDatum=None):
-        net = neat.nn.FeedForwardNetwork.create(genome,config);
-        fitnesses = [];
-        
-        for trial in range(runnerConfig.numTrials):
-            fitness = 0;
-            runningGame = game.start(runnerConfig,training_datum = trainingDatum, process_num = cls.pnum);
-            if runnerConfig.fitness_collection_type != None and 'delta' in runnerConfig.fitness_collection_type:
-                fitness -= runningGame.getFitnessScore();
+        try:
+            net = neat.nn.FeedForwardNetwork.create(genome,config);
+            
+            fitnesses = [];
+            for trial in range(runnerConfig.numTrials):
+                fitness = 0;
+                runningGame = game.start(runnerConfig,training_datum = trainingDatum, process_num = cls.pnum);
+                if runnerConfig.fitness_collection_type != None and 'delta' in runnerConfig.fitness_collection_type:
+                    fitness -= runningGame.getFitnessScore();
 
-            while (runningGame.isRunning()):
-                #get the current data from the running game, as specified by the runnerConfig
-                gameData = runningGame.getData();
+                while (runningGame.isRunning()):
+                    #get the current data from the running game, as specified by the runnerConfig
+                    gameData = runningGame.getData();
 
-                try:
-                    gameInput = net.activate(gameData);
-                except:
-                    print('Error in activating net with data ', gameData, ' and mapped data ', runningGame.getMappedData());
-                    print('Error body: ', sys.exc_info());
-                    raise
+                    try:
+                        gameInput = net.activate(gameData);
+                    except:
+                        print('Error in activating net with data ', gameData, ' and mapped data ', runningGame.getMappedData());
+                        print('Error body: ', sys.exc_info());
+                        raise Exception();
 
-                runningGame.processInput(gameInput);
+                    runningGame.processInput(gameInput);
 
-                if (runnerConfig.fitness_collection_type != None and 'continuous' in runnerConfig.fitness_collection_type):
-                    fitness += runningGame.getFitnessScore();
+                    if (runnerConfig.fitness_collection_type != None and 'continuous' in runnerConfig.fitness_collection_type):
+                        fitness += runningGame.getFitnessScore();
 
-            fitness += runningGame.getFitnessScore();
-            fitnesses.append(fitness);
-            runningGame.close();
+                fitness += runningGame.getFitnessScore();
+                fitnesses.append(fitness);
+                runningGame.close();
 
-        fitness = runnerConfig.fitnessFromArray()(fitnesses);
-        return fitness; 
+            fitness = runnerConfig.fitnessFromArray()(fitnesses);
+            return fitness; 
+        except KeyboardInterrupt:
+            raise GenomeExecutorInterruptedException();

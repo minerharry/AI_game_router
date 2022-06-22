@@ -1,4 +1,4 @@
-from typing import TypeVar
+from typing import Callable, TypeVar
 import numpy as np
 
 from training_data import TrainingDataManager
@@ -7,7 +7,7 @@ X = TypeVar('X');
 
 class RunnerConfig:
 
-    def __init__(self,gameFitnessFunction,gameRunningFunction,training_data:TrainingDataManager[X]=None,logging=False,logPath='',recurrent=False,trial_fitness_aggregation='average',custom_fitness_aggregation=None,time_step=0.05,num_trials=10,parallel=False,returnData=[],gameName='game',num_generations=300,fitness_collection_type=None):
+    def __init__(self,gameFitnessFunction:Callable[[dict],float],gameRunningFunction:Callable[[dict],float],training_data:TrainingDataManager[X]=None,logging=False,logPath='',recurrent=False,trial_fitness_aggregation='average',custom_fitness_aggregation=None,time_step=0.05,num_trials=10,parallel=False,returnData=[],gameName='game',num_generations=300,fitness_collection_type=None):
         self.logging = logging;
         self.logPath = logPath;
         self.generations = num_generations;

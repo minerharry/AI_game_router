@@ -1,3 +1,4 @@
+from tracemalloc import start
 from game_runner_neat import GameRunner 
 from runnerConfiguration import RunnerConfig, IOData
 from baseGame import EvalGame
@@ -6,6 +7,8 @@ from games.smb1Py.py_mario_bros.PythonSuperMario_master.source.states.segmentGen
 import os
 import neat
 import multiprocessing
+
+from training_data import TrainingDataManager
 try:
    import cPickle as pickle
 except:
@@ -35,7 +38,7 @@ if __name__ == "__main__":
     import sys
     sys.path.append('../core')
     
-    #TODO: add training data manager class
+    NAME = "smb1Py";
 
     multiprocessing.freeze_support();
 
@@ -54,15 +57,17 @@ if __name__ == "__main__":
         IOData('pos','array',array_size=[2])];
     inputOptions = c.COLLISION_GRID;
 
-
     reRunGeneration = 20;
     reRunId = 88;
-
     customGenome = None;    
 
+    
+    ##TRAINING_DATA##
+    
     set_data = True;
     add_data = True;
-    additional_data_index = 1;
+    start_data_index = 0
+    additional_data_indices = [4];
 
     configs = [
         GenerationOptions(num_blocks=0,ground_height=[7,9],valid_task_blocks=c.FLOOR,valid_start_blocks=c.FLOOR),
@@ -73,38 +78,22 @@ if __name__ == "__main__":
         GenerationOptions(num_blocks=[0,6],ground_height=[7,9],task_batch_size=[1,4],num_enemies={c.ENEMY_TYPE_GOOMBA:[0,1]}),
         ];
     
-
-    training_data = [];
+    tdManager = TrainingDataManager(NAME,currentRun);
     if (run_state == run_states.NEW or set_data):
-        inital_config = configs[0]
-        training_data = SegmentGenerator.generateBatch(inital_config,20);
-        os.makedirs(f"memories\\smb1Py\\",exist_ok=True);
-        f = open(f'memories\\smb1Py\\run-{currentRun}-data','wb');
-        pickle.dump(training_data,f);
-        f.close();
-    elif (True):
-        f = open(f'memories\\smb1Py\\run-{currentRun}-data','rb')
-        training_data = pickle.load(f);
-        f.close();
-
-
-
+        data = SegmentGenerator.generateBatch(configs[start_data_index],20);
+        tdManager.set_data(data);
     if add_data:
-        additional_config = configs[additional_data_index];
-        training_data += SegmentGenerator.generateBatch(additional_config,20);
-        f = open(f'memories\\smb1Py\\run-{currentRun}-data','wb')
-        pickle.dump(training_data,f);
-        f.close();
+        for idx in additional_data_indices:
+            tdManager.add_data(SegmentGenerator.generateBatch(configs[idx],20));
 
+    # print(len(tdManager.active_data));
 
     inputData = [
         'player_state',
         IOData('vel','array',array_size=[2]),
         IOData('task_position_offset','array',array_size=[2]),
         IOData('pos','array',array_size=[2])];
-    #inputData = [IOData('task_position_offset','array',array_size=[2])];
     config_suffix = "-nogrid"
-    #config_suffix ='-dx'
 
     if inputOptions == c.FULL:
         inputData += [
@@ -123,14 +112,14 @@ if __name__ == "__main__":
         getRunning,
         logging=True,
         parallel=True,
-        gameName='smb1Py',
+        gameName=NAME,
         returnData=inputData,
         num_trials=1,
-        num_generations=None);
+        num_generations=None,
+        training_data=tdManager);
 
     runConfig.tile_scale = 2;
     runConfig.view_distance = 4 * runConfig.tile_scale - 1;
-    runConfig.training_data = training_data;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
     runConfig.parallel_processes = 10;
@@ -139,12 +128,11 @@ if __name__ == "__main__":
 
     runConfig.logPath = f'logs\\smb1Py\\run-{currentRun}-log.txt';
     runConfig.fitness_collection_type='delta';
-    print(runConfig.gameName);
+
 
 
     game = EvalGame(SMB1Game);
     
-#    print(game.initInputs);
     runner = GameRunner(game,runConfig);
     config_path = os.path.join(os.path.dirname(__file__), 'configs','config-pygame-smb1' + config_suffix);
     config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,

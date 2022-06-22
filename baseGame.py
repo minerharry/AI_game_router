@@ -6,6 +6,8 @@ import math
 import collections.abc
 import numpy as np
 
+from runnerConfiguration import RunnerConfig
+
 def flatten(l):
     for el in l:
         if isinstance(el, Iterable) and not isinstance(el, (str, bytes)):
@@ -29,7 +31,7 @@ class EvalGame:
         return self.gameClass(runnerConfig,self.initInputs);
 
 class RunGame(ABC):
-    def __init__(self,runnerConfig,kwargs):
+    def __init__(self,runnerConfig:RunnerConfig,kwargs):
         self.steps = 0;
         self.runConfig = runnerConfig;
 
@@ -49,13 +51,10 @@ class RunGame(ABC):
         
         return result;
 
-    
-        
-
     def getFitnessScore(self):
         return self.runConfig.fitnessFromGameData(self.getMappedData());
 
-    def getMappedData(self):
+    def getMappedData(self)->dict:
         mappedData = self.getOutputData();
         mappedData['steps'] = self.steps;
         return mappedData;
