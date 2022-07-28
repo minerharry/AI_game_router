@@ -30,9 +30,7 @@ class SMB1Game(RunGame):
 
 
     def getOutputData(self):
-
-        data = self.game.get_game_data(self.runConfig);
-        #print(data);
+        data = self.game.get_game_data(self.runConfig.view_distance,self.runConfig.tile_scale);
         obstruction_score = self.runConfig.task_obstruction_score(data['task_obstructions'])
         if (self.min_obstructions is None or obstruction_score < self.min_obstructions):
             self.stillness_time = 0;
@@ -53,7 +51,6 @@ class SMB1Game(RunGame):
         
 
     def renderInput(self,inputs):
-        #print('input rendered')
         output = [key > 0.5 for key in inputs];
         
         named_actions = dict(zip(['action','jump','left','right','down'],output));
@@ -62,7 +59,6 @@ class SMB1Game(RunGame):
         while (self.isRunning() and not self.game.accepts_player_input()):
             self.game.tick_inputs(empty_actions);
             #print('skipping bad frames...');
-        #print(game.don);
 
     def close(self):
         #does nothing unless game needs it to

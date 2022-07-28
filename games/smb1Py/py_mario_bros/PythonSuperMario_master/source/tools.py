@@ -56,7 +56,7 @@ class Control():
         
         self.state_dict = {}
         self.state_name = None
-        self.state = None
+        self.state:State = None
         self.fps_counter = 0;
         self.last_fps_time = pg.time.get_ticks();
         self.fps_cycle = 50;
@@ -127,8 +127,8 @@ class Control():
             pg.display.update();
 
 
-    def get_game_data(self,config):
-        return self.state.get_game_data(config);
+    def get_game_data(self,*args,**kwargs):
+        return self.state.get_game_data(*args,**kwargs);
 
     #only called during manual mode, so can be assumed that current state is a segment
     def load_segment(self,load_data):

@@ -141,30 +141,54 @@ class GameRunner:
     def render_custom_genome_object(self,obj,config,net=False):
         self.render_genome(obj,config,net=net)
 
-    def replay_best(self,generation,config,run_name,net=False,randomReRoll=False):
+    def replay_best(self,generation,config,run_name,net=False,randomReRoll=False,number=1):
+        if number < 1:
+            raise Exception("must replay at least one genome");
         file = 'checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_')+'\\run-checkpoint-' + str(generation) + ".gz";
         pop = neat.Checkpointer.restore_checkpoint(file);
         #self.eval_genomes(list(iteritems(pop.population)),config);
         if (randomReRoll):
             random.seed();
-        best = None
-        for g in itervalues(pop.population):
-            if best is None or g.fitness > best.fitness:
-                best = g
-        self.render_genome(best,config,net=net);
+        sort = sorted(pop.population.items(),key=lambda x: x[0]);
+        for _,g in sort[:number]:
+            self.render_genome(g,config,net=net);
+
+    def run_top_genomes(self,generation,config,run_name,number,doFitness=False,randomReRoll=False):
+        checkpoint_folder = 'checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_');
+        pop = neat.Checkpointer.restore_checkpoint(checkpoint_folder + '\\run-checkpoint-' + str(generation) + '.gz');
+
+        config = pop.config;
+
+        if self.runConfig.parallel:
+            manager = multiprocessing.Manager()
+            idQueue = manager.Queue()
+            [idQueue.put(i) for i in range(self.runConfig.parallel_processes)];
+            self.pool:multiprocessing.Pool = multiprocessing.Pool(self.runConfig.parallel_processes, Genome_Executor.initProcess,(idQueue,self.game.gameClass));
+
+        self.run_name = run_name.replace(' ','_');
+        if doFitness:
+            self.fitness_reporter = FitnessReporter(self.runConfig.gameName,self.run_name + f"_top_{number}");
+            self.fitness_reporter.start_generation(generation);
+
+        if (randomReRoll):
+            random.seed();
+
+        sort = sorted(pop.population.items(),key=lambda x: x[0]);
+
+        self.eval_genomes(sort[:number],config);
         
 
     def render_genome(self,genome,config,net=False):
+        if (net):
+            flattened_data = self.runConfig.flattened_return_data();
+            shaped_data = self.runConfig.return_data_shape();
+            visualize.draw_net(config,genome,view=True,node_names=dict([(-i-1,flattened_data[i]) for i in range(len(flattened_data))]),nodes_shape=shaped_data);
         if self.runConfig.training_data is None:
             if (self.runConfig.recurrent):  
                 self.render_genome_recurrent(genome,config,net=net);
             else:
                 self.render_genome_feedforward(genome,config,net=net);
         else:
-            if (net):
-                flattened_data = self.runConfig.flattened_return_data();
-                shaped_data = self.runConfig.return_data_shape();
-                visualize.draw_net(config,genome,view=True,node_names=dict([(-i-1,flattened_data[i]) for i in range(len(flattened_data))]),nodes_shape=shaped_data);
             
             for datum in self.runConfig.training_data.active_data.values():
                 if (self.runConfig.recurrent):  
@@ -349,7 +373,7 @@ class GameRunner:
                 if hasattr(self.runConfig,"saveFitness") and self.runConfig.saveFitness:
                     self.fitness_reporter.save_data(datum_fitnesses);
                 
-                for fitnesses in datum_fitnesses.items():
+                for fitnesses in datum_fitnesses.values():
                     for genome_id,genome in genomes:
                         genome.fitness += fitnesses[genome_id];
             else:
@@ -364,7 +388,7 @@ class GameRunner:
                         fitness_data[did] = fitnesses;
                     self.fitness_reporter.save_data(fitnesses);
                 else:
-                    for datum in tqdm(self.runConfig.training_data):
+                    for _,datum in tqdm(self.runConfig.training_data.active_data):
                         for genome_id, genome in tqdm(genomes):
                             genome.fitness += self.eval_genome_feedforward(genome,config,trainingDatum=datum)                
 
@@ -410,7 +434,7 @@ class Genome_Executor:
                 if gen != cls.generation:
                     cls.count = 0;
                 cls.generation = gen;
-            fitnesses = {genome_id:0 for genome_id,genome in genomes};
+            fitnesses = {genome_id:0 for genome_id,_ in genomes};
             for genome_id, genome in genomes:
                 cls.count += 1;
                 if cls.CHECKPOINT_INTERVAL > 0 and cls.count % cls.CHECKPOINT_INTERVAL == 0:
@@ -430,7 +454,7 @@ class Genome_Executor:
                     cls.count = 0;
                 cls.generation = gen;
             count = 0;
-            fitnesses = {genome_id:0 for genome_id,genome in genomes};
+            fitnesses = {genome_id:0 for genome_id,_ in genomes};
             for datum in data:
                 for genome_id,genome in genomes:
                     fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game,trainingDatum=datum);
@@ -451,7 +475,7 @@ class Genome_Executor:
                 if gen != cls.generation:
                     cls.count = 0;
                 cls.generation = gen;
-            fitnesses = {genome_id:0 for genome_id,genome in genomes};
+            fitnesses = {genome_id:0 for genome_id,_ in genomes};
             for genome_id,genome in genomes:
                     cls.count += 1;
                     if cls.CHECKPOINT_INTERVAL > 0 and cls.count % cls.CHECKPOINT_INTERVAL == 0:

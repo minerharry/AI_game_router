@@ -3,6 +3,7 @@ __author__ = 'minerharry'
 import os
 import json
 import math
+from typing import Tuple
 import pygame as pg
 try:
    import cPickle as pickle
@@ -15,7 +16,7 @@ from ..components import info, stuff, player, brick, box, enemy, powerup, coin
 
 
 class SegmentState:
-    def __init__(self, dynamic_data, static_data, task = None, task_bounds=None, file_path = None):
+    def __init__(self, dynamic_data, static_data, task:Tuple[int,int] = None, task_bounds=None, file_path = None):
         if (file_path is not None):
             f = open(file_path);
             self.raw_data = pickle.load(f);
@@ -38,7 +39,7 @@ class SegmentState:
         f.close();
 
     def equal_static_data(self,other_data):
-        return json.dumps(other_data) == json.dumps(self.static_data); #using json dymps to ensure that only the dict values are compared and not class sources; that way, if static data gets treated as a class for generation purposes, it can still work exactly the same
+        return json.dumps(other_data) == json.dumps(self.static_data); #using json dumps to ensure that only the dict values are compared and not class sources; that way, if static data gets treated as a class for generation purposes, it can still work exactly the same
 
 
 class Segment(tools.State):
@@ -986,12 +987,10 @@ class Segment(tools.State):
         surface.fill(c.BLACK);
         surface.blit(self.level, (0,0), self.viewport)
 
-    def get_game_data(self,runConfig):
+    def get_game_data(self,view_distance,tile_scale,obstruction=False):
 
-        self.update_rect_grid(runConfig);
-        collision_grid = self.get_collision_grid()
-        enemy_grid = self.get_enemy_grid()
-        self.no_obstruction = True;
+        self.no_obstruction = not obstruction;
+        self.update_rect_grid(view_distance,tile_scale);
         
         return {
             'task_reached':self.task_reached,
@@ -1001,18 +1000,18 @@ class Segment(tools.State):
             'pos':[self.player.rect.centerx,self.player.rect.centery],
             'vel':[self.player.x_vel,self.player.y_vel],
             'player_state':self.player.get_powerup_state(),
-            'enemy_grid':enemy_grid,
-            'collision_grid': collision_grid,
+            'enemy_grid':self.get_enemy_grid(),
+            'collision_grid': self.get_collision_grid(),
             'powerup_grid':self.get_powerup_grid(),
             'box_grid':self.get_box_grid(),
             'brick_grid':self.get_brick_grid(),
             'task_obstructions':self.get_task_obstructions()};
 
 
-    def update_rect_grid(self,runConfig):
+    #view distance: integer number of subdivided tiles in each direction, excluding center. EX: 3 would be a 7x7
+    #tile scale: power of two: number of subdivisions per tile length
+    def update_rect_grid(self,view_distance,tile_scale):
         if self.grid_rects is None:
-            view_distance = runConfig.view_distance; #integer number of subdivided tiles in each direction, excluding center. EX: 3 would be a 7x7
-            tile_scale = runConfig.tile_scale; #power of two: number of subdivisions per tile length
             rect_width = c.TILE_SIZE/tile_scale;
             player_center = self.player.rect.center;
             center_left = player_center[0] % rect_width;
@@ -1023,7 +1022,7 @@ class Segment(tools.State):
             offset = [self.player.rect.center[0] - self.grid_center[0],self.player.rect.center[1] - self.grid_center[1]];
             [[rect.move(offset[0],offset[1]) for rect in row] for row in self.grid_rects];
 
-#TODO: Fix - input grids always returning lists of 1s
+# TODO: Fix - input grids always returning lists of 1s
 
     def get_enemy_grid(self):
         spriteRects = [sprite.rect for sprite in self.enemy_group];

@@ -3,6 +3,8 @@ import os
 import pickle
 from typing import Generic, Iterable, TypeVar
 
+from interrupt import DelayedKeyboardInterrupt
+
 TD = TypeVar('TD');
 class TrainingDataManager(Generic[TD]):
 
@@ -26,25 +28,40 @@ class TrainingDataManager(Generic[TD]):
         if save: self.save_data();
 
     def add_data(self,data:Iterable[TD],save=True):
+        ids_added = [];
         for datum in data:
             self.active_data[self.next_id] = datum;
+            ids_added.append(self.next_id);
             self.next_id += 1;
         if save: self.save_data();
+        return ids_added;
 
     def set_data(self,data:Iterable[TD],save=True):
         self.clear_data(save=False);
-        self.add_data(data,save=False);
-        if save: self.save_data();
+        return self.add_data(data,save=save);
 
     def load_data(self):
-        with open(self.data_file,'rb') as f:
-            ob = pickle.load(f);
-            self.next_id = ob['next_id'];
-            self.active_data = ob['active_data'];
-            self.inactive_data = ob['inactive_data'];
+        with DelayedKeyboardInterrupt():
+            with open(self.data_file,'rb') as f:
+                ob = pickle.load(f);
+                self.next_id = ob['next_id'];
+                self.active_data = ob['active_data'];
+                self.inactive_data = ob['inactive_data'];
 
     def save_data(self):
-        with open(self.data_file,'wb') as f:
-            out = {'next_id':self.next_id, 'active_data':self.active_data, 'inactive_data':self.inactive_data};
-            pickle.dump(out,f);
+        with DelayedKeyboardInterrupt():
+            with open(self.data_file,'wb') as f:
+                out = {'next_id':self.next_id, 'active_data':self.active_data, 'inactive_data':self.inactive_data};
+                pickle.dump(out,f);
+
+    def get_data_by_id(self,id):
+        if id in self.active_data:
+            return self.active_data[id];
+        elif id in self.inactive_data:
+            return self.inactive_data[id];
+        else:
+            raise IndexError(f"Id {id} not in active or inactive data");
+
+    def __getitem__(self,idx):
+        return self.get_data_by_id(idx)
             

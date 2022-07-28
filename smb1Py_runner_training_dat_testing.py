@@ -1,3 +1,5 @@
+import json
+from pathlib import Path
 from tracemalloc import start
 from game_runner_neat import GameRunner 
 from runnerConfiguration import RunnerConfig, IOData
@@ -43,7 +45,7 @@ if __name__ == "__main__":
     multiprocessing.freeze_support();
 
 
-    run_state = run_states.CONTINUE;
+    run_state = run_states.RERUN_TOP;
     currentRun = 10;
 
     override_config = False;
@@ -57,7 +59,8 @@ if __name__ == "__main__":
         IOData('pos','array',array_size=[2])];
     inputOptions = c.COLLISION_GRID;
 
-    reRunGeneration = 20;
+    reRunGeneration = 1530;
+    reRunPop = 15;
     reRunId = 88;
     customGenome = None;    
 
@@ -65,9 +68,10 @@ if __name__ == "__main__":
     ##TRAINING_DATA##
     
     set_data = True;
-    add_data = True;
-    start_data_index = 0
-    additional_data_indices = [4];
+    add_data = False;
+    complete_task_set = True;
+    start_data_index = 6
+    additional_data_indices = [2,4];
 
     configs = [
         GenerationOptions(num_blocks=0,ground_height=[7,9],valid_task_blocks=c.FLOOR,valid_start_blocks=c.FLOOR),
@@ -76,17 +80,32 @@ if __name__ == "__main__":
         GenerationOptions(num_blocks=[0,4],ground_height=[7,9],task_batch_size=[1,4]),
         GenerationOptions(num_blocks=[0,8],ground_height=[7,10],task_batch_size=[1,4]),
         GenerationOptions(num_blocks=[0,6],ground_height=[7,9],task_batch_size=[1,4],num_enemies={c.ENEMY_TYPE_GOOMBA:[0,1]}),
+        GenerationOptions(num_blocks=[0,8],ground_height=[7,10],task_batch_size=1000),
         ];
     
     tdManager = TrainingDataManager(NAME,currentRun);
     if (run_state == run_states.NEW or set_data):
-        data = SegmentGenerator.generateBatch(configs[start_data_index],20);
-        tdManager.set_data(data);
+        if not complete_task_set: 
+            data = SegmentGenerator.generateBatch(configs[start_data_index],20);
+            tdManager.set_data(data);
+        else:
+            id_sets = [];
+            tdManager.clear_data();
+            for i in range(100):
+                data = SegmentGenerator.generate(configs[start_data_index],makeBatches=True);
+                id_sets.append(tdManager.add_data(data));
+                print(len(id_sets[-1]));
+            id_store = Path("memories")/"smb1Py"/"run-10-taskarray-data";
+            if os.path.exists(id_store):
+                with open(id_store,'r') as f:
+                    id_sets += json.load(f);
+            with open(id_store,'w') as f:
+                json.dump(id_sets,f);
     if add_data:
         for idx in additional_data_indices:
             tdManager.add_data(SegmentGenerator.generateBatch(configs[idx],20));
 
-    # print(len(tdManager.active_data));
+    print(f"Training Data Size: {len(tdManager.active_data)}");
 
     inputData = [
         'player_state',
@@ -122,8 +141,8 @@ if __name__ == "__main__":
     runConfig.view_distance = 4 * runConfig.tile_scale - 1;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
-    runConfig.parallel_processes = 10;
-    runConfig.chunkFactor = 24;
+    runConfig.parallel_processes = 12;
+    runConfig.chunkFactor = 48;
     runConfig.saveFitness = True;
 
     runConfig.logPath = f'logs\\smb1Py\\run-{currentRun}-log.txt';
@@ -162,5 +181,7 @@ if __name__ == "__main__":
             runner.replay_generation(reRunGeneration,'run_' + str(currentRun));
         if (run_state == run_states.RERUN_ID):
             runner.render_genome_by_id(reRunId,reRunGeneration,config,'run_' + str(currentRun),net=True);
+        if (run_state == run_states.RERUN_TOP):
+            runner.run_top_genomes(reRunGeneration,config,'run_' + str(currentRun),reRunPop,doFitness=True,randomReRoll=True);
         if (run_state == run_states.EVAL_CUSTOM):
             runner.render_custom_genome_object(customGenome,config,net=True)

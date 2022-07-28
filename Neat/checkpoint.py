@@ -4,6 +4,7 @@ from __future__ import print_function
 import gzip
 import random
 import time
+from interrupt import DelayedKeyboardInterrupt
 
 try:
     import dill as pickle
@@ -70,27 +71,29 @@ class Checkpointer(BaseReporter):
         """ Save the current simulation state. """
         filename = '{0}{1}{2}'.format(self.filename_prefix,generation,self.file_ext)
         print("Saving checkpoint to {0}".format(filename))
-
-        with gzip.open(filename, 'w', compresslevel=5) as f:
-            data = (generation, config, population, species_set, random.getstate())
-            pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+        
+        with DelayedKeyboardInterrupt():
+            with gzip.open(filename, 'w', compresslevel=5) as f:
+                data = (generation, config, population, species_set, random.getstate())
+                pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     @staticmethod
-    def restore_checkpoint(filename,config_transfer=None):
+    def restore_checkpoint(filename,config_transfer=None)->Population:
         """Resumes the simulation from a previous saved point."""
-        with gzip.open(filename) as f:
-            generation, config, population, species_set, rndstate = pickle.load(f)
-            random.setstate(rndstate)
-            if config_transfer: #transfer configuration and update population and species_set from config
-                print(f'config transfer: {config_transfer}');
-                newConfig, inputMap, outputMap = config_transfer;
-                if inputMap:
-                    for genome in itervalues(population):
-                        genome.remap_inputs(inputMap,config.genome_config,newConfig.genome_config);
-                if outputMap:
-                    for genome in itervalues(population):
-                        genome.remap_outputs(outputMap,config.genome_config,newConfig.genome_config);
-                config = newConfig;
-            print(config.genome_config.input_keys)
-            pop = Population(config, (population, species_set, generation))
-            return pop;
+        with DelayedKeyboardInterrupt():
+            with gzip.open(filename) as f:
+                generation, config, population, species_set, rndstate = pickle.load(f)
+                random.setstate(rndstate)
+                if config_transfer: #transfer configuration and update population and species_set from config
+                    print(f'config transfer: {config_transfer}');
+                    newConfig, inputMap, outputMap = config_transfer;
+                    if inputMap:
+                        for genome in itervalues(population):
+                            genome.remap_inputs(inputMap,config.genome_config,newConfig.genome_config);
+                    if outputMap:
+                        for genome in itervalues(population):
+                            genome.remap_outputs(outputMap,config.genome_config,newConfig.genome_config);
+                    config = newConfig;
+                print(config.genome_config.input_keys)
+                pop = Population(config, (population, species_set, generation))
+                return pop;

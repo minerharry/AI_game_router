@@ -1,3 +1,4 @@
+from __future__ import annotations
 import json
 import random
 from .segment import SegmentState
@@ -9,7 +10,7 @@ class SegmentGenerator:
     
     #TODO: Have different lists for each type of purpose - ex: player start, task position, enemy placement, etc.
     @staticmethod
-    def generate(options,makeBatches=False,return_raw=False):
+    def generate(options:GenerationOptions,makeBatches=False,return_raw=False):
         numTiles = options.size[0]*options.size[1];
         tiles = [(int(i/options.size[1]),i%options.size[1]) for i in range(numTiles)];
         numInner = options.innerSize[0]*options.innerSize[1]
@@ -85,7 +86,7 @@ class SegmentGenerator:
                 batchSize = options.taskBatchSize;
 
         task_options = [];
-        print(options.taskBlocks)
+        # print(options.taskBlocks)
         if options.taskBlocks == c.EDGE:
             task_options = innerRing;
         elif options.taskBlocks == c.FLOOR:
@@ -128,7 +129,7 @@ class SegmentGenerator:
         #print(task_bounds);
         #print(player_start);
         #print(scaled_bounds);
-        print(task_positions)
+        # print(task_positions)
         for pos in task_positions:
             pos = [(i + 0.5) * c.TILE_SIZE for i in pos];
             result.append(SegmentState(output_dynamics,output_statics,task=pos,task_bounds=scaled_bounds));
@@ -145,7 +146,7 @@ class SegmentGenerator:
         print(batchSize)
         while len(output) < batchSize:
             output += SegmentGenerator.generate(options,makeBatches=True,**kwargs);
-            print(output);
+            # print(output);
             print(len(output));
         return output[:batchSize];
 
