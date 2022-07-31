@@ -1,21 +1,23 @@
-from core.game_runner_neat import GameRunner 
-from core.runnerConfiguration import RunnerConfig, IOData
-from core.baseGame import EvalGame
-from py_mario_bros.PythonSuperMario_master.smb_game import SMB1Game
-from py_mario_bros.PythonSuperMario_master.source.states.segmentGenerator import SegmentGenerator,GenerationOptions
+from tkinter.tix import Tree
+from game_runner_neat import GameRunner 
+from runnerConfiguration import RunnerConfig, IOData
+from baseGame import EvalGame
+from games.smb1Py.py_mario_bros.PythonSuperMario_master.smb_game import SMB1Game
+from games.smb1Py.py_mario_bros.PythonSuperMario_master.source.states.segmentGenerator import SegmentGenerator,GenerationOptions
 import os
 import neat
 import multiprocessing
+
+from training_data import TrainingDataManager
 try:
    import cPickle as pickle
 except:
    import pickle
-from py_mario_bros.PythonSuperMario_master.source import tools
-from py_mario_bros.PythonSuperMario_master.source import constants as c
-import core.run_states as run_states
+from games.smb1Py.py_mario_bros.PythonSuperMario_master.source import tools
+from games.smb1Py.py_mario_bros.PythonSuperMario_master.source import constants as c
+import run_states as run_states
 
 steps_threshold = 800;
-
 
 def task_obstruction_score(obstructions):
     return -obstructions[0] #- 0.4 * obstructions[1] - 0.1 * obstructions[2];
@@ -27,18 +29,16 @@ def getFitness(inputs):
 def getRunning(inputs):
     return (not(inputs['done']) and (not inputs['stillness_time'] > steps_threshold));
 
-
-
-
 if __name__ == "__main__":
-    #TODO: add training data manager class
+    import gc
+
+    NAME = "smb1Py";
 
     multiprocessing.freeze_support();
 
-
     run_state = run_states.CONTINUE;
     currentRun = 10;
-    override_config = False;
+    override_config = True;
     manual_continue_generation = None;
     diff_inputs = False;
     diff_outputs = False;
@@ -50,19 +50,19 @@ if __name__ == "__main__":
     inputOptions = c.COLLISION_GRID;
 
 
-    reRunGeneration = 20;
-    reRunId = 88;
+    reRunGeneration = 1523;
+    # reRunId = 88;
 
     customGenome = None;
-
-    #c.GRAPHICS_SETTINGS = c.LOW
     
+        
 
+    ##TRAINING_DATA##
+    
     set_data = False;
-    add_data = False;
-    additional_data_index = 2;
-
-
+    add_data = True;
+    start_data_index = 0
+    additional_data_indices = [3];
 
     configs = [
         GenerationOptions(num_blocks=0,ground_height=[7,9],valid_task_blocks=c.FLOOR,valid_start_blocks=c.FLOOR),
@@ -73,28 +73,12 @@ if __name__ == "__main__":
         GenerationOptions(num_blocks=[0,6],ground_height=[7,9],task_batch_size=[1,4],num_enemies={c.ENEMY_TYPE_GOOMBA:[0,1]}),
         ];
     
-
-    training_data = [];
+    tdManager = TrainingDataManager(NAME,currentRun);
     if (run_state == run_states.NEW or set_data):
-        inital_config = configs[0]
-        training_data = SegmentGenerator.generateBatch(inital_config,20);
-        os.makedirs(f"memories\\smb1Py\\",exist_ok=True);
-        f = open(f'memories\\smb1Py\\run-{currentRun}-data','wb');
-        pickle.dump(training_data,f);
-        f.close();
-    elif (True):
-        f = open(f'memories\\smb1Py\\run-{currentRun}-data','rb')
-        training_data = pickle.load(f);
-        f.close();
-
-
-
-    if add_data:
-        additional_config = configs[additional_data_index];
-        training_data += SegmentGenerator.generateBatch(additional_config,20);
-        f = open(f'memories\\smb1Py\\run-{currentRun}-data','wb')
-        pickle.dump(training_data,f);
-        f.close();
+        data = SegmentGenerator.generateBatch(configs[start_data_index],20);
+        tdManager.set_data(data);
+    for idx in additional_data_indices:
+        tdManager.add_data(SegmentGenerator.generateBatch(configs[idx],20));
 
 
     inputData = [
@@ -102,9 +86,7 @@ if __name__ == "__main__":
         IOData('vel','array',array_size=[2]),
         IOData('task_position_offset','array',array_size=[2]),
         IOData('pos','array',array_size=[2])];
-    #inputData = [IOData('task_position_offset','array',array_size=[2])];
     config_suffix = "-nogrid"
-    #config_suffix ='-dx'
 
     if inputOptions == c.FULL:
         inputData += [
@@ -123,13 +105,13 @@ if __name__ == "__main__":
         getRunning,
         logging=True,
         parallel=True,
-        gameName='smb1Py',
+        gameName=NAME,
         returnData=inputData,
         num_trials=1,
-        num_generations=None);
+        num_generations=None,
+        training_data=tdManager);
     runConfig.tile_scale = 2;
     runConfig.view_distance = 4 * runConfig.tile_scale - 1;
-    runConfig.training_data = training_data;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
     runConfig.parallel_processes = 6;
@@ -140,12 +122,10 @@ if __name__ == "__main__":
     runConfig.fitness_collection_type='delta';
     print(runConfig.gameName);
 
-
     game = EvalGame(SMB1Game);
     
-#    print(game.initInputs);
     runner = GameRunner(game,runConfig);
-    config_path = os.path.join(os.path.dirname(__file__), 'config-pygame-smb1' + config_suffix);
+    config_path = os.path.join(os.path.dirname(__file__), 'configs','config-pygame-smb1' + config_suffix);
     config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                         neat.DefaultSpeciesSet, neat.DefaultStagnation,
                         config_path);

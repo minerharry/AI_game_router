@@ -1,6 +1,7 @@
 **/checkpoints
 **/logs
 **/memories
+**/old-memories
 *.pyc
 */*.pyc
 *.cpython-37.pyc

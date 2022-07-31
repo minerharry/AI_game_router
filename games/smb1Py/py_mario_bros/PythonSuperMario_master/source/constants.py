@@ -5,7 +5,7 @@ LOW = 1;
 MED = 2;
 HIGH = 3;
 
-GRAPHICS_SETTINGS = NONE; 
+GRAPHICS_SETTINGS = LOW; 
 #NONE: no sprite images ever assigned nor loaded from memory; draw function never called
 #LOW: all sprite images are placeholders (not loeaded from memory)
 #MED: sprite images loaded from memory, but all animations deactivated
