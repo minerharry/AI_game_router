@@ -31,6 +31,14 @@ def getFitness(inputs):
 def getRunning(inputs):
     return (not(inputs['done']) and (not inputs['stillness_time'] > steps_threshold));
 
+def generate_data(instructions:list[tuple[GenerationOptions,int]],shuffle=True):
+    data = []
+    for options,quantity in instructions:
+        data += SegmentGenerator.generateBatch(options,quantity);
+    if shuffle:
+        random.shuffle(data);
+    return data;
+
 if __name__ == "__main__":
     import gc
 
@@ -61,8 +69,8 @@ if __name__ == "__main__":
 
     ##TRAINING_DATA##
     
-    set_data = False;
-    add_data = True;
+    set_data = True;
+    add_data = False;
     start_data_index = 0
     additional_data_indices = [3];
 
@@ -75,25 +83,17 @@ if __name__ == "__main__":
         GenerationOptions(num_blocks=[0,6],ground_height=[7,9],task_batch_size=[1,4],num_enemies={c.ENEMY_TYPE_GOOMBA:[0,1]}),
         ];
     
-    def generate_data(instructions:list[tuple[GenerationOptions,int]],shuffle=True):
-        data = []
-        for options,quantity in instructions:
-            data += SegmentGenerator.generateBatch(options,quantity);
-        if shuffle:
-            random.shuffle(data);
-        return data;
-
     orders = [(configs[4],130),(configs[2],20)];
+
+
 
     tdManager = TrainingDataManager(NAME,currentRun,generation_func=partial(generate_data,orders));
     if (run_state == run_states.NEW or set_data):
-        data = SegmentGenerator.generateBatch(configs[start_data_index],20);
+        data = generate_data(orders);
         tdManager.set_data(data);
-    for idx in additional_data_indices:
-        tdManager.add_data(SegmentGenerator.generateBatch(configs[idx],20));
-
-
-
+    if add_data:
+        for idx in additional_data_indices:
+            tdManager.add_data(SegmentGenerator.generateBatch(configs[idx],20));
 
 
     inputData = [
@@ -127,7 +127,7 @@ if __name__ == "__main__":
         training_data=tdManager);
     runConfig.reporters = [tdManager];
     runConfig.tile_scale = 2;
-    runConfig.view_distance = 4 * runConfig.tile_scale - 1;
+    runConfig.view_distance = 3.75;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
     runConfig.parallel_processes = 6;
