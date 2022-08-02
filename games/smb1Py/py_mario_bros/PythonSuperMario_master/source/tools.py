@@ -129,6 +129,8 @@ class Control():
 
     def get_game_data(self,*args,**kwargs):
         return self.state.get_game_data(*args,**kwargs);
+    def get_map_data(self,*args,**kwargs):
+        return self.state.get_map_data(*args,**kwargs);
 
     #only called during manual mode, so can be assumed that current state is a segment
     def load_segment(self,load_data):

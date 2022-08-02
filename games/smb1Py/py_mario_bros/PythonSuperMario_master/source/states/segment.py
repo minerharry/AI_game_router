@@ -306,7 +306,7 @@ class Segment(tools.State):
             self.player_y = player_start[1]; 
             
         else:
-            self.map_bounds = (0,self.bg_rect.w,0,self.bg_rect.h);
+            self.map_bounds:Tuple[int,int,int,int] = (0,self.bg_rect.w,0,self.bg_rect.h);
             self.player_x = 110
             self.player_y = c.GROUND_HEIGHT
         
@@ -987,10 +987,27 @@ class Segment(tools.State):
         surface.fill(c.BLACK);
         surface.blit(self.level, (0,0), self.viewport)
 
+    def get_map_data(self,tile_scale): #SHOULD NOT BE CALLED DURING PLAY AS WILL CREATE SIGNIFICANT LAG CONFLICT WITH GET_GAME_DATA
+        bounds = self.map_bounds;
+        center = (bounds[0]/2 + bounds[1]/2, bounds[2]/2 + bounds[3]/2);
+        size =  (bounds[1]-bounds[0],bounds[3]-bounds[2]);
+        self.update_rect_grid(tile_scale,center,size);
+
+        return {
+            'grid_bounds':bounds,
+            'enemy_grid':self.get_enemy_grid(),
+            'collision_grid': self.get_collision_grid(),
+            'powerup_grid':self.get_powerup_grid(),
+            'box_grid':self.get_box_grid(),
+            'brick_grid':self.get_brick_grid(),
+        }
+
+
+    #view distance: number of tiles in each direction. EX: view distance of 3.5 would form a 7x7 tile grid with the requisite number of subdivisions as dictated by tile_scale
     def get_game_data(self,view_distance,tile_scale,obstruction=False):
 
         self.no_obstruction = not obstruction;
-        self.update_rect_grid(view_distance,tile_scale);
+        self.update_rect_grid(tile_scale,self.player.rect.center,(view_distance*2*c.TILE_SIZE,view_distance*2*c.TILE_SIZE));
         
         return {
             'task_reached':self.task_reached,
@@ -1010,19 +1027,21 @@ class Segment(tools.State):
 
     #view distance: integer number of subdivided tiles in each direction, excluding center. EX: 3 would be a 7x7
     #tile scale: power of two: number of subdivisions per tile length
-    def update_rect_grid(self,view_distance,tile_scale):
-        if self.grid_rects is None:
+    def update_rect_grid(self,tile_scale,center,size):
+        if self.grid_rects is None or size != self.grid_size:
             rect_width = c.TILE_SIZE/tile_scale;
-            player_center = self.player.rect.center;
-            center_left = player_center[0] % rect_width;
-            center_top = player_center[1] % rect_width;
-            self.grid_center = player_center;
-            self.grid_rects = [[pg.Rect(center_left + i * rect_width, center_top + j * rect_width,rect_width,rect_width) for j in range(-view_distance,view_distance+1)] for i in range(-view_distance,view_distance+1)];
+            self.grid_center = center;
+            self.grid_size = size;
+            x_rects = int(size[0]/rect_width);
+            y_rects = int(size[1]/rect_width);
+            x_lefts = range(int(-x_rects/2),int(x_rects/2)) if x_rects % 2 == 0 else [x - 0.5 for x in range(math.ceil(-x_rects/2),math.ceil(x_rects/2))];
+            y_tops = range(int(-y_rects/2),int(y_rects/2)) if y_rects % 2 == 0 else [y - 0.5 for y in range(math.ceil(-y_rects/2),math.ceil(y_rects/2))];
+
+            self.grid_rects = [[pg.Rect(center[0] + i * rect_width, center[1] + j * rect_width,rect_width,rect_width) for j in x_lefts] for i in y_tops];
         else:
-            offset = [self.player.rect.center[0] - self.grid_center[0],self.player.rect.center[1] - self.grid_center[1]];
+            offset = [center[0] - self.grid_center[0],center[1] - self.grid_center[1]];
             [[rect.move(offset[0],offset[1]) for rect in row] for row in self.grid_rects];
 
-# TODO: Fix - input grids always returning lists of 1s
 
     def get_enemy_grid(self):
         spriteRects = [sprite.rect for sprite in self.enemy_group];

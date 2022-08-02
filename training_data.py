@@ -1,15 +1,20 @@
+from __future__ import annotations
+from lib2to3.pgen2.pgen import generate_grammar
 from pathlib import Path
 import os
 import pickle
-from typing import Generic, Iterable, TypeVar
-
+import queue
+from typing import Generic, Iterable, TypeVar,Callable
 from interrupt import DelayedKeyboardInterrupt
+from neat.reporting import BaseReporter
+from filelock import FileLock
 
 TD = TypeVar('TD');
-class TrainingDataManager(Generic[TD]):
+class TrainingDataManager(Generic[TD],BaseReporter):
 
-    def __init__(self,game_name,run,data_folder="memories",ext="tdat"):
+    def __init__(self,game_name,run,data_folder="memories",ext="tdat",generation_func:Callable[[],Iterable[TD]]=None):
         self.data_file = Path(data_folder)/game_name/(f"run-{run}.{ext}");
+        self.generator = generation_func;
         if (os.path.exists(self.data_file)):
             self.load_data();
         else:
@@ -62,6 +67,21 @@ class TrainingDataManager(Generic[TD]):
         else:
             raise IndexError(f"Id {id} not in active or inactive data");
 
+    def end_generation(self, config, population, species_set):
+        self.set_data(self.generator());
+
     def __getitem__(self,idx):
         return self.get_data_by_id(idx)
             
+
+class DataQueue(Generic[TD]):
+    def __init__(self,queue_file:os.PathLike):
+        self.queue_file = queue_file;
+
+    def enqueue_data(self,data:Iterable[TD],):
+        with FileLock(self.queue_file):
+            with open(self.queue_file,'rb') as f:
+                queue:list[Iterable[TD]] = pickle.load(f);
+                queue.insert(0,data)
+                
+    

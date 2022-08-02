@@ -89,6 +89,9 @@ class GameRunner:
 
         if (render):
             pop.add_reporter(RendererReporter(self));
+        if (hasattr(self.runConfig,'reporters') and self.runConfig.reporters != None):
+            for reporter in self.runConfig.reporters:
+                pop.add_reporter(reporter);
         if (continuing):
             pop.complete_generation();
         
@@ -386,7 +389,7 @@ class GameRunner:
                             fitnesses[genome_id] = fitness;
                             genome.fitness += fitness;
                         fitness_data[did] = fitnesses;
-                    self.fitness_reporter.save_data(fitnesses);
+                    self.fitness_reporter.save_data(fitness_data);
                 else:
                     for _,datum in tqdm(self.runConfig.training_data.active_data):
                         for genome_id, genome in tqdm(genomes):

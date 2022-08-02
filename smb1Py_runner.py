@@ -1,3 +1,5 @@
+from functools import partial
+import random
 from tkinter.tix import Tree
 from game_runner_neat import GameRunner 
 from runnerConfiguration import RunnerConfig, IOData
@@ -73,12 +75,25 @@ if __name__ == "__main__":
         GenerationOptions(num_blocks=[0,6],ground_height=[7,9],task_batch_size=[1,4],num_enemies={c.ENEMY_TYPE_GOOMBA:[0,1]}),
         ];
     
-    tdManager = TrainingDataManager(NAME,currentRun);
+    def generate_data(instructions:list[tuple[GenerationOptions,int]],shuffle=True):
+        data = []
+        for options,quantity in instructions:
+            data += SegmentGenerator.generateBatch(options,quantity);
+        if shuffle:
+            random.shuffle(data);
+        return data;
+
+    orders = [(configs[4],130),(configs[2],20)];
+
+    tdManager = TrainingDataManager(NAME,currentRun,generation_func=partial(generate_data,orders));
     if (run_state == run_states.NEW or set_data):
         data = SegmentGenerator.generateBatch(configs[start_data_index],20);
         tdManager.set_data(data);
     for idx in additional_data_indices:
         tdManager.add_data(SegmentGenerator.generateBatch(configs[idx],20));
+
+
+
 
 
     inputData = [
@@ -110,6 +125,7 @@ if __name__ == "__main__":
         num_trials=1,
         num_generations=None,
         training_data=tdManager);
+    runConfig.reporters = [tdManager];
     runConfig.tile_scale = 2;
     runConfig.view_distance = 4 * runConfig.tile_scale - 1;
     runConfig.task_obstruction_score = task_obstruction_score;
