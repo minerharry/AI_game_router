@@ -10,7 +10,7 @@ import json
 
 fitness_folder = Path("transfer")/'smb1Py';
 dat:dict[int,dict[int,float]] = None;
-p = fitness_folder/'run-10'/'gen_1530';
+p = fitness_folder/'run-10'/'gen_1534';
 p = p.resolve();
 print(p);
 with open(p,'rb') as f:
@@ -26,6 +26,8 @@ tile_scale = 3;
 view_distance = 6;
 
 training_data = []
+
+print(list(dat.keys())[:20])
 
 for id,fitnesses in dat.items():
     state = TDM[id];
