@@ -11,7 +11,7 @@ import json
 
 fitness_folder = Path("transfer")/'smb1Py';
 dat:dict[int,dict[int,float]] = None;
-p = fitness_folder/'run-10'/'gen_1530';
+p = fitness_folder/'run-10'/'gen_1537';
 p = p.resolve();
 print(p);
 with open(p,'rb') as f:
@@ -48,6 +48,6 @@ for id,fitnesses in tqdm(dat.items()):
 
 out_folder = Path("data");
 
-with open(out_folder/p.name,'wb') as f:
+with open((out_folder/p.name).with_suffix('.gz'),'wb') as f:
     pickle.dump(training_data,f);
 

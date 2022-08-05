@@ -1,6 +1,7 @@
 **/checkpoints
 **/logs
 **/memories
+**/data
 **/old-memories
 *.pyc
 */*.pyc
