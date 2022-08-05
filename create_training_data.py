@@ -2,6 +2,7 @@ from pathlib import Path
 import pickle
 
 import numpy as np
+from tqdm import tqdm
 from games.smb1Py.py_mario_bros.PythonSuperMario_master.source import tools
 from games.smb1Py.py_mario_bros.PythonSuperMario_master.source.states.segment import Segment, SegmentState
 from training_data import TrainingDataManager
@@ -10,7 +11,7 @@ import json
 
 fitness_folder = Path("transfer")/'smb1Py';
 dat:dict[int,dict[int,float]] = None;
-p = fitness_folder/'run-10'/'gen_1534';
+p = fitness_folder/'run-10'/'gen_1530';
 p = p.resolve();
 print(p);
 with open(p,'rb') as f:
@@ -22,14 +23,14 @@ game = tools.Control();
 state_dict = {c.LEVEL: Segment()}
 game.setup_states(state_dict, c.LEVEL)
 started = False;
-tile_scale = 3;
+tile_scale = 8;
 view_distance = 6;
 
 training_data = []
 
 print(list(dat.keys())[:20])
 
-for id,fitnesses in dat.items():
+for id,fitnesses in tqdm(dat.items()):
     state = TDM[id];
     # state.static_data[c.MAP_MAPS][0][c.MAP_START][1] -= 12;
     if not started:

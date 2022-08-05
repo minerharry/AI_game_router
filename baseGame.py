@@ -1,3 +1,4 @@
+from __future__ import annotations
 from abc import ABC, abstractmethod
 import random
 from typing import Iterable
@@ -24,7 +25,7 @@ class EvalGame:
         self.gameClass = gameClass;
         self.initInputs = kwargs;
 
-    def start(self,runnerConfig,**kwargs):
+    def start(self,runnerConfig,**kwargs)->RunGame:
         if kwargs is not None:
             for name,arg in kwargs.items():
                 self.initInputs[name] = arg;
@@ -35,7 +36,7 @@ class RunGame(ABC):
         self.steps = 0;
         self.runConfig = runnerConfig;
 
-    def getData(self):
+    def getData(self)->list:
         mappedData = self.getMappedData();
         returnData = self.runConfig.returnData;
         result = [];

@@ -22,7 +22,7 @@ import run_states as run_states
 steps_threshold = 800;
 
 def task_obstruction_score(obstructions):
-    return -obstructions[0] #- 0.4 * obstructions[1] - 0.1 * obstructions[2];
+    return -obstructions[0];
 
 def getFitness(inputs):
     obstructions = inputs['task_obstructions'];

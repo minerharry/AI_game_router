@@ -1,5 +1,5 @@
 from tqdm import tqdm
-from baseGame import EvalGame
+from baseGame import EvalGame, RunGame
 import neat
 import baseGame
 import runnerConfiguration
@@ -508,12 +508,12 @@ class Genome_Executor:
             raise GenomeExecutorInterruptedException();
 
     @classmethod
-    def eval_genome_feedforward(cls,genome,config,runnerConfig,game,trainingDatum=None):
+    def eval_genome_feedforward(cls,genome,config,runnerConfig:runnerConfiguration.RunnerConfig,game:EvalGame,trainingDatum=None):
         try:
             net = neat.nn.FeedForwardNetwork.create(genome,config);
             
             fitnesses = [];
-            for trial in range(runnerConfig.numTrials):
+            for _ in range(runnerConfig.numTrials):
                 fitness = 0;
                 runningGame = game.start(runnerConfig,training_datum = trainingDatum, process_num = cls.pnum);
                 if runnerConfig.fitness_collection_type != None and 'delta' in runnerConfig.fitness_collection_type:

@@ -1,3 +1,4 @@
+from interrupt import DelayedKeyboardInterrupt
 from neat.reporting import BaseReporter
 import os
 try:
@@ -15,9 +16,9 @@ class FitnessReporter(BaseReporter):
 
     def save_data(self,fitness_data):
         print(list(fitness_data));
-        f = open(f"memories\\{self.gameName}\\{self.run_name}_fitness_history\\gen_{self.generation}",'wb');
-        pickle.dump(fitness_data,f)
-        f.close();
+        with DelayedKeyboardInterrupt:
+            with open(f"memories\\{self.gameName}\\{self.run_name}_fitness_history\\gen_{self.generation}",'wb') as f:
+                pickle.dump(fitness_data,f)
 
     def start_generation(self,generation):
         self.generation = generation
