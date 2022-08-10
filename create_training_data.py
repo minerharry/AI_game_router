@@ -11,7 +11,7 @@ import json
 
 fitness_folder = Path("transfer")/'smb1Py';
 dat:dict[int,dict[int,float]] = None;
-p = fitness_folder/'run-10'/'gen_1537';
+p = fitness_folder/'run-10'/'gen_1536';
 p = p.resolve();
 print(p);
 with open(p,'rb') as f:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json
 import random
+from typing import Any, Literal
 from .segment import SegmentState
 from .. import constants as c
 from ..components.enemy import create_enemy
@@ -12,19 +13,18 @@ class SegmentGenerator:
     @staticmethod
     def generate(options:GenerationOptions,makeBatches=False,return_raw=False):
         numTiles = options.size[0]*options.size[1];
-        tiles = [(int(i/options.size[1]),i%options.size[1]) for i in range(numTiles)];
+        tiles = [(int(i/options.size[1]),int(i%options.size[1])) for i in range(numTiles)];
         numInner = options.innerSize[0]*options.innerSize[1]
         margins = options.inner_margins();
         innerTiles = [(int(i/options.innerSize[1])+margins[0],i%options.innerSize[1]+margins[2]) for i in range(numInner)];
         innerRing = options.inner_ring();
 
 
-
         groundPositions = [];
         floorPositions = [];
         if (options.hasGround and options.groundHeight is not None):
             groundHeight = options.groundHeight;
-            if (isinstance(groundHeight,list)):
+            if (isinstance(groundHeight,tuple)):
                 groundHeight = random.choice(range(groundHeight[0],groundHeight[1]+1));
             groundPositions = sum([[(i,j) for i in range(options.size[0])] for j in range(groundHeight,options.size[1])],[]);
             [innerRing.remove(el) for el in groundPositions if el in innerRing];
@@ -32,14 +32,12 @@ class SegmentGenerator:
             [innerTiles.remove(el) for el in groundPositions if el in innerTiles];
             floorPositions = [(i,groundHeight-1) for i in range(options.inner_margins()[0],options.size[0]-options.inner_margins()[1])];
 
+        tile_dict = {c.INNER:innerTiles,c.EDGE:innerRing,c.FLOOR:floorPositions,c.AIR:tiles};
 
-        player_position = None;
-        if options.startBlocks == c.INNER:
-            player_position = random.choice(innerTiles);
-        elif options.startBlocks == c.EDGE:
-            player_position = random.choice(innerRing);
-        elif options.startBlocks == c.FLOOR:
-            player_position = random.choice(floorPositions);
+        try:
+            player_position = random.choice(tile_dict[options.startBlocks]);
+        except:
+            raise Exception("player position must be defined");
 
 
         if player_position in tiles:
@@ -50,38 +48,76 @@ class SegmentGenerator:
             innerTiles.remove(player_position);
         if player_position in floorPositions:
             floorPositions.remove(player_position);
+
         numBlocks = options.numBlocks
-        if (isinstance(options.numBlocks,list)):
+        if (isinstance(numBlocks,tuple)):
             numBlocks = random.choice(range(numBlocks[0],numBlocks[1]+1));
         
+        grounded = floorPositions.copy();
         block_positions = random.sample(tiles,numBlocks);
         block_positions += groundPositions;
-
-        [innerRing.remove(pos) for pos in block_positions if pos in innerRing];
+        for pos in block_positions:
+            if pos in innerRing: innerRing.remove(pos)
+            if pos in innerTiles: innerTiles.remove(pos);
+            if pos in floorPositions: floorPositions.remove(pos);
+            if pos in tiles: tiles.remove(pos);
+            if pos in grounded: grounded.remove(pos);
+            if (pos[0],pos[1]-1) in tiles:
+                grounded.append((pos[0],pos[1]-1));
+        
+        tile_dict[c.GROUNDED] = grounded;
 
         enemies = [];
-
         if options.num_enemies is not None and len(options.num_enemies) > 0:
-            #print(options.num_enemies)
+            dicted_tiles = isinstance(options.valid_enemy_positions,dict);
+            valid_tiles = tile_dict[options.valid_enemy_positions] if not dicted_tiles else None;
             for enemy_type,num in options.num_enemies.items():
-                if isinstance(num,list):
+                if (dicted_tiles):
+                    valid_tiles = tile_dict[options.valid_enemy_positions[enemy_type]];
+                if isinstance(num,tuple):
                     num = random.choice(range(num[0],num[1]+1));
-                for i in range(num):
-                    pos = random.choice(tiles);
+                for _ in range(num):
+                    pos = random.choice(valid_tiles);
                     tiles.remove(pos);
                     direction = random.choice([0,1]);
                     enemies.append([enemy_type,pos,direction])
+
+
+        if options.hasGround:
+
+            available_xs = list(range(options.inner_margins()[0],options.size[0]-options.inner_margins()[1]));
+            if not(options.allow_gap_under_start):
+                available_xs.remove(player_position[0]);
+            
+            num_gaps = options.num_gaps;
+            if (isinstance(num_gaps,tuple)):
+                num_gaps = random.randint(*num_gaps)
+
+            gaps = [];    
+            for _ in range(num_gaps):
+                width = options.gap_width;
+                if (isinstance(width,tuple)):
+                    width = random.randint(*width);
+                if width > len(available_xs):
+                    break;
+                gap_start = random.randint(0,len(available_xs)-width);
+                gap = available_xs[gap_start:gap_start+width];
+                [available_xs.remove(g) for g in gap];
+                gaps += gap;
+            
+            [[block_positions.remove((x,y)) for y in range(groundHeight,options.size[1])] for x in gaps]    
+
 
         bounds = options.inner_margins();
         bounds[1] = options.size[0]-bounds[1];
         bounds[3] = options.size[1]-bounds[3];
 
-
         dynamics = {'enemies':enemies};
+
         batchSize = 1;
         if makeBatches:
-            if isinstance(options.taskBatchSize,list):
-                batchSize = random.choice(range(options.taskBatchSize[0],options.taskBatchSize[1]+1));
+            if isinstance(options.taskBatchSize,tuple):
+                batchSize = random.randint(*options.taskBatchSize);
             else:
                 batchSize = options.taskBatchSize;
 
@@ -102,7 +138,7 @@ class SegmentGenerator:
         
 
     @staticmethod    
-    def export(size,blocks,bricks,boxes,dynamics,player_start,task_positions,task_bounds):
+    def export(size:tuple[int,int],blocks:list[tuple[int,int]],bricks:list,boxes:list,dynamics:dict[str,Any],player_start:tuple[int,int],task_positions:list[tuple[int,int]],task_bounds:tuple[int,int]):
         output_statics = {};
         output_dynamics = {};
         if blocks is not None and len(blocks) > 0:
@@ -119,8 +155,6 @@ class SegmentGenerator:
                     item = {"x":enemy_dat[1][0]*c.TILE_SIZE,"y":enemy_dat[1][1]*c.TILE_SIZE,"type":enemy_dat[0],"direction":enemy_dat[2],"color":0}
                     enemy_output.append(item);
                 output_statics["enemy"]={"-1":enemy_output};
-                #print('doing_enemies')
-                #print(output_dynamics)
             else:
                 print("ERROR: non-enemy dynamic object generation not done yet");
         output_statics[c.MAP_MAPS] = [{c.MAP_BOUNDS:[0,size[0]*c.TILE_SIZE,0,size[1]*c.TILE_SIZE],c.MAP_START:[(player_start[0] + 0.5)*c.TILE_SIZE,(player_start[1] + 1)*c.TILE_SIZE]}]; #Add 1 to y and 0.5 to x because player map start is bottom middle not top left
@@ -156,7 +190,24 @@ class GenerationOptions:
     enemy_list = [c.ENEMY_TYPE_GOOMBA,c.ENEMY_TYPE_KOOPA,c.ENEMY_TYPE_FLY_KOOPA,c.ENEMY_TYPE_PIRANHA,c.ENEMY_TYPE_FIRE_KOOPA,c.ENEMY_TYPE_FIRESTICK]
 
 
-    def __init__(self,size=[13,13],inner_size=[7,7],has_ground=True,num_blocks=0,num_enemies={},enemy_options={},valid_task_blocks = c.INNER, valid_start_blocks = c.INNER, valid_task_positions = c.CENTER,task_batch_size = 3,ground_height = 2):
+    def __init__(self,
+    size:tuple[int,int]=(13,13),
+    inner_size:tuple[int,int]=(7,7),
+    has_ground=True,
+    num_blocks:int|tuple[int,int]=0,
+    num_enemies:dict[int,int|tuple[int,int]]={},
+    valid_enemy_positions:str|dict[int,str]=c.AIR,
+    enemy_options:dict[int,Any]={},
+    valid_task_blocks = c.INNER,
+    valid_start_blocks = c.INNER,
+    valid_task_positions = c.CENTER,
+    task_batch_size:int|tuple[int,int] = 3,
+    ground_height:int|tuple[int,int] = 2,
+    num_gaps:int|tuple[int,int] = 0,
+    gap_width:int|tuple[int,int] = 0,
+    allow_gap_under_start=False,
+    ):
+
         self.size = size;
         self.innerSize = inner_size;
         self.hasGround = has_ground;
@@ -168,7 +219,13 @@ class GenerationOptions:
         self.groundHeight = ground_height;
         self.num_enemies = num_enemies;
         self.enemy_options = enemy_options;
+        self.valid_enemy_positions = valid_enemy_positions;
+        self.num_gaps = num_gaps;
+        self.gap_width = gap_width;
+        self.allow_gap_under_start = allow_gap_under_start
+
         self._margins = None;
+        
 
     def inner_ring(self):
         size = self.size;

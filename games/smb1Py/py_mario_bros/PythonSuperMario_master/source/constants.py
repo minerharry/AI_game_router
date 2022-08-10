@@ -5,7 +5,7 @@ LOW = 1;
 MED = 2;
 HIGH = 3;
 
-GRAPHICS_SETTINGS = LOW; 
+GRAPHICS_SETTINGS = MED; 
 #NONE: no sprite images ever assigned nor loaded from memory; draw function never called
 #LOW: all sprite images are placeholders (not loeaded from memory)
 #MED: sprite images loaded from memory, but all animations deactivated
@@ -248,6 +248,8 @@ CENTER = 'center';
 INNER = 'inner'; #all tiles within the task area
 FLOOR = 'floor'; #tiles above a floor
 AREA = 'area'; #tiles within a specified area
+GROUNDED = 'grounded'; #tiles above collision
+AIR = 'air'; #any unoccupied tile
 
 #INPUT TYPES
 NO_GRID = "no grid";

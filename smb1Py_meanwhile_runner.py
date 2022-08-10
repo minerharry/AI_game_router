@@ -66,12 +66,14 @@ if __name__ == "__main__":
     additional_data_indices = [5];
 
     configs = [
-        GenerationOptions(num_blocks=0,ground_height=[7,9],valid_task_blocks=c.FLOOR,valid_start_blocks=c.FLOOR),
-        GenerationOptions(num_blocks=0,ground_height=[7,9],valid_task_blocks=c.INNER,valid_start_blocks=c.FLOOR),
-        GenerationOptions(num_blocks=[1,3],ground_height=[7,9],valid_task_blocks=c.INNER,valid_start_blocks=c.FLOOR),
-        GenerationOptions(num_blocks=[0,4],ground_height=[7,9],task_batch_size=[1,4]),
-        GenerationOptions(num_blocks=[0,8],ground_height=[7,10],task_batch_size=[1,4]),
-        GenerationOptions(num_blocks=[0,6],ground_height=[7,9],task_batch_size=[1,4],num_enemies={c.ENEMY_TYPE_GOOMBA:[0,1]}),
+        GenerationOptions(num_blocks=0,ground_height=(7,9),valid_task_blocks=c.FLOOR,valid_start_blocks=c.FLOOR),
+        GenerationOptions(num_blocks=0,ground_height=(7,9),valid_task_blocks=c.INNER,valid_start_blocks=c.FLOOR),
+        GenerationOptions(num_blocks=(1,3),ground_height=(7,9),valid_task_blocks=c.INNER,valid_start_blocks=c.FLOOR),
+        GenerationOptions(num_blocks=(0,4),ground_height=(7,9),task_batch_size=(1,4)),
+        GenerationOptions(num_blocks=(0,8),ground_height=(7,10),task_batch_size=(1,4)),
+        GenerationOptions(num_blocks=(0,4),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(1,2)),
+        GenerationOptions(num_blocks=(0,6),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(1,4)),
+        GenerationOptions(num_blocks=(0,6),ground_height=(7,9),task_batch_size=(1,4),num_enemies={c.ENEMY_TYPE_GOOMBA:(0,1)}),
         ];
     
     tdManager = TrainingDataManager(NAME,currentRun);
