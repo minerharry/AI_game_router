@@ -75,17 +75,19 @@ if __name__ == "__main__":
     additional_data_indices = [3];
 
     configs = [
-        GenerationOptions(num_blocks=0,ground_height=(7,9),valid_task_blocks=c.FLOOR,valid_start_blocks=c.FLOOR),
-        GenerationOptions(num_blocks=0,ground_height=(7,9),valid_task_blocks=c.INNER,valid_start_blocks=c.FLOOR),
-        GenerationOptions(num_blocks=(1,3),ground_height=(7,9),valid_task_blocks=c.INNER,valid_start_blocks=c.FLOOR),
-        GenerationOptions(num_blocks=(0,4),ground_height=(7,9),task_batch_size=(1,4)),
-        GenerationOptions(num_blocks=(0,8),ground_height=(7,10),task_batch_size=(1,4)),
-        GenerationOptions(num_blocks=(0,4),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(1,2)),
-        GenerationOptions(num_blocks=(0,6),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(1,4)),
-        GenerationOptions(num_blocks=(0,6),ground_height=(7,9),task_batch_size=(1,4),num_enemies={c.ENEMY_TYPE_GOOMBA:(0,1)}),
+        GenerationOptions(num_blocks=0,ground_height=(7,9),valid_task_blocks=c.FLOOR,valid_start_blocks=c.FLOOR), #0
+        GenerationOptions(num_blocks=0,ground_height=(7,9),valid_task_blocks=c.INNER,valid_start_blocks=c.FLOOR), #1
+        GenerationOptions(num_blocks=(1,3),ground_height=(7,9),valid_task_blocks=c.INNER,valid_start_blocks=c.FLOOR), #2
+        GenerationOptions(num_blocks=(0,4),ground_height=(7,9),task_batch_size=(1,4)), #3
+        GenerationOptions(num_blocks=(0,8),ground_height=(7,10),task_batch_size=(1,4)), #4
+        GenerationOptions(num_blocks=(0,4),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(1,2)), #5
+        GenerationOptions(num_blocks=(0,6),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(1,4)), #6
+        GenerationOptions(num_blocks=(0,4),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(1,3),allow_gap_under_start=True), #7
+        GenerationOptions(num_blocks=(0,6),ground_height=(7,9),task_batch_size=(1,3),num_enemies={c.ENEMY_TYPE_GOOMBA:1},valid_enemy_positions=c.GROUNDED), #8
+        GenerationOptions(size=(20,13),inner_size=(14,7),num_blocks=(0,8),ground_height=(7,10),task_batch_size=(1,4)), #9
         ];
     
-    orders = [(configs[4],130),(configs[2],20)];
+    orders = [(configs[4],70),(configs[2],20),(configs[5],30),(configs[6],20),(configs[7],10),(configs[9],30)];
 
 
 
