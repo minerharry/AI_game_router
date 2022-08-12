@@ -16,7 +16,7 @@ class FitnessReporter(BaseReporter):
 
     def save_data(self,fitness_data):
         print(list(fitness_data));
-        with DelayedKeyboardInterrupt:
+        with DelayedKeyboardInterrupt():
             with open(f"memories\\{self.gameName}\\{self.run_name}_fitness_history\\gen_{self.generation}",'wb') as f:
                 pickle.dump(fitness_data,f)
 
