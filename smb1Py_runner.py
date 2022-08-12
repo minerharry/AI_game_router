@@ -26,7 +26,7 @@ def task_obstruction_score(obstructions):
 
 def getFitness(inputs):
     obstructions = inputs['task_obstructions'];
-    return task_obstruction_score(obstructions) + inputs['player_state'] + inputs['task_reached']*50;
+    return task_obstruction_score(obstructions) + inputs['player_state'] + inputs['task_reached']*50 - inputs['steps']*0.1;
 
 def getRunning(inputs):
     return (not(inputs['done']) and (not inputs['stillness_time'] > steps_threshold));
@@ -84,7 +84,7 @@ if __name__ == "__main__":
         GenerationOptions(num_blocks=(0,6),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(1,4)), #6
         GenerationOptions(num_blocks=(0,4),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(1,3),allow_gap_under_start=True), #7
         GenerationOptions(num_blocks=(0,6),ground_height=(7,9),task_batch_size=(1,3),num_enemies={c.ENEMY_TYPE_GOOMBA:1},valid_enemy_positions=c.GROUNDED), #8
-        GenerationOptions(size=(20,13),inner_size=(14,7),num_blocks=(0,8),ground_height=(7,10),task_batch_size=(1,4)), #9
+        GenerationOptions(size=(20,15),inner_size=(14,9),num_blocks=(0,8),ground_height=(7,10),task_batch_size=(1,4)), #9
         ];
     
     orders = [(configs[4],70),(configs[2],20),(configs[5],30),(configs[6],20),(configs[7],10),(configs[9],30)];
