@@ -11,6 +11,7 @@ class SMB1Game(RunGame):
     def __init__(self,runnerConfig,kwargs):
         self.steps = 0;
         self.runConfig = runnerConfig;
+        self.reporters:list[GameReporter] = [];
         if 'game' not in kwargs: #only as an emergergency backup
             if 'process_num' in kwargs:
                 self.process_num = kwargs['process_num']
@@ -26,7 +27,6 @@ class SMB1Game(RunGame):
             self.game.load_segment(kwargs['training_datum']);
         self.min_obstructions = None;
         self.stillness_time = 0;
-        
 
 
     def getOutputData(self):
@@ -49,6 +49,7 @@ class SMB1Game(RunGame):
         while (self.isRunning() and not self.game.accepts_player_input()): #skip bad frames
             self.game.tick_inputs(empty_actions);
         
+        
 
     def renderInput(self,inputs):
         output = [key > 0.5 for key in inputs];
@@ -60,6 +61,3 @@ class SMB1Game(RunGame):
             self.game.tick_inputs(empty_actions);
             #print('skipping bad frames...');
 
-    def close(self):
-        #does nothing unless game needs it to
-        return;

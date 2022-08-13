@@ -1,11 +1,13 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
+import abc
 import random
 from typing import Iterable
 from PIL import Image, ImageDraw, ImageFont
 import math
 import collections.abc
 import numpy as np
+# from gameReporting import GameReporter
 
 from runnerConfiguration import RunnerConfig
 
@@ -24,15 +26,27 @@ class EvalGame:
     def __init__(self,gameClass,**kwargs):
         self.gameClass = gameClass;
         self.initInputs = kwargs;
+        self.reporters = [];
+
+    def register_reporter(self,reporter):
+        if reporter not in self.reporters:
+            self.reporters.append(reporter);
+
+    def deregister_reporter(self,reporter):
+        if reporter in self.reporters:
+            self.reporters.append(reporter);    
 
     def start(self,runnerConfig,**kwargs)->RunGame:
         if kwargs is not None:
             for name,arg in kwargs.items():
                 self.initInputs[name] = arg;
-        return self.gameClass(runnerConfig,self.initInputs);
+        game = self.gameClass(runnerConfig,**self.initInputs);
+        [game.register_reporter(rep) for rep in self.reporters];
+        [rep.start(game) for rep in self.reporters];
+        
 
 class RunGame(ABC):
-    def __init__(self,runnerConfig:RunnerConfig,kwargs):
+    def __init__(self,runnerConfig:RunnerConfig,**kwargs):
         self.steps = 0;
         self.runConfig = runnerConfig;
 
@@ -52,6 +66,9 @@ class RunGame(ABC):
         
         return result;
 
+    def register_reporter(self,reporter:GameReporter):
+        self.reporters.append(reporter);
+
     def getFitnessScore(self):
         return self.runConfig.fitnessFromGameData(self.getMappedData());
 
@@ -65,6 +82,14 @@ class RunGame(ABC):
         #return dict of all data available from game, sans 'steps'
         pass;
 
+    def tickInput(self,inputs):
+        self.processInput(inputs);
+        [r.on_tick(self,inputs) for r in self.reporters];
+
+    def tickRenderInput(self,inputs):
+        self.renderInput(inputs);
+        [r.on_render_tick(self,inputs) for r in self.reporters];
+
     @abstractmethod
     def processInput(self, inputs):
         pass;
@@ -74,8 +99,10 @@ class RunGame(ABC):
         pass;
 
     def close(self):
-        #does nothing unless game needs it to
-        return;
+        self._close();
+        [r.on_finish(self) for r in self.reporters];
+
+    def _close(self): pass;
 
     def isRunning(self):
         return self.runConfig.gameStillRunning(self.getMappedData());
@@ -278,3 +305,4 @@ class StarSmash(RunGame):
 
     def add_char_to_calc_grid(self,x,y,char,bg):
         bg.paste(char,(x*60,y*80),char);
+
