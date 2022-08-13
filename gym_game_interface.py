@@ -127,7 +127,7 @@ class GymEnvGame(RunGame):
             return self.runConfig.gameStillRunning(self.getMappedData());
         return not(self.done);
 
-    def close(self):
+    def _close(self):
         self.env.reset();
 
     def getOutputData(self):

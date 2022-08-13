@@ -224,7 +224,7 @@ class GameRunner:
 
                 gameInput = net.advance(gameData, time_const, time_const);
 
-                images.append(runningGame.renderInput(gameInput));
+                images.append(runningGame.tickRenderInput(gameInput));
 
                         
             runningGame.close();
@@ -261,9 +261,9 @@ class GameRunner:
                 gameInput = net.activate(gameData);
 
                 if (self.runConfig.external_render):
-                    images.append(runningGame.renderInput(gameInput));
+                    images.append(runningGame.tickRenderInput(gameInput));
                 else:
-                    runningGame.renderInput(gameInput);
+                    runningGame.tickRenderInput(gameInput);
 
 
                 if (runnerConfig.fitness_collection_type != None and 'continuous' in runnerConfig.fitness_collection_type):
@@ -311,7 +311,7 @@ class GameRunner:
 
                         gameInput = net.advance(gameData, time_const, time_const);
                         
-                        runningGame.processInput(gameInput);
+                        runningGame.tickInput(gameInput);
                         if (runnerConfig.fitness_collection_type != None and runnerConfig.fitness_collection_type == 'continuous'):
                             fitness += runningGame.getFitnessScore();
                     fitness += runningGame.getFitnessScore();
@@ -530,7 +530,7 @@ class Genome_Executor:
                         print('Error body: ', sys.exc_info());
                         raise Exception();
 
-                    runningGame.processInput(gameInput);
+                    runningGame.tickInput(gameInput);
 
                     if (runnerConfig.fitness_collection_type != None and 'continuous' in runnerConfig.fitness_collection_type):
                         fitness += runningGame.getFitnessScore();

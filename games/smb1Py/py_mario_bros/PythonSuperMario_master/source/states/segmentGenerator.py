@@ -37,7 +37,10 @@ class SegmentGenerator:
         try:
             player_position = random.choice(tile_dict[options.startBlocks]);
         except:
-            raise Exception("player position must be defined");
+            # print(options.startBlocks);
+            # print(tile_dict[options.startBlocks]);
+            # print(innerTiles);
+            raise Exception("player position must be possible");
 
 
         if player_position in tiles:
@@ -129,6 +132,8 @@ class SegmentGenerator:
             task_options = floorPositions;
         elif options.taskBlocks == c.INNER:
             task_options = innerTiles;
+        
+        print(task_options);
 
         raw_data = [options.size,block_positions,[],[],dynamics,player_position, random.sample(task_options,min(len(task_options),batchSize)),bounds];
         if return_raw:
@@ -141,6 +146,7 @@ class SegmentGenerator:
     def export(size:tuple[int,int],blocks:list[tuple[int,int]],bricks:list,boxes:list,dynamics:dict[str,Any],player_start:tuple[int,int],task_positions:list[tuple[int,int]],task_bounds:tuple[int,int]):
         output_statics = {};
         output_dynamics = {};
+        print(task_positions);
         if blocks is not None and len(blocks) > 0:
             output_statics["ground"] = [{"x":pos[0]*c.TILE_SIZE,"y":pos[1]*c.TILE_SIZE,"width":c.TILE_SIZE,"height":c.TILE_SIZE} for pos in blocks];
         if bricks is not None and len(bricks) > 0:
@@ -157,15 +163,15 @@ class SegmentGenerator:
                 output_statics["enemy"]={"-1":enemy_output};
             else:
                 print("ERROR: non-enemy dynamic object generation not done yet");
-        output_statics[c.MAP_MAPS] = [{c.MAP_BOUNDS:[0,size[0]*c.TILE_SIZE,0,size[1]*c.TILE_SIZE],c.MAP_START:[(player_start[0] + 0.5)*c.TILE_SIZE,(player_start[1] + 1)*c.TILE_SIZE]}]; #Add 1 to y and 0.5 to x because player map start is bottom middle not top left
-        result = [];
+        output_statics[c.MAP_MAPS] = [{c.MAP_BOUNDS:[0,size[0]*c.TILE_SIZE,0,size[1]*c.TILE_SIZE],c.MAP_START:((player_start[0] + 0.5)*c.TILE_SIZE,(player_start[1] + 1)*c.TILE_SIZE)}]; #Add 1 to y and 0.5 to x because player map start is bottom middle not top left
+        result:list[SegmentState] = [];
         scaled_bounds = [bound*c.TILE_SIZE for bound in task_bounds]
         #print(task_bounds);
         #print(player_start);
         #print(scaled_bounds);
         # print(task_positions)
         for pos in task_positions:
-            pos = [(i + 0.5) * c.TILE_SIZE for i in pos];
+            pos = ((i + 0.5) * c.TILE_SIZE for i in pos);
             result.append(SegmentState(output_dynamics,output_statics,task=pos,task_bounds=scaled_bounds));
         #print(result[0].dynamic_data)
         return result;
@@ -202,7 +208,7 @@ class GenerationOptions:
     valid_start_blocks = c.INNER,
     valid_task_positions = c.CENTER,
     task_batch_size:int|tuple[int,int] = 3,
-    ground_height:int|tuple[int,int] = 2,
+    ground_height:int|tuple[int,int] = 7, #top down
     num_gaps:int|tuple[int,int] = 0,
     gap_width:int|tuple[int,int] = 0,
     allow_gap_under_start=False,

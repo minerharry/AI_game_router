@@ -1,5 +1,7 @@
 __author__ = 'minerharry'
 
+# from curses import raw
+from copy import copy
 import os
 import json
 import math
@@ -13,33 +15,43 @@ from .. import setup, tools
 from .. import constants as c
 from ..components import info, stuff, player, brick, box, enemy, powerup, coin
 
-
+TASK_PATH_CHANGE_THRESHOLD = 1.5*c.TILE_SIZE;
 
 class SegmentState:
-    def __init__(self, dynamic_data, static_data, task:Tuple[int,int] = None, task_bounds=None, file_path = None):
+    def __init__(self, dynamic_data, static_data, task:None|tuple[float,float] = None, task_bounds=None, task_path:None|list[tuple[float,float]]=None, file_path = None, raw_data = None):
+        self.raw_data = raw_data;
         if (file_path is not None):
-            f = open(file_path);
-            self.raw_data = pickle.load(f);
-            f.close();
+            with open(file_path,'rb') as f:
+                self.raw_data = pickle.load(f);
+
+        if self.raw_data is not None:
             self.static_data = self.raw_data['static']; #otherwise known as the map data
             self.dynamic_data =self.raw_data['dynamic'];
             self.task = self.raw_data['task'];
             self.task_bounds = self.raw_data['task_bounds'];
+            self.task_path = self.raw_data['task_path'] if 'task_path' in self.raw_data else None;
         else:
             self.static_data = static_data;
             self.dynamic_data = dynamic_data;
             self.task = task;
             self.task_bounds = task_bounds; #left,right,top,bottom
-
+            self.task_path = task_path;
+            if self.task_path is not None:
+                self.task = self.task_path[0];
 
     #not particularly used
     def save_file(self,file_path):
-        f = open(file_path);
-        pickle.dump({'static':self.static_data,'dynamic':self.dynamic_data,'task':self.task},f);
-        f.close();
+        with open(file_path,'wb') as f:
+            pickle.dump({'static':self.static_data,'dynamic':self.dynamic_data,'task':self.task,'task_path':self.task_path,'task_bounds':self.task_bounds},f);
 
     def equal_static_data(self,other_data):
         return json.dumps(other_data) == json.dumps(self.static_data); #using json dumps to ensure that only the dict values are compared and not class sources; that way, if static data gets treated as a class for generation purposes, it can still work exactly the same
+
+    def __copy__(self):
+        return self.__deepcopy__();
+
+    def __deepcopy__(self):
+        return SegmentState(None,None,pickle.loads(pickle.dumps({'static':self.static_data,'dynamic':self.dynamic_data,'task':self.task,'task_path':self.task_path,'task_bounds':self.task_bounds})));
 
 
 class Segment(tools.State):
@@ -65,8 +77,9 @@ class Segment(tools.State):
         self.bg_image = False;
         self.grid_rects = None;
         self.task_bounds = None;
-        self.task = None;
-        self.task_reached = False;
+        self.task:None|tuple[float,float] = None;
+        self.task_reached = 0;
+        self.task_path:None|list[tuple[float,float]] = None;
         self.blank = False;
 
         #self.moving_score_list = []
@@ -246,12 +259,15 @@ class Segment(tools.State):
         self.decompress_dynamics();
 
 
-    #data is a SegmentState
-    def load(self,data):
+    def load(self,data:SegmentState):
         self.loaded_segment = data;
-        self.task = data.task;
-        self.task_bounds = data.task_bounds;
-        self.task_reached = False;
+        self.task = copy(data.task);
+        self.task_bounds = copy(data.task_bounds);
+        self.task_reached = 0;
+        self.task_path = copy(data.task_path);
+        if self.task_path is not None and (self.task != self.task_path[0]):
+            print(f"WARNING: initial task {data.task} and path {data.task_path} do not match, overwriting task");
+            self.task = self.task_path[0];
         self.death_timer = 0; #TODO: Save & reload these timer values instead of resetting them
         self.castle_timer = 0;
         if (self.map_data is None or not data.equal_static_data(self.map_data)):
@@ -546,7 +562,7 @@ class Segment(tools.State):
 
             self.update_player_position() #2 dicts, 1 group within
             self.check_for_player_death()
-            self.check_for_player_win()
+            self.check_task()
             self.update_viewport()
 
 
@@ -875,10 +891,20 @@ class Segment(tools.State):
             if not ((self.player.rect.centerx < self.task_bounds[1] and self.player.rect.centerx>self.task_bounds[0]) and (self.player.rect.centery < self.task_bounds[3] and self.player.rect.centery > self.task_bounds[2])):
                 self.player.die();
 
-    def check_for_player_win(self):
-        if self.task is not None and self.player.hitbox.collidepoint(self.task):
-            self.done = True;
-            self.task_reached = True;
+    def check_task(self):
+        if self.task_path is None:
+            if self.task is not None and self.player.hitbox.collidepoint(self.task):
+                self.done = True;
+                self.task_reached = 1;
+        elif self.task is not None:
+            p = self.player.rect.center;
+            if math.sqrt((p[0]-self.task[0])**2 + (p[1]-self.task[1])**2) < TASK_PATH_CHANGE_THRESHOLD:
+                self.task_path.remove(self.task);
+                self.task_reached += 1;
+                if len(self.task_path) > 0:
+                    self.task = self.task_path[0];
+                else:
+                    self.done = True;
 
     def check_if_player_on_IN_pipe(self):
         '''check if player is on the pipe which can go down in to it '''
