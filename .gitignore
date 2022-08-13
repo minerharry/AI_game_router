@@ -3,6 +3,7 @@
 **/memories
 **/data
 **/old-memories
+**/transfer
 *.pyc
 */*.pyc
 *.cpython-37.pyc
