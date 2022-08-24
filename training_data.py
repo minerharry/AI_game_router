@@ -12,7 +12,7 @@ from filelock import FileLock
 TD = TypeVar('TD');
 class TrainingDataManager(Generic[TD],BaseReporter):
 
-    def __init__(self,game_name,run,data_folder="memories",ext="tdat",generation_func:Callable[[],Iterable[TD]]|None=None):
+    def __init__(self,game_name,run,data_folder:os.PathLike="memories",ext="tdat",generation_func:Callable[[],Iterable[TD]]|None=None):
         self.data_file = Path(data_folder)/game_name/(f"run-{run}.{ext}");
         self.generator = generation_func;
         if (os.path.exists(self.data_file)):

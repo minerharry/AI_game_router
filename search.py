@@ -65,10 +65,9 @@ class DStarSearcher(Generic[N]):
         self.U = DStarQueue[N,tuple[float,float]]();
         self.U.push(self.goal,(self.h(self.start,self.goal),0));
 
-
-    def calculateKey(self,s:N):
-        t = min(self.g[s],self.rhs[s])
-        return (t+self.h(self.start,s)+self.km,t)
+    def calculateKey(self,s:N): #somewhat equivalent to A*'s f_score
+        t = min(self.g[s],self.rhs[s]) #the minimum of the two interpretations of the distance to the end
+        return (self.km+self.h(self.start,s)+t,t) #(total path length, path to end [for tiebreaker])
 
     def updateVertex(self,u:N):
         if (self.g[u] != self.rhs[u]):
@@ -77,25 +76,47 @@ class DStarSearcher(Generic[N]):
             self.U.removeItem(u);
 
     def computeShortestPath(self):
+        #while [start is not on the best path] or [start is locally inconsistent]
         while self.U.topKey() < self.calculateKey(self.start) or self.rhs[self.start] > self.g[self.start]:
+            # print('path changed');
             k_old,u = self.U.pop();
             k_new = self.calculateKey(u);
+            # print(u)
             if k_old < k_new:
+                # print('pushed - preds not checked')
                 self.U.pushOrUpdate(u,k_new);
             elif self.g[u] > self.rhs[u]:
                 self.g[u] = self.rhs[u];
                 self.U.removeItem(u);
                 for s,c in self.pred(u):
-                    if s != self.goal:
-                        self.rhs[s] = min(self.rhs[s],c+self.g[u]);
+                    # print('pred',s);
+                    if (s == self.start):
+                        print('start reached -- clause 1');
+                        print('g,rhs:',self.g[s],self.rhs[s]);
+                    self.rhs[s] = min(self.rhs[s],c+self.g[u]);
+                    if (s == self.start):
+                        print('g,rhs:',self.g[s],self.rhs[s]);
                     self.updateVertex(s);
+                    if (s == self.start):
+                        print('g,rhs:',self.g[s],self.rhs[s]);
             else:
                 g_old = self.g[u];
                 self.g[u] = float('inf');
                 for s,c in itertools.chain(self.pred(u),[(u,0),]):
+                    # print('pred',s);
+                    if (s == self.start):
+                        print('start reached -- clause 2')
+                        print('g,rhs:',self.g[s],self.rhs[s]);
                     if self.rhs[s] == c + g_old and s != self.goal:
                         self.rhs[s] = min([c+self.g[sp] for sp,c in self.succ(s)]);
+                        if (s == self.start):
+                            print('start - clause 3 triggered');
+                            print('g,rhs:',self.g[s],self.rhs[s]);
                     self.updateVertex(s);
+                    if (s == self.start):
+                        print('g,rhs:',self.g[s],self.rhs[s]);
+
+        # print(self.g[self.start],self.rhs[self.start]);
 
 
     def search(self,
@@ -123,7 +144,7 @@ class DStarSearcher(Generic[N]):
 #TODO: Consider implementing D* reset https://www.researchgate.net/publication/316945804_D_Lite_with_Reset_Improved_Version_of_D_Lite_for_Complex_Environment 
 
     #allows control by an external loop by iterating over the function to prompt recalculation
-    #DOES NOT MOVE
+    #DOES NOT MOVE POSITION
     def search_iter(self,
             scan_func:Callable[[],list[tuple[N,N,float,float]]]
             ): #start,end,old,new
@@ -140,7 +161,49 @@ class DStarSearcher(Generic[N]):
                             self.rhs[u] = min([cp+self.g[sp] for sp,cp in self.succ(u)]);
                     self.updateVertex(u);
                 self.computeShortestPath();
-            yield self;         
+            yield self;
+
+    def load_start(self,start:N):
+        self.old_start = self.start;
+        self.start = start;
+        # self.km = self.h(self.old_start,self.start);
+
+    def revert_start(self):
+        self.start = self.old_start;
+        # self.km = 0;
+
+    def explore_from_position(self,pos:N): #note: if pos has already been explored with no updates, this should do little to nothing
+        self.load_start(pos);
+        self.computeShortestPath();
+        self.revert_start();
+
+    def return_shortest_path(self,start=None):
+        if start:
+            self.load_start(start);
+            self.computeShortestPath();
+        current = self.start;
+        path = [current];
+        while current != self.goal:
+            
+            current,_ = min([(s,c) for s,c in self.succ(current)],key=lambda e: self.g[e[0]] + e[1]);
+            path.append(current);
+        if start:
+            self.revert_start();
+        return path;        
+
+        
+            
+
+    def update_costs(self,updates:list[tuple[N,N,float,float]]):
+        for (u,v,c_old,c) in updates:
+            if (u != self.goal):
+                if (c_old > c):
+                    self.rhs[u] = min(self.rhs[u],c+self.g[v]);
+                elif self.rhs[u] == c_old + self.g[v]:
+                    self.rhs[u] = min([cp+self.g[sp] for sp,cp in self.succ(u)]);
+            self.updateVertex(u);
+        self.computeShortestPath();
+
 
 
 
@@ -149,7 +212,7 @@ class LevelSearcher(Generic[N,T]):
         self.start = start;
         self.goal = is_goal;
 
-        self.open_edges:list[N] = []; #priority list sorted by the sum of: a) the g-score of the cost between N and T [as it gets updated] and b) the heuristic from T
+        self.open_edges:list[tuple[N|None,N]] = [(None,start)]; #priority list of (prev,current) sorted by the sum of: a) the g score to the previous node, b) the estimated cost (self.c) from previous to current, and c) the heuristic from current
         
         self.c = cost;
         self.g = DefaultDict[T,dict[N|None,float]](lambda: {None:float('inf')});
@@ -162,19 +225,29 @@ class LevelSearcher(Generic[N,T]):
         
         self.cameFrom = {};
 
-        def sort_key(node:N):
-            return min(self.g[self.node_key(node)].values()) + self.h(node);
+        def sort_key(edge:tuple[N|None,N]):
+            prev,node = edge;
+            if (prev == None):
+                raise Exception("attempting to sort initial edge, bad juju");
+            return min(self.g[self.node_key(prev)].values()) + self.c(prev,node) + self.h(node);
         
         self.sort_key = sort_key;
+        
+        self.complete_edge((None,start));
 
-    def sorted_edges(self)->list[N]:
+    def sorted_edges(self)->list[tuple[N|None,N]]:
         self.open_edges.sort(key=self.sort_key);
         return self.open_edges;
         
 
-    def complete_edge(self,edge:N):
-        self.open_edges.remove(edge);
-        self.open_edges += [succ for succ in self.succ(edge)];
+    def complete_edge(self,edge:tuple[N|None,N]):
+        try:
+            self.open_edges.remove(edge);
+        except Exception as e:
+            print(self.open_edges);
+            print(edge);
+            raise e;
+        self.open_edges += [(edge[1],succ) for succ in self.succ(edge[1])];
 
     def update_scores(self,scores:Iterable[tuple[N,float]]):
         for node,score in scores:

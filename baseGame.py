@@ -2,11 +2,12 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 import abc
 import random
-from typing import Iterable
+from typing import Iterable, Type
 from PIL import Image, ImageDraw, ImageFont
 import math
 import collections.abc
 import numpy as np
+from gameReporting import GameReporter
 # from gameReporting import GameReporter
 
 from runnerConfiguration import RunnerConfig
@@ -23,12 +24,12 @@ def listifyArray(array):
 
 
 class EvalGame:
-    def __init__(self,gameClass,**kwargs):
+    def __init__(self,gameClass:Type[RunGame],**kwargs):
         self.gameClass = gameClass;
         self.initInputs = kwargs;
-        self.reporters = [];
+        self.reporters:list[GameReporter] = [];
 
-    def register_reporter(self,reporter):
+    def register_reporter(self,reporter:GameReporter):
         if reporter not in self.reporters:
             self.reporters.append(reporter);
 
@@ -36,19 +37,21 @@ class EvalGame:
         if reporter in self.reporters:
             self.reporters.append(reporter);    
 
-    def start(self,runnerConfig,**kwargs)->RunGame:
+    def start(self,runnerConfig:RunnerConfig,**kwargs):
         if kwargs is not None:
             for name,arg in kwargs.items():
                 self.initInputs[name] = arg;
         game = self.gameClass(runnerConfig,**self.initInputs);
         [game.register_reporter(rep) for rep in self.reporters];
-        [rep.start(game) for rep in self.reporters];
+        [rep.on_start(game) for rep in self.reporters];
+        return game;
         
 
 class RunGame(ABC):
     def __init__(self,runnerConfig:RunnerConfig,**kwargs):
         self.steps = 0;
         self.runConfig = runnerConfig;
+        self.reporters:list[GameReporter] = [];
 
     def getData(self)->list:
         mappedData = self.getMappedData();

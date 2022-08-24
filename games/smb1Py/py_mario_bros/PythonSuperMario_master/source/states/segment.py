@@ -15,7 +15,7 @@ from .. import setup, tools
 from .. import constants as c
 from ..components import info, stuff, player, brick, box, enemy, powerup, coin
 
-TASK_PATH_CHANGE_THRESHOLD = 1.5*c.TILE_SIZE;
+TASK_PATH_CHANGE_THRESHOLD = 0.8*c.TILE_SIZE;
 
 class SegmentState:
     def __init__(self, dynamic_data, static_data, task:None|tuple[float,float] = None, task_bounds=None, task_path:None|list[tuple[float,float]]=None, file_path = None, raw_data = None):
@@ -50,8 +50,8 @@ class SegmentState:
     def __copy__(self):
         return self.__deepcopy__();
 
-    def __deepcopy__(self):
-        return SegmentState(None,None,pickle.loads(pickle.dumps({'static':self.static_data,'dynamic':self.dynamic_data,'task':self.task,'task_path':self.task_path,'task_bounds':self.task_bounds})));
+    def __deepcopy__(self,memo=None):
+        return SegmentState(None,None,raw_data=pickle.loads(pickle.dumps({'static':self.static_data,'dynamic':self.dynamic_data,'task':self.task,'task_path':self.task_path,'task_bounds':self.task_bounds})));
 
 
 class Segment(tools.State):
@@ -81,6 +81,7 @@ class Segment(tools.State):
         self.task_reached = 0;
         self.task_path:None|list[tuple[float,float]] = None;
         self.blank = False;
+
 
         #self.moving_score_list = []
         #self.overhead_info = info.Info(self.game_info, c.LEVEL)
@@ -207,18 +208,12 @@ class Segment(tools.State):
         else:
             do_viewport = True;
                     
-        #print(self.viewport)
-        #print(self.viewport.x)
         if 'player' in data:
             self.player = data['player'].sprites()[0];
             self.player_x = self.player.rect.centerx;
             self.player_y = self.player.rect.bottom;
             self.player_group = data['player'];
         else:
-            #print(self.player_x);
-            #print(self.player_y);
-            #print(self.task_bounds)
-            #print(do_viewport)
             self.setup_player(do_viewport=do_viewport);
             if self.player not in self.player_group:
                 self.player_group = pg.sprite.Group(self.player);           
@@ -264,10 +259,12 @@ class Segment(tools.State):
         self.task = copy(data.task);
         self.task_bounds = copy(data.task_bounds);
         self.task_reached = 0;
-        self.task_path = copy(data.task_path);
+        if hasattr(data,'task_path'):
+            self.task_path = copy(data.task_path);
         if self.task_path is not None and (self.task != self.task_path[0]):
             print(f"WARNING: initial task {data.task} and path {data.task_path} do not match, overwriting task");
             self.task = self.task_path[0];
+
         self.death_timer = 0; #TODO: Save & reload these timer values instead of resetting them
         self.castle_timer = 0;
         if (self.map_data is None or not data.equal_static_data(self.map_data)):
@@ -344,7 +341,6 @@ class Segment(tools.State):
 
 
 
-        #print(self.viewport);
         if type == c.CHECKPOINT_TYPE_MAP:
             self.player.rect.centerx = self.player_x
             self.player.rect.bottom = self.player_y
@@ -416,7 +412,6 @@ class Segment(tools.State):
     def setup_player(self,do_viewport = True):
         if self.player is None:
             self.player = player.Player(c.PLAYER_MARIO)
-            #print("newplayer")
         else:
             self.player.restart()
         self.player.rect.centerx = self.player_x
@@ -504,9 +499,6 @@ class Segment(tools.State):
         
         self.update_all_sprites(keys)
 
-        #print(self.player.rect.centerx);
-        #print(self.player.rect.centery);
-
         if (pg.K_PAGEUP in keys and keys[pg.K_PAGEUP] is not None and keys[pg.K_PAGEUP]):
             if (not self.last_save):
                 self.save_internal_state();
@@ -532,7 +524,6 @@ class Segment(tools.State):
             self.player.update(keys, time_info, self.powerup_group)
             if self.current_time - self.death_timer >= 0:
                 self.update_game_info()
-                #print('player died')
                 self.done = True
         elif self.player.state == c.IN_CASTLE:
             self.player.update(keys, time_info, None)
@@ -660,7 +651,6 @@ class Segment(tools.State):
         elif brick:
             self.adjust_player_for_x_collisions(brick)
         elif ground_step_pipe:
-            #print('pipe collide')
             if (ground_step_pipe.name == c.MAP_PIPE and
                 ground_step_pipe.type == c.PIPE_TYPE_HORIZONTAL):
                 return
@@ -754,7 +744,6 @@ class Segment(tools.State):
         elif brick:
             self.adjust_player_for_y_collisions(brick)
         elif ground_step_pipe:
-            #print('vertical pipe collisions');
             self.adjust_player_for_y_collisions(ground_step_pipe)
         elif enemy:
             if self.player.invincible:
@@ -883,9 +872,7 @@ class Segment(tools.State):
     
     def check_for_player_death(self):
         if (self.player.rect.y > self.map_bounds[3]):
-#           self.overhead_info.time <= 0):
-            #print(self.player.rect);
-            #print(self.player.hitbox);
+
             self.player.die();
         elif self.task_bounds is not None:
             if not ((self.player.rect.centerx < self.task_bounds[1] and self.player.rect.centerx>self.task_bounds[0]) and (self.player.rect.centery < self.task_bounds[3] and self.player.rect.centery > self.task_bounds[2])):
@@ -898,13 +885,15 @@ class Segment(tools.State):
                 self.task_reached = 1;
         elif self.task is not None:
             p = self.player.rect.center;
-            if math.sqrt((p[0]-self.task[0])**2 + (p[1]-self.task[1])**2) < TASK_PATH_CHANGE_THRESHOLD:
+            if len(self.task_path) > 1:
+                if math.sqrt((p[0]-self.task[0])**2 + (p[1]-self.task[1])**2) < TASK_PATH_CHANGE_THRESHOLD:
+                    self.task_path.remove(self.task);
+                    self.task_reached += 1;
+                    self.task = self.task_path[0];
+            elif self.player.hitbox.collidepoint(self.task):
                 self.task_path.remove(self.task);
                 self.task_reached += 1;
-                if len(self.task_path) > 0:
-                    self.task = self.task_path[0];
-                else:
-                    self.done = True;
+                self.done = True;
 
     def check_if_player_on_IN_pipe(self):
         '''check if player is on the pipe which can go down in to it '''
@@ -966,12 +955,21 @@ class Segment(tools.State):
 #        self.moving_score_list.append(stuff.Score(x, y, score))
         print('score updated')
 
+    def clip_rect(self,rect:pg.rect.Rect): #clip to positive this is so stupid
+        x = max(rect.x,0);
+        y = max(rect.y,0);
+        w = rect.width - x + rect.x;
+        h = rect.height - y + rect.y;
+        rect.x = x;
+        rect.y = y;
+        rect.w = w;
+        rect.h = h;
+
     def draw(self, surface):
 
         if (self.background is not None):
             self.level.blit(self.background, self.viewport, self.viewport)
         
-#        print(self.player.image.get_rect())
 
         self.powerup_group.draw(self.level)
         self.brick_group.draw(self.level)
@@ -983,11 +981,6 @@ class Segment(tools.State):
             self.flagpole_group.draw(self.level)
         self.shell_group.draw(self.level)
         self.enemy_group.draw(self.level)
-        #for enemy in self.enemy_group:
-            #pg.draw.rect(self.level,c.ENEMY_PLACEHOLDER_COLOR,pg.Rect(enemy.rect.centerx-10,enemy.rect.centery-10,20,20));
-
-        #print(self.enemy_group in self.chosen_enemy.groups());
-        #print(self.enemy_group.has(self.chosen_enemy));
         self.player_group.draw(self.level)
         self.slider_group.draw(self.level)
         if not self.bg_image:
@@ -996,22 +989,26 @@ class Segment(tools.State):
             self.ground_step_pipe_group.draw(self.level)
             self.checkpoint_group.draw(self.level)
 
-        if self.task_bounds is not None:
-            #print(self.task_bounds);
+        if self.task is not None:
             shader_surface = pg.surface.Surface(self.level.get_size(),pg.SRCALPHA);
-            shader_surface.fill((0,0,0,c.SHADER_ALPHA));
-            bounds_rect = pg.rect.Rect(self.task_bounds[0],self.task_bounds[2],self.task_bounds[1]-self.task_bounds[0],self.task_bounds[3]-self.task_bounds[2]);
-            shader_surface.fill((0,0,0,0),bounds_rect);
+            if self.task_bounds is not None:
+                shader_surface.fill((0,0,0,c.SHADER_ALPHA));
+                bounds_rect = pg.rect.Rect(self.task_bounds[0],self.task_bounds[2],self.task_bounds[1]-self.task_bounds[0],self.task_bounds[3]-self.task_bounds[2]);
+                shader_surface.fill((0,0,0,0),bounds_rect);
+            if self.task_path is not None and len(self.task_path) > 1:
+                next_task = self.task_path[1];
+                next_rect = task_rect = pg.rect.Rect(next_task[0]-c.TILE_SIZE/2,next_task[1]-c.TILE_SIZE/2,c.TILE_SIZE,c.TILE_SIZE);
+                self.clip_rect(next_rect);
+                shader_surface.fill((0,127,255,c.SHADER_ALPHA),next_rect);
             task_rect = pg.rect.Rect(self.task[0]-c.TILE_SIZE/2,self.task[1]-c.TILE_SIZE/2,c.TILE_SIZE,c.TILE_SIZE);
+            self.clip_rect(task_rect);
             shader_surface.fill((0,255,0,c.SHADER_ALPHA),task_rect);
             self.level.blit(shader_surface,self.viewport.topleft,self.viewport);
         
-        
         pg.draw.circle(self.level,c.PURPLE,self.map_list[0][1],2/16*c.TILE_SIZE);
-        #pg.draw.rect(self.level,c.PLAYER_PLACEHOLDER_COLOR,pg.Rect(self.player.rect.centerx-10,self.player.rect.centery-10,20,20));
 
         surface.fill(c.BLACK);
-        surface.blit(self.level, (0,0), self.viewport)
+        surface.blit(self.level, (0,0), (self.viewport.x,self.viewport.y,self.viewport.width,self.viewport.height+40));
 
     def get_map_data(self,tile_scale): #SHOULD NOT BE CALLED DURING PLAY AS WILL CREATE SIGNIFICANT LAG CONFLICT WITH GET_GAME_DATA
         bounds = self.map_bounds;
@@ -1037,8 +1034,9 @@ class Segment(tools.State):
         
         return {
             'task_reached':self.task_reached,
+            'task_path_complete':self.task_path is not None and len(self.task_path) == 0,
             'done':self.done,
-            'task_position_offset':[self.task[0]-self.player.rect.centerx,self.task[1]-self.player.rect.centery],
+            'task_position_offset':[self.task[0]-self.player.rect.centerx,self.task[1]-self.player.rect.centery] if self.task is not None else None,
             'task_position':self.task,
             'pos':[self.player.rect.centerx,self.player.rect.centery],
             'vel':[self.player.x_vel,self.player.y_vel],
@@ -1063,7 +1061,7 @@ class Segment(tools.State):
             x_lefts = range(int(-x_rects/2),int(x_rects/2)) if x_rects % 2 == 0 else [x - 0.5 for x in range(math.ceil(-x_rects/2),math.ceil(x_rects/2))];
             y_tops = range(int(-y_rects/2),int(y_rects/2)) if y_rects % 2 == 0 else [y - 0.5 for y in range(math.ceil(-y_rects/2),math.ceil(y_rects/2))];
 
-            self.grid_rects = [[pg.Rect(center[0] + i * rect_width, center[1] + j * rect_width,rect_width,rect_width) for j in x_lefts] for i in y_tops];
+            self.grid_rects = [[pg.Rect(center[0] + i * rect_width, center[1] + j * rect_width,rect_width,rect_width) for j in y_tops] for i in x_lefts];
         else:
             offset = [center[0] - self.grid_center[0],center[1] - self.grid_center[1]];
             [[rect.move(offset[0],offset[1]) for rect in row] for row in self.grid_rects];

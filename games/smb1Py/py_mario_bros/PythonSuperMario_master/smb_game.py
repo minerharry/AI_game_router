@@ -8,7 +8,7 @@ from .source.states.segment import Segment
 empty_actions = dict(zip(['action','jump','left','right','down'],[False for i in range(5)]))
 class SMB1Game(RunGame):
     
-    def __init__(self,runnerConfig,kwargs):
+    def __init__(self,runnerConfig,**kwargs):
         self.steps = 0;
         self.runConfig = runnerConfig;
         self.reporters:list[GameReporter] = [];
@@ -27,6 +27,7 @@ class SMB1Game(RunGame):
             self.game.load_segment(kwargs['training_datum']);
         self.min_obstructions = None;
         self.stillness_time = 0;
+        self.annotations = kwargs['annotations'] if 'annotations' in kwargs else [];
 
 
     def getOutputData(self):
@@ -48,6 +49,13 @@ class SMB1Game(RunGame):
         self.game.tick_inputs(named_actions);
         while (self.isRunning() and not self.game.accepts_player_input()): #skip bad frames
             self.game.tick_inputs(empty_actions);
+
+        if self.annotations:
+            import pygame as pg
+            surface = pg.display.get_surface();
+            for ann in self.annotations:
+                pg.draw.circle(surface,c.GREEN,ann,4);
+            pg.display.update();
         
         
 

@@ -95,7 +95,7 @@ class GameRunner:
         if (continuing):
             pop.complete_generation();
         
-        if self.runConfig.parallel:
+        if self.runConfig.parallel and not hasattr(self,'pool'):
             manager = multiprocessing.Manager()
             idQueue = manager.Queue()
             [idQueue.put(i) for i in range(self.runConfig.parallel_processes)];
@@ -371,6 +371,7 @@ class GameRunner:
 
                 datum_fitnesses = {};
                 for id,fitnesses in tqdm(self.pool.istarmap(batch_func,[(datum,id) for id,datum in tdata.items()],chunksize=chunkSize),total=len(tdata)):
+                    print('id completed:',id);
                     datum_fitnesses[id] = fitnesses;
                 
                 if hasattr(self.runConfig,"saveFitness") and self.runConfig.saveFitness:

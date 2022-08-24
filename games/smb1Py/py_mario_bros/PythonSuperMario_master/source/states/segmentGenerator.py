@@ -34,13 +34,17 @@ class SegmentGenerator:
 
         tile_dict = {c.INNER:innerTiles,c.EDGE:innerRing,c.FLOOR:floorPositions,c.AIR:tiles};
 
-        try:
-            player_position = random.choice(tile_dict[options.startBlocks]);
-        except:
-            # print(options.startBlocks);
-            # print(tile_dict[options.startBlocks]);
-            # print(innerTiles);
-            raise Exception("player position must be possible");
+        player_position = None;
+        if isinstance(options.startBlocks,tuple):
+            player_position = options.startBlocks;
+        else:
+            try:
+                player_position = random.choice(tile_dict[options.startBlocks]);
+            except:
+                # print(options.startBlocks);
+                # print(tile_dict[options.startBlocks]);
+                # print(innerTiles);
+                raise Exception("player position must be possible");
 
 
         if player_position in tiles:
@@ -90,7 +94,8 @@ class SegmentGenerator:
 
             available_xs = list(range(options.inner_margins()[0],options.size[0]-options.inner_margins()[1]));
             if not(options.allow_gap_under_start):
-                available_xs.remove(player_position[0]);
+                if (player_position[0] in available_xs):
+                    available_xs.remove(player_position[0]);
             
             num_gaps = options.num_gaps;
             if (isinstance(num_gaps,tuple)):
@@ -205,7 +210,7 @@ class GenerationOptions:
     valid_enemy_positions:str|dict[int,str]=c.AIR,
     enemy_options:dict[int,Any]={},
     valid_task_blocks = c.INNER,
-    valid_start_blocks = c.INNER,
+    valid_start_blocks:str|tuple[int,int] = c.INNER,
     valid_task_positions = c.CENTER,
     task_batch_size:int|tuple[int,int] = 3,
     ground_height:int|tuple[int,int] = 7, #top down

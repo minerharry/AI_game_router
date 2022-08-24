@@ -100,15 +100,15 @@ class Control():
             elif event.type == pg.KEYUP:
                 self.keys = pg.key.get_pressed()
     
-    def main(self):
+    def main(self,do_fps=False):
         timer = 0;
         while not self.done:
             self.event_loop()
             self.update()
             if (timer <= 10):
                 pg.display.update()
-                
-            #self.clock.tick(self.fps)
+            if do_fps:
+                self.clock.tick(self.fps)
 
     def tick_inputs(self,named_inputs,show_game=True):
         if self.process_num is not None and self.process_num != 0:
