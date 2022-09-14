@@ -52,18 +52,30 @@ class DStarQueue(Generic[T,P]):
         return False;
 
 class DStarSearcher(Generic[N]):
-    def __init__(self,heuristic:Callable[[N,N],float],start:N,goal:N,pred:Callable[[N],Iterable[tuple[N,float]]],succ:Callable[[N],Iterable[tuple[N,float]]]):
-        self.g = DefaultDict[N,float](lambda: float('inf'));
-        self.rhs = DefaultDict[N,float](lambda: float('inf'));
+    def __init__(self,heuristic:Callable[[N,N],float],start:N,goal:N,pred:Callable[[N],Iterable[tuple[N,float]]],succ:Callable[[N],Iterable[tuple[N,float]]],checkpoint:dict|None=None):
+
         self.start = start;
         self.goal = goal;
-        self.rhs[goal] = 0;
         self.h = heuristic;
         self.pred = pred;
         self.succ = succ;
         self.km = 0;
-        self.U = DStarQueue[N,tuple[float,float]]();
-        self.U.push(self.goal,(self.h(self.start,self.goal),0));
+        if checkpoint is None:
+            self.g = DefaultDict[N,float](lambda: float('inf'));
+            self.rhs = DefaultDict[N,float](lambda: float('inf'));
+            self.rhs[goal] = 0;
+            self.U = DStarQueue[N,tuple[float,float]]();
+            self.U.push(self.goal,(self.h(self.start,self.goal),0));
+        else:
+            self.load_checkpoint(checkpoint);
+
+    def get_checkpoint_data(self):
+        return {'g':dict(self.g),'rhs':dict(self.rhs),'U':self.U};
+
+    def load_checkpoint(self,checkpoint):
+        self.g = DefaultDict[N,float](lambda:float('inf'),checkpoint['g']);
+        self.rhs = DefaultDict[N,float](lambda:float('inf'),checkpoint['rhs']);
+        self.U = checkpoint['U'];
 
     def calculateKey(self,s:N): #somewhat equivalent to A*'s f_score
         t = min(self.g[s],self.rhs[s]) #the minimum of the two interpretations of the distance to the end
@@ -143,25 +155,16 @@ class DStarSearcher(Generic[N]):
 
 #TODO: Consider implementing D* reset https://www.researchgate.net/publication/316945804_D_Lite_with_Reset_Improved_Version_of_D_Lite_for_Complex_Environment 
 
-    #allows control by an external loop by iterating over the function to prompt recalculation
-    #DOES NOT MOVE POSITION
-    def search_iter(self,
-            scan_func:Callable[[],list[tuple[N,N,float,float]]]
-            ): #start,end,old,new
+    def step_search(self,changed_costs:list[tuple[N,N,float,float]]=[]): #start,end,old,new
+        if any(changed_costs):
+            for (u,v,c_old,c) in changed_costs:
+                if (u != self.goal):
+                    if (c_old > c):
+                        self.rhs[u] = min(self.rhs[u],c+self.g[v]);
+                    elif self.rhs[u] == c_old + self.g[v]:
+                        self.rhs[u] = min([cp+self.g[sp] for sp,cp in self.succ(u)]);
+                self.updateVertex(u);
         self.computeShortestPath();
-        yield self;
-        while True:
-            changed_costs = scan_func();
-            if any(changed_costs):
-                for (u,v,c_old,c) in changed_costs:
-                    if (u != self.goal):
-                        if (c_old > c):
-                            self.rhs[u] = min(self.rhs[u],c+self.g[v]);
-                        elif self.rhs[u] == c_old + self.g[v]:
-                            self.rhs[u] = min([cp+self.g[sp] for sp,cp in self.succ(u)]);
-                    self.updateVertex(u);
-                self.computeShortestPath();
-            yield self;
 
     def load_start(self,start:N):
         self.old_start = self.start;
@@ -191,9 +194,6 @@ class DStarSearcher(Generic[N]):
             self.revert_start();
         return path;        
 
-        
-            
-
     def update_costs(self,updates:list[tuple[N,N,float,float]]):
         for (u,v,c_old,c) in updates:
             if (u != self.goal):
@@ -208,21 +208,18 @@ class DStarSearcher(Generic[N]):
 
 
 class LevelSearcher(Generic[N,T]):
-    def __init__(self,start:N,is_goal:Callable[[N],bool],heuristic:Callable[[N],float],node_key:Callable[[N],T],succ:Callable[[N],Iterable[N]],cost:Callable[[N,N],float]):
+    def __init__(self,start:N,is_goal:Callable[[N],bool],heuristic:Callable[[N],float],node_key:Callable[[N],T],succ:Callable[[N],Iterable[N]],cost:Callable[[N,N],float],frustration_multiplier:float,checkpoint:dict|None=None):
         self.start = start;
         self.goal = is_goal;
 
-        self.open_edges:list[tuple[N|None,N]] = [(None,start)]; #priority list of (prev,current) sorted by the sum of: a) the g score to the previous node, b) the estimated cost (self.c) from previous to current, and c) the heuristic from current
-        
         self.c = cost;
-        self.g = DefaultDict[T,dict[N|None,float]](lambda: {None:float('inf')});
         self.h = heuristic;
 
         self.succ = succ;     
-        self.node_key = node_key;   
+        self.node_key = node_key;
 
-        self.g[self.node_key(self.start)][None] = 0;
-        
+        self.frustration_weight = frustration_multiplier;
+
         self.cameFrom = {};
 
         def sort_key(edge:tuple[N|None,N]):
@@ -233,25 +230,46 @@ class LevelSearcher(Generic[N,T]):
         
         self.sort_key = sort_key;
         
-        self.complete_edge((None,start));
-
+        if checkpoint is None:
+            self.g = DefaultDict[T,dict[N|None,float]](lambda: {None:float('inf')});
+            self.g[self.node_key(self.start)][None] = 0;
+            self.frustration:dict[N,int] = DefaultDict(lambda:0);
+            self.open_edges:list[tuple[N|None,N]] = [(None,start)]; #priority list of (prev,current) sorted by the sum of: a) the g score to the previous node, b) the estimated cost (self.c) from previous to current, and c) the heuristic from current
+            self.completed_edges:list[tuple[N|None,N]] = [];
+            self.complete_edge((None,start));
+        else:
+            self.load_checkpoint(checkpoint);
+    
     def sorted_edges(self)->list[tuple[N|None,N]]:
         self.open_edges.sort(key=self.sort_key);
         return self.open_edges;
         
-
     def complete_edge(self,edge:tuple[N|None,N]):
-        try:
+        if edge in self.open_edges:
             self.open_edges.remove(edge);
-        except Exception as e:
-            print(self.open_edges);
-            print(edge);
-            raise e;
-        self.open_edges += [(edge[1],succ) for succ in self.succ(edge[1])];
+            self.completed_edges.append(edge);
+            self.open_edges += [(edge[1],succ) for succ in self.succ(edge[1])];
+        elif edge in self.completed_edges:
+            print("WARNING: attempting to complete edge that has already been completed");
+        else:
+            print("WARNING: attempting to complete edge {edge} not in open edges FIX SOON");
+            # raise Exception(f"Attempt to complete edge {edge} not in open edges or previously completed")
 
     def update_scores(self,scores:Iterable[tuple[N,float]]):
         for node,score in scores:
-            self.g[self.node_key(node)][node] = score;
+            self.frustration[node] += 1;
+            self.g[self.node_key(node)][node] = score + self.frustration[node]*self.frustration_weight;
+            
+
+    def get_checkpoint_data(self):
+        return {'g':dict(self.g),'open':self.open_edges,'complete':self.completed_edges,'frustration':dict(self.frustration)};
+
+    def load_checkpoint(self,checkpoint:dict):
+        self.g = DefaultDict[T,dict[N|None,float]](lambda: {None:float('inf')},checkpoint['g']);
+        self.open_edges = checkpoint['open'];
+        self.completed_edges = checkpoint['complete'] if 'complete' in checkpoint else [];
+        self.frustration = DefaultDict[N,int](lambda:0,checkpoint['frustration'] if 'frustration' in checkpoint else {});
+        
         
 
 

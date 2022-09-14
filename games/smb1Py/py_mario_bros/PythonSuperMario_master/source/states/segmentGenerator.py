@@ -202,8 +202,8 @@ class GenerationOptions:
 
 
     def __init__(self,
-    size:tuple[int,int]=(13,13),
-    inner_size:tuple[int,int]=(7,7),
+    size:tuple[int,int]=(17,13),
+    inner_size:tuple[int,int]=(11,7),
     has_ground=True,
     num_blocks:int|tuple[int,int]=0,
     num_enemies:dict[int,int|tuple[int,int]]={},

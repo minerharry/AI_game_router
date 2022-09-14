@@ -28,12 +28,23 @@ class SMB1Game(RunGame):
         self.min_obstructions = None;
         self.stillness_time = 0;
         self.annotations = kwargs['annotations'] if 'annotations' in kwargs else [];
+        self.last_path = None;
 
 
     def getOutputData(self):
         data = self.game.get_game_data(self.runConfig.view_distance,self.runConfig.tile_scale);
-        obstruction_score = self.runConfig.task_obstruction_score(data['task_obstructions'])
-        if (self.min_obstructions is None or obstruction_score < self.min_obstructions):
+        obstruction_score = self.runConfig.task_obstruction_score(data['task_obstructions']);
+        path_progress = data['task_path_remaining'];
+        path_improved = False;
+        if (self.last_path is None):
+            self.last_path = path_progress;
+            if path_progress is not None:
+                path_improved = True;
+        elif (path_progress is not None and path_progress < self.last_path):
+            self.last_path = path_progress;
+            path_improved = True;
+            
+        if (self.min_obstructions is None or obstruction_score < self.min_obstructions or path_improved):
             self.stillness_time = 0;
             self.min_obstructions = obstruction_score;
         else:

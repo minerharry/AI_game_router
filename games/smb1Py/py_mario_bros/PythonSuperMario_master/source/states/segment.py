@@ -996,13 +996,13 @@ class Segment(tools.State):
                 bounds_rect = pg.rect.Rect(self.task_bounds[0],self.task_bounds[2],self.task_bounds[1]-self.task_bounds[0],self.task_bounds[3]-self.task_bounds[2]);
                 shader_surface.fill((0,0,0,0),bounds_rect);
             if self.task_path is not None and len(self.task_path) > 1:
-                next_task = self.task_path[1];
-                next_rect = task_rect = pg.rect.Rect(next_task[0]-c.TILE_SIZE/2,next_task[1]-c.TILE_SIZE/2,c.TILE_SIZE,c.TILE_SIZE);
-                self.clip_rect(next_rect);
-                shader_surface.fill((0,127,255,c.SHADER_ALPHA),next_rect);
-            task_rect = pg.rect.Rect(self.task[0]-c.TILE_SIZE/2,self.task[1]-c.TILE_SIZE/2,c.TILE_SIZE,c.TILE_SIZE);
-            self.clip_rect(task_rect);
-            shader_surface.fill((0,255,0,c.SHADER_ALPHA),task_rect);
+                pg.draw.circle(shader_surface,(0,127,255,c.SHADER_ALPHA),self.task_path[1],c.TILE_SIZE/4);
+            pg.draw.circle(shader_surface,(0,255,0,c.SHADER_ALPHA),self.task,c.TILE_SIZE/4);
+            
+            # task_rect = pg.rect.Rect(self.task[0]-c.TILE_SIZE/2,self.task[1]-c.TILE_SIZE/2,c.TILE_SIZE,c.TILE_SIZE);
+            # self.clip_rect(task_rect);
+            # shader_surface.fill((0,255,0,c.SHADER_ALPHA),task_rect);
+
             self.level.blit(shader_surface,self.viewport.topleft,self.viewport);
         
         pg.draw.circle(self.level,c.PURPLE,self.map_list[0][1],2/16*c.TILE_SIZE);
@@ -1034,6 +1034,7 @@ class Segment(tools.State):
         
         return {
             'task_reached':self.task_reached,
+            'task_path_remaining':None if self.task_path is None else len(self.task_path),
             'task_path_complete':self.task_path is not None and len(self.task_path) == 0,
             'done':self.done,
             'task_position_offset':[self.task[0]-self.player.rect.centerx,self.task[1]-self.player.rect.centery] if self.task is not None else None,

@@ -3,6 +3,7 @@ import itertools
 import math
 import os
 from pathlib import Path
+import pickle
 import random
 from typing import DefaultDict, Iterable, Literal
 from baseGame import EvalGame
@@ -57,6 +58,17 @@ def annulus(r,R):
             if (x,y) not in inner:
                 yield(x,y)
 
+
+class LevelCheckpoint:
+    def __init__(self,
+                edge_costs:dict[tuple[tuple[int,int],tuple[int,int]],float],
+                edge_predictions:dict[tuple[tuple[int,int],tuple[int,int]],float],
+                d_checkpoint:dict,
+                a_checkpoint:dict):
+        self.costs = edge_costs;
+        self.pred = edge_predictions;
+        self.d = d_checkpoint;
+        self.a = a_checkpoint;
 
 class LevelPlayer:
     
@@ -139,18 +151,12 @@ class LevelPlayer:
     def log(self,*args,**kwargs):
         print(*args,**kwargs);
 
-    def checkpoint_heap(self):
-        h = hp.heap();
-        # print(h);
-        # print(h.byrcs);
-        # print(h.byvia);
-        # print(h.bytype);
-        hp.setrelheap();
+    def get_checkpoint_data(self):
+        return LevelCheckpoint(self.costs,self.predictions,self.d_searcher.get_checkpoint_data(),self.a_searcher.get_checkpoint_data());
 
     #given a level (no task, no task_bounds), a goal block or set of blocks
     #offset downscale means with how much resolution are potential task blocks generated.
-    def play_level(self,level:SegmentState,goal:tuple[float,float]|list[tuple[float,float]],training_dat_per_gen=50,search_data_resolution=5,task_offset_downscale=2):
-        self.checkpoint_heap();
+    def play_level(self,level:SegmentState,goal:tuple[float,float]|list[tuple[float,float]],training_dat_per_gen=50,search_data_resolution=5,task_offset_downscale=2,search_checkpoint:LevelCheckpoint|None=None,checkpoint_save_location="play_checkpoint.chp"):
         log = self.log #shorthand
 
         if search_data_resolution % task_offset_downscale != 0:
@@ -197,18 +203,22 @@ class LevelPlayer:
             return (c.TILE_SIZE/(2*search_data_resolution)+index[0]/grid_size[0]*(grids_bounds[1]-grids_bounds[0])+grids_bounds[0],c.TILE_SIZE/(2*search_data_resolution)+index[1]/grid_size[1]*(grids_bounds[3]-grids_bounds[2])+grids_bounds[2]);
 
         
-        costs = dict[tuple[tuple[int,int],tuple[int,int]],float]();
-        predictions = dict[tuple[tuple[int,int],tuple[int,int]],float]();
+        if search_checkpoint is None:
+            self.costs = dict[tuple[tuple[int,int],tuple[int,int]],float]();
+            self.predictions = dict[tuple[tuple[int,int],tuple[int,int]],float]();
+        else:
+            self.costs = search_checkpoint.costs;
+            self.predictions = search_checkpoint.pred;
 
         def get_cost(start:tuple[int,int],task:tuple[int,int]):
-            if (start,task) in costs:
-                return costs[start,task];
-            elif (start,task) not in predictions:
-                predictions[start,task] = cost_from_fitness(dist(*grid_index_to_pos(start),grid_index_to_pos(task))*self.eval_fixed_net(search_grids,start,task,grid_size));
-            return predictions[start,task];          
+            if mdat['collision_grid'][task[0]][task[1]] != 0:
+                return float('inf');
+            if (start,task) in self.costs:
+                return self.costs[start,task];
+            elif (start,task) not in self.predictions:
+                self.predictions[start,task] = cost_from_fitness(dist(*grid_index_to_pos(start),grid_index_to_pos(task))*self.eval_fixed_net(search_grids,start,task,grid_size));
+            return self.predictions[start,task];          
 
-
-        self.checkpoint_heap();
 
 
         ### Initialize D* Searcher (run in reverse through the level)
@@ -229,7 +239,7 @@ class LevelPlayer:
 
             return ((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)**0.5;
 
-        def d_star_succ(pos:tuple[int,int]|Literal['goal']): #since d* in reverse, this actually gives successors. returns list of (succ,cost(pos,succ))
+        def d_star_succ(pos:tuple[int,int]|Literal['goal']): #returns list of (succ,cost(pos,succ))
             if (isinstance(pos,str)):
                 raise Exception("cannot find successors of the goal");
             # log("d_preds");
@@ -241,7 +251,7 @@ class LevelPlayer:
             if pos in goal_idxs:
                 yield ('goal',0);
 
-        def d_star_pred(pos:tuple[int,int]|Literal['goal']): #since d* in reverse, this actually gives predecessors. returns list of (pred,cost(pred,pos))
+        def d_star_pred(pos:tuple[int,int]|Literal['goal']): #returns list of (pred,cost(pred,pos))
             # log("d_succs");
             if pos == 'goal':
                 for i in goal_idxs:
@@ -258,15 +268,15 @@ class LevelPlayer:
 
         log('routing from start',start_idx,'to goals',goal_idxs,'in level of gridded size',grid_size);
 
-        d_searcher = DStarSearcher[tuple[int,int]|Literal['goal']](d_star_heuristic,start=start_idx,goal='goal',pred=d_star_pred,succ=d_star_succ);
+        check = search_checkpoint.d if search_checkpoint is not None else None;
+        self.d_searcher = DStarSearcher[tuple[int,int]|Literal['goal']](d_star_heuristic,start=start_idx,goal='goal',pred=d_star_pred,succ=d_star_succ,checkpoint=check);
 
-        self.checkpoint_heap();
         ### Initialize A* Searcher (runs the level forward, selects training data)
         log("initializing a*")
 
         def a_star_heuristic(path:tuple[tuple[int,int],...]):
-            d_searcher.explore_from_position(path[-1]);
-            return d_searcher.rhs[path[-1]];
+            self.d_searcher.explore_from_position(path[-1]);
+            return self.d_searcher.rhs[path[-1]];
 
         def a_star_succ(path:tuple[tuple[int,int],]):
             end = path[-1];
@@ -281,40 +291,41 @@ class LevelPlayer:
         def a_star_cost(p1:tuple[tuple[int,int],...],p2:tuple[tuple[int,int],...]):
             return get_cost(p1[-1],p2[-1]);
 
-        a_searcher = LevelSearcher[tuple[tuple[int,int],...],tuple[int,int]]((start_idx,),lambda x: x[-1] in goal_idxs,a_star_heuristic,lambda node: node[-1],a_star_succ,a_star_cost);
+        check = search_checkpoint.a if search_checkpoint is not None else None;
+        self.a_searcher = LevelSearcher[tuple[tuple[int,int],...],tuple[int,int]]((start_idx,),lambda x: x[-1] in goal_idxs,a_star_heuristic,lambda node: node[-1],a_star_succ,a_star_cost,frustration_multiplier=0.02,checkpoint=check);
 
-        self.checkpoint_heap();
         ### ROUTE + PLAY LEVEL
         log("beginning routing")
 
-
         log("starting d search")
 
-        d_searcher.computeShortestPath();
-
-        self.checkpoint_heap();
+        self.d_searcher.step_search();
 
         level_finished = False;
         winning_path = None
 
         while not level_finished:
+            log("checkpoint saved")
+            ##save checkpoint
+            save_data = self.get_checkpoint_data();
+            with open(checkpoint_save_location,'wb') as f:
+                pickle.dump(save_data,f);
+
             log("retrieving best edges from A*")
-            top_paths = a_searcher.sorted_edges()
+            top_paths = self.a_searcher.sorted_edges()
             
-            print('top ten scores:',[(a_searcher.sort_key(e),e) for e in top_paths[:10]]);
+            # print('top ten scores:',[(self.a_searcher.sort_key(e),e) for e in top_paths[:10]]);
 
             top_paths = top_paths[:training_dat_per_gen];
             log(len(top_paths),"edges retrieved");
 
-            top_paths = [[grid_index_to_pos(task) for task in path] for _prev,path in top_paths[:10]];
+            top_paths = [[grid_index_to_pos(task) for task in path] for _prev,path in top_paths];
             
 
             log("NEAT-player attempting level segments");
             all_fitnesses = self.eval_NEAT_player(top_paths,level);
             log("fitnesses calculated")
-            print(all_fitnesses);
-
-            self.checkpoint_heap();
+            # print(all_fitnesses);
 
             best_segments:dict[tuple[tuple[int,int],tuple[int,int]],float] = DefaultDict(lambda:0.0);
             best_paths:dict[tuple[tuple[int,int],...],float] = DefaultDict(lambda:0.0)
@@ -347,39 +358,30 @@ class LevelPlayer:
                         acc_path.append(end);
                         
                         best_paths[tuple(acc_path)] = max(best_paths[tuple(acc_path)],acc_fitness);
-            
-            print(completed_paths);
-            print(best_paths);
-            print(best_segments);
 
             d_updates:list[tuple[tuple[int,int]|Literal['goal'],tuple[int,int]|Literal['goal'],float,float]] = [];
             a_updates:list[tuple[tuple[tuple[int,int]],float]] = [];
 
             for (start,end),fitness in best_segments.items():
                 old_cost = get_cost(start,end);
-                costs[start,end] = cost_from_fitness(fitness);
+                self.costs[start,end] = cost_from_fitness(fitness);
                 d_updates.append((start,end,old_cost,cost_from_fitness(fitness)));
 
             for path,fitness in best_paths.items():
                 a_updates.append((path,cost_from_fitness(fitness)));
 
             log('running d* iteration')
-            d_searcher.update_costs(d_updates);
+            self.d_searcher.update_costs(d_updates);
 
             for path in completed_paths:
-                a_searcher.complete_edge((tuple(path[:-1]),tuple(path)));
+                self.a_searcher.complete_edge((tuple(path[:-1]),tuple(path)));
 
             log('running A* iteration')
-            a_searcher.update_scores(a_updates);
-            self.checkpoint_heap();
+            self.a_searcher.update_scores(a_updates);
         
         return winning_path;
-                
 
 
-
-
-        
 
 class TaskFitnessReporter(ThreadedGameReporter[list[tuple[tuple[tuple[float,float],tuple[float,float]|Literal['goal']],float]]]): #I'm so sorry
     
@@ -428,7 +430,7 @@ if __name__== "__main__":
     runConfig.view_distance = 3.75;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
-    runConfig.parallel_processes = 10;
+    runConfig.parallel_processes = 5;
     runConfig.chunkFactor = 24;
     runConfig.saveFitness = True;
 
@@ -438,7 +440,7 @@ if __name__== "__main__":
     runConfig.fitness_collection_type='delta';
     player.set_NEAT_player(game,runConfig,run_name,runConfig.view_distance,runConfig.tile_scale,checkpoint_run_name='run_10');
 
-    model_path = 'models/test34_r4_0.model'
+    model_path = 'models/test2_highlrate_2.model'
     model = None;
     with open(model_path,'rb') as f:
         model = torch.load(f,map_location=torch.device('cpu'));
@@ -456,5 +458,13 @@ if __name__== "__main__":
         level.task = (48*c.TILE_SIZE,10*c.TILE_SIZE);
         level.save_file(level_path);
     goals = [(48*c.TILE_SIZE,i*c.TILE_SIZE) for i in range(20)]; 
-    winning_path = player.play_level(level,goals,search_data_resolution=4,task_offset_downscale=2);
+    save = "test_level_play_t4.chp"
+    checkpoint = None;
+    if os.path.exists(save):
+        print("loading checkpoint...")
+        with open(save,'rb') as f:
+            checkpoint = pickle.load(f);
+        print("checkpoint successfully loaded")
+
+    winning_path = player.play_level(level,goals,search_data_resolution=4,task_offset_downscale=2,search_checkpoint=checkpoint,checkpoint_save_location=save,training_dat_per_gen=25);
 

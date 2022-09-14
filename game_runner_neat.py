@@ -69,7 +69,7 @@ class GameRunner:
 
         return self.run(config,run_name,render=render,pop=pop,single_gen=True);
 
-    def run(self,config,run_name,render=False,pop=None,single_gen=False):
+    def run(self,config,run_name,render=False,pop=None,single_gen=False,force_fitness=False):
         self.run_name = run_name.replace(' ','_');
         if (pop is None):
             pop = neat.Population(config);
@@ -101,7 +101,7 @@ class GameRunner:
             [idQueue.put(i) for i in range(self.runConfig.parallel_processes)];
             self.pool:multiprocessing.Pool = multiprocessing.Pool(self.runConfig.parallel_processes, Genome_Executor.initProcess,(idQueue,self.game.gameClass));
 
-        if not single_gen:
+        if not single_gen or force_fitness:
             self.fitness_reporter = FitnessReporter(self.runConfig.gameName,self.run_name);
             pop.add_reporter(self.fitness_reporter);
 

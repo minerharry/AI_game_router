@@ -25,7 +25,7 @@ class State():
         self.persist = {}
     
     @abstractmethod
-    def startup(self, current_time, persist):
+    def startup(self, current_time, persist,**kwargs):
         '''abstract method'''
 
     def cleanup(self):
