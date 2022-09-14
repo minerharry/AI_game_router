@@ -54,10 +54,15 @@ class TrainingDataManager(Generic[TD],BaseReporter):
                 self.inactive_data = ob['inactive_data'];
 
     def save_data(self):
+        out = {'next_id':self.next_id, 'active_data':self.active_data, 'inactive_data':self.inactive_data};
+        pickle.dumps(out); #test pickle for breaking
         with DelayedKeyboardInterrupt():
             with open(self.data_file,'wb') as f:
-                out = {'next_id':self.next_id, 'active_data':self.active_data, 'inactive_data':self.inactive_data};
-                pickle.dump(out,f);
+                try:
+                    pickle.dump(out,f);
+                except TypeError as e:
+                    raise e;
+
 
     def get_data_by_id(self,id):
         if id in self.active_data:
@@ -68,7 +73,8 @@ class TrainingDataManager(Generic[TD],BaseReporter):
             raise IndexError(f"Id {id} not in active or inactive data");
 
     def end_generation(self, config, population, species_set):
-        self.set_data(self.generator());
+        if self.generator:
+            self.set_data(list(self.generator()));
 
     def __getitem__(self,idx):
         return self.get_data_by_id(idx)

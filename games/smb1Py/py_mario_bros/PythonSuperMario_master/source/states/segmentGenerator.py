@@ -176,7 +176,7 @@ class SegmentGenerator:
         #print(scaled_bounds);
         # print(task_positions)
         for pos in task_positions:
-            pos = ((i + 0.5) * c.TILE_SIZE for i in pos);
+            pos = tuple([(i + 0.5) * c.TILE_SIZE for i in pos]);
             result.append(SegmentState(output_dynamics,output_statics,task=pos,task_bounds=scaled_bounds));
         #print(result[0].dynamic_data)
         return result;
