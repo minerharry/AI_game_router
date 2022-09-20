@@ -52,6 +52,7 @@ class RunGame(ABC):
         self.steps = 0;
         self.runConfig = runnerConfig;
         self.reporters:list[GameReporter] = [];
+        self.mapDataCache = None;
 
     def getData(self)->list:
         mappedData = self.getMappedData();
@@ -60,12 +61,14 @@ class RunGame(ABC):
         for datum in returnData:
             if (isinstance(datum,str)):
                 result.append(mappedData.get(datum));
-            elif (datum.data_type == 'array'):
-                if (datum.name not in mappedData):
-                    print(datum.name);
-                result += listifyArray(mappedData.get(datum.name));
-            elif (datum.data_type == 'ndarray'):
-                result += mappedData.get(datum.name).tolist();
+            else:
+                result += datum.extract_data(mappedData.get(datum.name));
+            # elif (datum.data_type == 'array'):
+            #     if (datum.name not in mappedData):
+            #         print(datum.name);
+            #     result += listifyArray(mappedData.get(datum.name));
+            # elif (datum.data_type == 'ndarray'):
+            #     result += mappedData.get(datum.name).tolist();
         
         return result;
 
@@ -78,10 +81,11 @@ class RunGame(ABC):
     def getMappedData(self)->dict:
         mappedData = self.getOutputData();
         mappedData['steps'] = self.steps;
+        self.mapDataCache = mappedData;
         return mappedData;
 
     @abstractmethod
-    def getOutputData(self):
+    def getOutputData(self)->dict:
         #return dict of all data available from game, sans 'steps'
         pass;
 
@@ -107,7 +111,11 @@ class RunGame(ABC):
 
     def _close(self): pass;
 
-    def isRunning(self):
+    def isRunning(self,data=None,useCache=False):
+        if data is not None:
+            return self.runConfig.gameStillRunning(data);
+        elif useCache:
+            return self.runConfig.gameStillRunning(self.mapDataCache);
         return self.runConfig.gameStillRunning(self.getMappedData());
 
 class Multi_Data_Game(RunGame):

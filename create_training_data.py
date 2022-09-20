@@ -14,16 +14,19 @@ from skimage.io import imshow
 
 data_folders = [Path("H:\\Other computers\\My Computer\\"),Path("memories")];
 start_gens = [1533,1603];
-for n,(data_folder,start_gen) in enumerate(zip(data_folders,start_gens)):
+runs = [10,'play_test'];
+for n,(data_folder,start_gen,run) in tqdm(enumerate(zip(data_folders,start_gens,runs)),total=len(runs)):
+    # if (n > 0):
+    #     continue;
 
-    fitness_folder = data_folder/'smb1Py'/'run_10_fitness_history';
+    fitness_folder = data_folder/'smb1Py'/f'run_10_fitness_history';
     dat:dict[int,dict[int,float]] = None;  # type: ignore
 
     out_folder = Path("data");
 
     process_all = False;
 
-    for f in os.listdir(fitness_folder):
+    for f in tqdm(os.listdir(fitness_folder)):
         f = Path(f);
         if (os.path.exists((out_folder/(f'{n}_{f}')).with_suffix('.gz')) and not process_all):
             continue;
@@ -33,11 +36,11 @@ for n,(data_folder,start_gen) in enumerate(zip(data_folders,start_gens)):
         # print(num);
         p = fitness_folder/f; 
         p = p.resolve();
-        print(p);
+        # print(p);
         with open(p,'rb') as f:
             dat = pickle.load(f);
 
-        TDM = TrainingDataManager[SegmentState]('smb1Py',10,data_folder=data_folder);
+        TDM = TrainingDataManager[SegmentState]('smb1Py',run,data_folder=data_folder);
 
         game = tools.Control();
         state_dict = {c.LEVEL: Segment()}
@@ -58,10 +61,7 @@ for n,(data_folder,start_gen) in enumerate(zip(data_folders,start_gens)):
                 started = True;
             else:
                 game.load_segment(state);
-            # sstate:Segment = game.state;
-            # print(sstate.player.rect.center);
-            # sstate.player.rect.move(0,10);
-            # print(sstate.player.rect.center);
+
             gdat = game.get_game_data(view_distance,tile_scale);
             mdat = game.get_map_data(tile_scale);           
             training_data.append(((gdat,mdat),statistics.mean(list(fitnesses.values()))));

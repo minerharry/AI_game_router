@@ -24,6 +24,7 @@ class SegmentState:
             with open(file_path,'rb') as f:
                 self.raw_data = pickle.load(f);
 
+
         if self.raw_data is not None:
             self.static_data = self.raw_data['static']; #otherwise known as the map data
             self.dynamic_data =self.raw_data['dynamic'];
@@ -68,6 +69,7 @@ class Segment(tools.State):
         self.last_load = False; #whether the load state button was held last frame
         self.last_save = False; #whether the save state button was held last frame
         self.saved_state = None;
+        self.last_game_data = None;
         #self.game_info = persist
         #self.persist = self.game_info
         #self.game_info[c.CURRENT_TIME] = current_time
@@ -270,6 +272,8 @@ class Segment(tools.State):
         if (self.map_data is None or not data.equal_static_data(self.map_data)):
             self.load_map_data(data.static_data);
         self.load_dynamic(data.dynamic_data);
+
+        self.last_game_data = None;
 
 
 
@@ -487,6 +491,7 @@ class Segment(tools.State):
         self.player_group = pg.sprite.Group(self.player)
         
     def update(self, surface, keys, current_time,show_game=True):
+        self.last_game_data = None;
         self.current_time = current_time
 
         self.handle_states(keys)
@@ -855,9 +860,9 @@ class Segment(tools.State):
     def check_is_falling(self, sprite):
         sprite.rect.y += 1
 
-        check_group = pg.sprite.Group(self.ground_step_pipe_group,
-                            self.brick_group, self.box_group)
-        if pg.sprite.spritecollideany(sprite, check_group) is None:
+        if (pg.sprite.spritecollideany(sprite, self.ground_step_pipe_group) is None and
+            pg.sprite.spritecollideany(sprite,self.brick_group) is None and
+            pg.sprite.spritecollideany(sprite,self.box_group) is None):
             if (sprite.state == c.WALK_AUTO or
                 sprite.state == c.END_OF_LEVEL_FALL):
                 sprite.state = c.END_OF_LEVEL_FALL
@@ -867,8 +872,6 @@ class Segment(tools.State):
                 sprite.state = c.FALL
         sprite.rect.y -= 1
 
-        check_group.empty()
-        del check_group
     
     def check_for_player_death(self):
         if (self.player.rect.y > self.map_bounds[3]):
@@ -1007,7 +1010,7 @@ class Segment(tools.State):
         
         pg.draw.circle(self.level,c.PURPLE,self.map_list[0][1],2/16*c.TILE_SIZE);
 
-        surface.fill(c.BLACK);
+        # surface.fill(c.BLACK);
         surface.blit(self.level, (0,0), (self.viewport.x,self.viewport.y,self.viewport.width,self.viewport.height+40));
 
     def get_map_data(self,tile_scale): #SHOULD NOT BE CALLED DURING PLAY AS WILL CREATE SIGNIFICANT LAG CONFLICT WITH GET_GAME_DATA
@@ -1029,10 +1032,13 @@ class Segment(tools.State):
     #view distance: number of tiles in each direction. EX: view distance of 3.5 would form a 7x7 tile grid with the requisite number of subdivisions as dictated by tile_scale
     def get_game_data(self,view_distance,tile_scale,obstruction=False):
 
+        if (self.last_game_data is not None):
+            return self.last_game_data;
+
         self.no_obstruction = not obstruction;
         self.update_rect_grid(tile_scale,self.player.rect.center,(view_distance*2*c.TILE_SIZE,view_distance*2*c.TILE_SIZE));
         
-        return {
+        self.last_game_data = {
             'task_reached':self.task_reached,
             'task_path_remaining':None if self.task_path is None else len(self.task_path),
             'task_path_complete':self.task_path is not None and len(self.task_path) == 0,
@@ -1048,6 +1054,8 @@ class Segment(tools.State):
             'box_grid':self.get_box_grid(),
             'brick_grid':self.get_brick_grid(),
             'task_obstructions':self.get_task_obstructions()};
+
+        return self.last_game_data;
 
 
     #view distance: integer number of subdivided tiles in each direction, excluding center. EX: 3 would be a 7x7
@@ -1073,12 +1081,8 @@ class Segment(tools.State):
         return [[1 if rect.collidelist(spriteRects) >= 0 else 0 for rect in row] for row in self.grid_rects];
 
     def get_collision_grid(self):
-        check_group = pg.sprite.Group(self.ground_step_pipe_group,
-                            self.brick_group, self.box_group);
-        spriteRects = [sprite.rect for sprite in check_group];
-        check_group.empty();
-        del check_group
-        return [[1 if rect.collidelist(spriteRects) >= 0 else 0 for rect in row] for row in self.grid_rects];
+        spriteRects = [[sprite.rect for sprite in group] for group in [self.ground_step_pipe_group, self.brick_group, self.box_group]];
+        return [[1 if any(rect.collidelist(sprites) >= 0 for sprites in spriteRects) else 0 for rect in row] for row in self.grid_rects];
 
     def get_powerup_grid(self):
         spriteRects = [sprite.rect for sprite in self.powerup_group];

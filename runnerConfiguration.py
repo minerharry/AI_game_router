@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Callable, TypeVar
 import numpy as np
 
@@ -5,7 +6,7 @@ from training_data import TrainingDataManager
 
 class RunnerConfig:
 
-    def __init__(self,gameFitnessFunction:Callable[[dict],float],gameRunningFunction:Callable[[dict],float],training_data:TrainingDataManager=None,logging=False,logPath='',recurrent=False,trial_fitness_aggregation='average',custom_fitness_aggregation=None,time_step=0.05,num_trials=10,parallel=False,returnData=[],gameName='game',num_generations:int|None=300,fitness_collection_type=None):
+    def __init__(self,gameFitnessFunction:Callable[[dict],float],gameRunningFunction:Callable[[dict],float],training_data:TrainingDataManager|None=None,logging=False,logPath='',recurrent=False,trial_fitness_aggregation='average',custom_fitness_aggregation=None,time_step=0.05,num_trials=10,parallel=False,returnData:list[str|IOData]=[],gameName='game',num_generations:int|None=300,fitness_collection_type=None):
         self.logging = logging;
         self.logPath = logPath;
         self.generations = num_generations;
@@ -17,7 +18,7 @@ class RunnerConfig:
         self.fitnessFromGameData = gameFitnessFunction;
         self.gameStillRunning = gameRunningFunction;
         self.fitness_collection_type = fitness_collection_type;
-        self.returnData = returnData;
+        self.returnData:list[str|IOData] = returnData;
         self.training_data = training_data;
         if (trial_fitness_aggregation == 'custom'):
             self.customFitnessFunction = custom_fitness_aggregation;
@@ -90,8 +91,22 @@ def get_array_cell_names(array_size):
         return [str(i) for i in range(array_size[0])];
     return [str(i) + '-' + j for i in range(array_size[0]) for j in get_array_cell_names(array_size[1:])];
 
+def sum_arrays(array:list,depth=1):
+    if depth == 1:
+        return array;
+    if depth == 2:
+        result = [];
+        for a in array:
+            result += a;
+        return result;
+    result = [];
+    for a in array:
+        result += sum_arrays(a,depth-1);
+    return result;
+
 class IOData:
     convertable_types = [list];
+    arrays = ['array','ndarray'];
     
     def __init__(self,name,data_type,array_size=None):
         self.data_type = data_type;
@@ -102,7 +117,7 @@ class IOData:
     def getSplitData(self):
         if (self.data_type == 'float'):
             return [self.name];
-        if (self.data_type in ['array','ndarray']):
+        if (self.data_type in self.arrays):
             return [self.name + ' ' + x for x in get_array_cell_names(self.array_size)];
 
     def toNamedArray(self):
@@ -118,6 +133,14 @@ class IOData:
                 result.append(self.toNameArray(str(name) + splitterChar + str(i),shape[1:],'-'));
         print(result);
         return (name,result);
+
+    def extract_data(self,datum)->list[float]:
+        if (self.data_type == 'float'):
+            return datum;
+        if (self.data_type == 'array'):
+            return sum_arrays(datum,len(self.array_size));
+
+
 
 
 

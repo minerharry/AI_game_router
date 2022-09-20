@@ -29,6 +29,8 @@ class SMB1Game(RunGame):
         self.stillness_time = 0;
         self.annotations = kwargs['annotations'] if 'annotations' in kwargs else [];
         self.last_path = None;
+        self.frame_counter = 0;
+        self.frame_cycle = 4 if not hasattr(runnerConfig,"frame_cycle") else runnerConfig.frame_cycle;
 
 
     def getOutputData(self):
@@ -57,9 +59,11 @@ class SMB1Game(RunGame):
         output = [key > 0.5 for key in inputs];
         named_actions = dict(zip(['action','jump','left','right','down'],output));
 
-        self.game.tick_inputs(named_actions);
+        self.frame_counter = (self.frame_counter + 1)%self.frame_cycle;
+
+        self.game.tick_inputs(named_actions,show_game=self.frame_counter==0);
         while (self.isRunning() and not self.game.accepts_player_input()): #skip bad frames
-            self.game.tick_inputs(empty_actions);
+            self.game.tick_inputs(empty_actions,show_game=True);
 
         if self.annotations:
             import pygame as pg

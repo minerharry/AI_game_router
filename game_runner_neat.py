@@ -218,13 +218,15 @@ class GameRunner:
             net = neat.ctrnn.CTRNN.create(genome,config,time_const);
             runningGame = self.game.start(runnerConfig);
             images = [];
-            while (runningGame.isRunning()):
-                    #get the current inputs from the running game, as specified by the runnerConfig
-                gameData = runningGame.getData();
+            #get the current data from the running game, as specified by the runnerConfig
+            gameData = runningGame.getData();
+            while (runningGame.isRunning(useCache=True)):
+                #get the current inputs from the running game, as specified by the runnerConfig
 
                 gameInput = net.advance(gameData, time_const, time_const);
 
                 images.append(runningGame.tickRenderInput(gameInput));
+                gameData = runningGame.getData();
 
                         
             runningGame.close();
@@ -254,10 +256,10 @@ class GameRunner:
             fitness = 0;
             if runnerConfig.fitness_collection_type != None and 'delta' in runnerConfig.fitness_collection_type:
                 fitness -= runningGame.getFitnessScore();
-            while (runningGame.isRunning()):
-                #get the current inputs from the running game, as specified by the runnerConfig
-                gameData = runningGame.getData();
-
+            #get the current inputs from the running game, as specified by the runnerConfig
+            gameData = runningGame.getData();
+            while (runningGame.isRunning(useCache=True)):
+        
                 gameInput = net.activate(gameData);
 
                 if (self.runConfig.external_render):
@@ -268,6 +270,8 @@ class GameRunner:
 
                 if (runnerConfig.fitness_collection_type != None and 'continuous' in runnerConfig.fitness_collection_type):
                     fitness += runningGame.getFitnessScore();
+
+                gameData = runningGame.getData();
 
             fitness += runningGame.getFitnessScore();
 
@@ -305,15 +309,19 @@ class GameRunner:
                     
                     runningGame = self.game.start(runnerConfig);
                     fitness = 0;
-                    while (runningGame.isRunning()):
-                        #get the current inputs from the running game, as specified by the runnerConfig
-                        gameData = runningGame.getData();
+                    
+                    #get the current inputs from the running game, as specified by the runnerConfig
+                    gameData = runningGame.getData();
+                    while (runningGame.isRunning(useCache=True)):
 
                         gameInput = net.advance(gameData, time_const, time_const);
                         
                         runningGame.tickInput(gameInput);
                         if (runnerConfig.fitness_collection_type != None and runnerConfig.fitness_collection_type == 'continuous'):
                             fitness += runningGame.getFitnessScore();
+
+                        gameData = runningGame.getData();
+
                     fitness += runningGame.getFitnessScore();
                     fitnesses.append(fitness);
                     runningGame.close();
@@ -520,9 +528,9 @@ class Genome_Executor:
                 if runnerConfig.fitness_collection_type != None and 'delta' in runnerConfig.fitness_collection_type:
                     fitness -= runningGame.getFitnessScore();
 
-                while (runningGame.isRunning()):
-                    #get the current data from the running game, as specified by the runnerConfig
-                    gameData = runningGame.getData();
+                #get the current data from the running game, as specified by the runnerConfig
+                gameData = runningGame.getData();
+                while (runningGame.isRunning(useCache=True)):
 
                     try:
                         gameInput = net.activate(gameData);
@@ -535,6 +543,8 @@ class Genome_Executor:
 
                     if (runnerConfig.fitness_collection_type != None and 'continuous' in runnerConfig.fitness_collection_type):
                         fitness += runningGame.getFitnessScore();
+                    
+                    gameData = runningGame.getData();
 
                 fitness += runningGame.getFitnessScore();
                 fitnesses.append(fitness);
