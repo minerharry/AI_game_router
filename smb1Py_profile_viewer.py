@@ -8,7 +8,7 @@ p.print_stats(50);
 # p.print_callees("__getitem__");
 
 
-# p.print_callees("draw");
+p.print_callees("segment.py:975");
 
 # p.print_callees("update_player_position");
 # p.print_callees("draw");

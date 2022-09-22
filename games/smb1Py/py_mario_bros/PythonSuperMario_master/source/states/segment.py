@@ -2,6 +2,7 @@ __author__ = 'minerharry'
 
 # from curses import raw
 from copy import copy
+from email.headerregistry import Group
 import os
 import json
 import math
@@ -972,10 +973,13 @@ class Segment(tools.State):
         rect.h = h;
 
     def draw(self, surface):
+        if not self.bg_image and self.background is not None:
+            self.ground_step_pipe_group.draw(self.background);
+            self.bg_image = True;
+            # print("drawing background");
 
         if (self.background is not None):
             self.level.blit(self.background, self.viewport, self.viewport)
-        
 
         self.powerup_group.draw(self.level)
         self.brick_group.draw(self.level)
@@ -989,8 +993,7 @@ class Segment(tools.State):
         self.enemy_group.draw(self.level)
         self.player_group.draw(self.level)
         self.slider_group.draw(self.level)
-        if not self.bg_image:
-            self.ground_step_pipe_group.draw(self.level);
+
         if c.DEBUG:
             self.ground_step_pipe_group.draw(self.level)
             self.checkpoint_group.draw(self.level)
