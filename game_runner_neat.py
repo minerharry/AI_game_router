@@ -527,7 +527,11 @@ class Genome_Executor:
             fitnesses = [];
             for _ in range(runnerConfig.numTrials):
                 fitness = 0;
-                runningGame = game.start(runnerConfig,training_datum = trainingDatum, process_num = cls.pnum);
+                runningGame = None;
+                if cls.pnum is not None:
+                    runningGame = game.start(runnerConfig,training_datum = trainingDatum, process_num = cls.pnum);
+                else:
+                    runningGame = game.start(runnerConfig,training_datum = trainingDatum)
                 if runnerConfig.fitness_collection_type != None and 'delta' in runnerConfig.fitness_collection_type:
                     fitness -= runningGame.getFitnessScore();
 

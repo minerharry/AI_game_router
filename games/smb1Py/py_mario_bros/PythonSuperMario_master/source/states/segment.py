@@ -5,8 +5,10 @@ from copy import copy
 import os
 import json
 import math
-from typing import Tuple
+from typing import Any, Tuple
 import pygame as pg
+
+from just_in_time_dict import JITDict
 try:
    import cPickle as pickle
 except:
@@ -19,6 +21,7 @@ TASK_PATH_CHANGE_THRESHOLD = 0.8*c.TILE_SIZE;
 
 class SegmentState:
     def __init__(self, dynamic_data, static_data, task:None|tuple[float,float] = None, task_bounds=None, task_path:None|list[tuple[float,float]]=None, file_path = None, raw_data = None):
+        self.last_grid = None;
         self.raw_data = raw_data;
         if (file_path is not None):
             with open(file_path,'rb') as f:
@@ -1007,11 +1010,25 @@ class Segment(tools.State):
             # shader_surface.fill((0,255,0,c.SHADER_ALPHA),task_rect);
 
             self.level.blit(shader_surface,self.viewport.topleft,self.viewport);
+            
+
         
         pg.draw.circle(self.level,c.PURPLE,self.map_list[0][1],2/16*c.TILE_SIZE);
 
         # surface.fill(c.BLACK);
         surface.blit(self.level, (0,0), (self.viewport.x,self.viewport.y,self.viewport.width,self.viewport.height+40));
+
+        # print(self.last_game_data);
+        if c.DRAW_GRID and self.last_grid:
+            # print('drawing grid');
+            grid = self.last_grid;
+            grid_surface = pg.surface.Surface((len(grid)*2,len(grid[0])*2),pg.SRCALPHA);
+            grid_surface.fill((0,0,0,c.SHADER_ALPHA));
+            for i,row in enumerate(grid):
+                for j,el in enumerate(row):
+                    if el:
+                        pg.draw.rect(grid_surface,(255,255,255,c.SHADER_ALPHA),(i*2,j*2,2,2));
+            surface.blit(grid_surface,(20,20));
 
     def get_map_data(self,tile_scale): #SHOULD NOT BE CALLED DURING PLAY AS WILL CREATE SIGNIFICANT LAG CONFLICT WITH GET_GAME_DATA
         bounds = self.map_bounds;
@@ -1038,22 +1055,23 @@ class Segment(tools.State):
         self.no_obstruction = not obstruction;
         self.update_rect_grid(tile_scale,self.player.rect.center,(view_distance*2*c.TILE_SIZE,view_distance*2*c.TILE_SIZE));
         
-        self.last_game_data = {
-            'task_reached':self.task_reached,
-            'task_path_remaining':None if self.task_path is None else len(self.task_path),
-            'task_path_complete':self.task_path is not None and len(self.task_path) == 0,
-            'done':self.done,
-            'task_position_offset':[self.task[0]-self.player.rect.centerx,self.task[1]-self.player.rect.centery] if self.task is not None else None,
-            'task_position':self.task,
-            'pos':[self.player.rect.centerx,self.player.rect.centery],
-            'vel':[self.player.x_vel,self.player.y_vel],
-            'player_state':self.player.get_powerup_state(),
-            'enemy_grid':self.get_enemy_grid(),
-            'collision_grid': self.get_collision_grid(),
-            'powerup_grid':self.get_powerup_grid(),
-            'box_grid':self.get_box_grid(),
-            'brick_grid':self.get_brick_grid(),
-            'task_obstructions':self.get_task_obstructions()};
+        self.last_game_data = JITDict[str,Any](delegates=
+        {
+            'task_reached': lambda:self.task_reached,
+            'task_path_remaining': lambda:None if self.task_path is None else len(self.task_path),
+            'task_path_complete': lambda:self.task_path is not None and len(self.task_path) == 0,
+            'done': lambda:self.done,
+            'task_position_offset': lambda:[self.task[0]-self.player.rect.centerx,self.task[1]-self.player.rect.centery] if self.task is not None else None,
+            'task_position': lambda:self.task,
+            'pos': lambda:[self.player.rect.centerx,self.player.rect.centery],
+            'vel': lambda:[self.player.x_vel,self.player.y_vel],
+            'player_state': self.player.get_powerup_state,
+            'enemy_grid': self.get_enemy_grid,
+            'collision_grid': self.get_collision_grid,
+            'powerup_grid': self.get_powerup_grid,
+            'box_grid': self.get_box_grid,
+            'brick_grid': self.get_brick_grid,
+            'task_obstructions': self.get_task_obstructions});
 
         return self.last_game_data;
 
@@ -1073,26 +1091,30 @@ class Segment(tools.State):
             self.grid_rects = [[pg.Rect(center[0] + i * rect_width, center[1] + j * rect_width,rect_width,rect_width) for j in y_tops] for i in x_lefts];
         else:
             offset = [center[0] - self.grid_center[0],center[1] - self.grid_center[1]];
-            [[rect.move(offset[0],offset[1]) for rect in row] for row in self.grid_rects];
+            self.grid_center = center;
+            [[rect.move_ip(offset[0],offset[1]) for rect in row] for row in self.grid_rects];
 
 
-    def get_enemy_grid(self):
+    def get_enemy_grid(self)->list[list[int]]:
         spriteRects = [sprite.rect for sprite in self.enemy_group];
         return [[1 if rect.collidelist(spriteRects) >= 0 else 0 for rect in row] for row in self.grid_rects];
 
-    def get_collision_grid(self):
+    def get_collision_grid(self)->list[list[int]]:
         spriteRects = [[sprite.rect for sprite in group] for group in [self.ground_step_pipe_group, self.brick_group, self.box_group]];
-        return [[1 if any(rect.collidelist(sprites) >= 0 for sprites in spriteRects) else 0 for rect in row] for row in self.grid_rects];
+        res = [[1 if any(rect.collidelist(sprites) >= 0 for sprites in spriteRects) else 0 for rect in row] for row in self.grid_rects];
+        if c.DRAW_GRID:
+            self.last_grid = res;
+        return res;
 
-    def get_powerup_grid(self):
+    def get_powerup_grid(self)->list[list[int]]:
         spriteRects = [sprite.rect for sprite in self.powerup_group];
         return [[1 if rect.collidelist(spriteRects) >= 0 else 0 for rect in row] for row in self.grid_rects];
 
-    def get_box_grid(self):
+    def get_box_grid(self)->list[list[int]]:
         spriteRects = [sprite.rect for sprite in self.box_group];
         return [[1 if rect.collidelist(spriteRects) >= 0 else 0 for rect in row] for row in self.grid_rects];
 
-    def get_brick_grid(self):
+    def get_brick_grid(self)->list[list[int]]:
         spriteRects = [sprite.rect for sprite in self.brick_group];
         return [[1 if rect.collidelist(spriteRects) >= 0 else 0 for rect in row] for row in self.grid_rects];
 
@@ -1100,7 +1122,7 @@ class Segment(tools.State):
     #return [distance,blocks,enemies], with [blocks,enemies] counting the number of objects between the player's center and the task. For fitness purposes only
 
     #TODO: Examine performance impact of all of this *math*
-    def get_task_obstructions(self):
+    def get_task_obstructions(self)->list[float]:
         center = self.player.rect.center;
         distance = math.sqrt((center[0]-self.task[0])**2 + (center[1]-self.task[1])**2);
         if self.no_obstruction:

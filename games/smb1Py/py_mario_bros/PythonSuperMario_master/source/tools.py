@@ -119,7 +119,7 @@ class Control():
         self.keys = keys;
 
         self.update(auto_advance_state=False,show_game=show_game);
-        #self.clock.tick(self.fps)
+        # self.clock.tick(self.fps)
         #print('updated');
         if (show_game):
             pg.event.pump();
