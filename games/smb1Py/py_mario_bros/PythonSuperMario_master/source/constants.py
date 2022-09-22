@@ -1,5 +1,7 @@
 __author__ = 'marble_xu'
 
+DRAW_GRID = True; #whether to draw the collision grid view on screen (for debug purposes);
+
 NONE = 0;
 LOW = 1;
 MED = 2;

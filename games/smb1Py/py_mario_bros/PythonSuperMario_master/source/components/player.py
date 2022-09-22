@@ -109,8 +109,8 @@ class Player(pg.sprite.Sprite):
 
     def setup_speed(self):
         speed = self.player_data[c.PLAYER_SPEED]
-        self.x_vel = 0
-        self.y_vel = 0
+        self.x_vel:int = 0
+        self.y_vel:int = 0
         
         self.max_walk_vel = speed[c.MAX_WALK_SPEED]
         self.max_run_vel = speed[c.MAX_RUN_SPEED]
@@ -504,12 +504,12 @@ class Player(pg.sprite.Sprite):
                     self.frame_index = 1
                 self.walking_timer = self.current_time
 
-    def get_powerup_state(self):
-        return self.big + self.fire;
+    def get_powerup_state(self)->int:
+        return int(self.big) + int(self.fire);
 
     def set_player_powerup_state(self,state_id):
-        self.big = state_id == 1 or state_id == 2;
-        self.fire = state_id == 2;
+        self.big = (state_id == 1) or (state_id == 2);
+        self.fire = (state_id == 2);
         if (state_id == 0):
             self.hurt_invincible = True;
         #initial_bottom = self.rect.bottom;

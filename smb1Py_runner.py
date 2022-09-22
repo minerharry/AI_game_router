@@ -15,7 +15,6 @@ try:
    import cPickle as pickle
 except:
    import pickle
-from games.smb1Py.py_mario_bros.PythonSuperMario_master.source import tools
 from games.smb1Py.py_mario_bros.PythonSuperMario_master.source import constants as c
 import run_states as run_states
 
@@ -144,7 +143,7 @@ if __name__ == "__main__":
     runConfig.fitness_collection_type='delta';
     print(runConfig.gameName);
 
-    game = EvalGame(SMB1Game);
+    game = EvalGame(SMB1Game,num_rendered_processes=4);
     
     runner = GameRunner(game,runConfig);
     config_path = os.path.join(os.path.dirname(__file__), 'configs','config-pygame-smb1' + config_suffix);

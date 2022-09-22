@@ -12,7 +12,12 @@ class SMB1Game(RunGame):
         self.steps = 0;
         self.runConfig = runnerConfig;
         self.reporters:list[GameReporter] = [];
-        if 'game' not in kwargs: #only as an emergergency backup
+        if 'game' not in kwargs:
+            if 'GRAPHICS_SETTINGS' in kwargs:
+                c.GRAPHICS_SETTINGS = kwargs['GRAPHICS_SETTINGS'];
+            elif 'num_rendered_processes' in kwargs and 'process_num' in kwargs:
+                if (kwargs['process_num']>=kwargs['num_rendered_processes']):
+                    c.GRAPHICS_SETTINGS = c.NONE;
             if 'process_num' in kwargs:
                 self.process_num = kwargs['process_num']
                 self.game = tools.Control(process_num=self.process_num)
