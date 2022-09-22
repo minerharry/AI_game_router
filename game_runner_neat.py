@@ -1,3 +1,4 @@
+import re
 from tqdm import tqdm
 from baseGame import EvalGame, RunGame
 import neat
@@ -47,9 +48,11 @@ class GameRunner:
             files = os.listdir(checkpoint_folder);
             maxGen = -1;
             for file in files:
-                gen = int((file.split('run-checkpoint-')[1]).split('.')[0]);
-                if (gen>maxGen):
-                    maxGen = gen;
+                m = re.match("run-checkpoint-([0-9]+)",file);
+                if m:
+                    gen = int(m.group(1));
+                    if (gen>maxGen):
+                        maxGen = gen;
             pop = neat.Checkpointer.restore_checkpoint(checkpoint_folder + '\\run-checkpoint-' + str(maxGen) + ".gz",config_transfer=manual_config_override);
         else:
             pop = neat.Checkpointer.restore_checkpoint(checkpoint_folder + '\\run-checkpoint-' + str(manual_generation) + ".gz",config_transfer=manual_config_override);

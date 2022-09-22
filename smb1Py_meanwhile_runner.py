@@ -1,4 +1,3 @@
-from tkinter.tix import Tree
 from game_runner_neat import GameRunner 
 from runnerConfiguration import RunnerConfig, IOData
 from baseGame import EvalGame
