@@ -40,8 +40,7 @@ def generate_data(instructions:list[tuple[GenerationOptions,int]],shuffle=True):
 NAME = "smb1Py";
 
 if __name__ == "__main__":
-    import gc
-
+ 
 
     multiprocessing.freeze_support();
 

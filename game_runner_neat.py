@@ -382,7 +382,7 @@ class GameRunner:
 
                 datum_fitnesses = {};
                 for id,fitnesses in tqdm(self.pool.istarmap(batch_func,[(datum,id) for id,datum in tdata.items()],chunksize=chunkSize),total=len(tdata)):
-                    print('id completed:',id);
+                    # print('id completed:',id);
                     datum_fitnesses[id] = fitnesses;
                 
                 if hasattr(self.runConfig,"saveFitness") and self.runConfig.saveFitness:
