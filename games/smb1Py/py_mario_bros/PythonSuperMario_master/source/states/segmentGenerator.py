@@ -122,6 +122,10 @@ class SegmentGenerator:
         bounds = options.inner_margins();
         bounds[1] = options.size[0]-bounds[1];
         bounds[3] = options.size[1]-bounds[3];
+        bounds[0] -= options.bounds_offset;
+        bounds[2] -= options.bounds_offset;
+        bounds[1] += options.bounds_offset;
+        bounds[3] += options.bounds_offset;
 
         dynamics = {'enemies':enemies};
 
@@ -228,6 +232,7 @@ class GenerationOptions:
     gap_width:int|tuple[int,int] = 0,
     allow_gap_under_start=False,
     task_distance_range:None|tuple[float|None,float|None]=(2,None),
+    bounds_offset:int=2. #how much larger the play area should be than the "bounds" of the segment; ensures space for player to maneuver and not die
     ):
 
         self.size = size;
@@ -246,6 +251,7 @@ class GenerationOptions:
         self.gap_width = gap_width;
         self.allow_gap_under_start = allow_gap_under_start;
         self.task_dist_range = task_distance_range;
+        self.bounds_offset = bounds_offset;
 
         self._margins = None;
         
