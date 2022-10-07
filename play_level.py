@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import pickle
 import random
-from typing import DefaultDict, Iterable, Literal
+from typing import Callable, DefaultDict, Iterable, Literal
 from baseGame import EvalGame
 from gameReporting import ThreadedGameReporter
 from game_runner_neat import GameRunner
@@ -74,7 +74,14 @@ class LevelPlayer:
     
     def __init__(self): pass;
 
-    def set_NEAT_player(self,game:EvalGame,runConfig:RunnerConfig,run_name:str,player_view_distance:None|int=None,player_tile_scale:None|int=None,config_override=None,checkpoint_run_name:str=None):
+    def set_NEAT_player(self,game:EvalGame,runConfig:RunnerConfig,run_name:str,
+            player_view_distance:None|int=None,
+            player_tile_scale:None|int=None,
+            config_override=None,
+            checkpoint_run_name:str|None=None,
+            extra_training_data:Iterable[SegmentState]|None=None,
+            extra_training_data_gen:Callable[[],Iterable[SegmentState]]|None=None):
+
         self.runConfig = runConfig;
         self.neat_config_override = config_override;
         self.run_name = run_name;
@@ -82,6 +89,8 @@ class LevelPlayer:
 
         self.tdat = TrainingDataManager[SegmentState]('smb1Py',run_name);
         self.runConfig.training_data = self.tdat;
+
+        self.extra_dat_gen = extra_training_data_gen if extra_training_data_gen else ((lambda: extra_training_data) if extra_training_data else None);
         
         self.game = game;
         self.runConfig.generations = 1;
@@ -140,6 +149,9 @@ class LevelPlayer:
             state.task_path = task_path;
             data.append(state);
 
+        if self.extra_dat_gen:
+            data += self.extra_dat_gen();
+
         self.tdat.set_data(data);
 
         print("evaluating on data:",list(zip(tasks,self.tdat.active_data.keys())));
@@ -156,7 +168,24 @@ class LevelPlayer:
 
     #given a level (no task, no task_bounds), a goal block or set of blocks
     #offset downscale means with how much resolution are potential task blocks generated.
-    def play_level(self,level:SegmentState,goal:tuple[float,float]|list[tuple[float,float]],training_dat_per_gen=50,search_data_resolution=5,task_offset_downscale=2,search_checkpoint:LevelCheckpoint|None=None,checkpoint_save_location="play_checkpoint.chp"):
+    def play_level(self,
+            level:SegmentState,
+            goal:tuple[float,float]|list[tuple[float,float]],
+            training_dat_per_gen=50,
+            search_data_resolution=5,
+            task_offset_downscale=2,
+            search_checkpoint:LevelCheckpoint|None=None,
+            checkpoint_save_location="play_checkpoint.chp",
+            fitness_aggregation_type="max"):
+
+        fitness_from_list = {
+            "max":max,
+            "median":np.median,
+            "mean":np.average,
+            "q3":lambda l: np.quartile(l,0.75),
+            "q1":lambda l: np.quartile(l,0.25),
+            "min":min
+        }[fitness_aggregation_type];
         log = self.log #shorthand
 
         if search_data_resolution % task_offset_downscale != 0:
@@ -196,7 +225,7 @@ class LevelPlayer:
         def pos_to_grid_index(pos:tuple[float,float]):
             pos = pos[0]-c.TILE_SIZE/(2*search_data_resolution),pos[1]-c.TILE_SIZE/(2*search_data_resolution);
             position_parameter = ((pos[0]-grids_bounds[0])/(grids_bounds[1]-grids_bounds[0]),(pos[1]-grids_bounds[2])/(grids_bounds[3]-grids_bounds[2]));
-            closest_pixel = (int(position_parameter[0]*grid_size[0]),int(position_parameter[1]*grid_size[1]))
+            closest_pixel = (round(position_parameter[0]*grid_size[0]),round(position_parameter[1]*grid_size[1]))
             return closest_pixel;
 
         def grid_index_to_pos(index:tuple[int,int]):
@@ -327,8 +356,8 @@ class LevelPlayer:
             log("fitnesses calculated")
             # print(all_fitnesses);
 
-            best_segments:dict[tuple[tuple[int,int],tuple[int,int]],float] = DefaultDict(lambda:0.0);
-            best_paths:dict[tuple[tuple[int,int],...],float] = DefaultDict(lambda:0.0)
+            best_segments:dict[tuple[tuple[int,int],tuple[int,int]],list[float]] = DefaultDict(lambda:[]);
+            best_paths:dict[tuple[tuple[int,int],...],list[float]] = DefaultDict(lambda:[])
             completed_paths:list[tuple[tuple[int,int]]] = [];
             
             for fitness_list in all_fitnesses:
@@ -349,7 +378,7 @@ class LevelPlayer:
                             print("ERROR: start and end should not be the same; from path",fitness_list)
                             continue;
 
-                        best_segments[start,end] = max(best_segments[start,end],fitness);
+                        best_segments[start,end].append(fitness);
 
                         acc_fitness += fitness;
 
@@ -357,17 +386,19 @@ class LevelPlayer:
                             acc_path.append(start);
                         acc_path.append(end);
                         
-                        best_paths[tuple(acc_path)] = max(best_paths[tuple(acc_path)],acc_fitness);
+                        best_paths[tuple(acc_path)].append(acc_fitness);
 
             d_updates:list[tuple[tuple[int,int]|Literal['goal'],tuple[int,int]|Literal['goal'],float,float]] = [];
-            a_updates:list[tuple[tuple[tuple[int,int]],float]] = [];
+            a_updates:list[tuple[tuple[tuple[int,int],...],float]] = [];
 
-            for (start,end),fitness in best_segments.items():
+            for (start,end),fitnesses in best_segments.items():
+                fitness = fitness_from_list(fitnesses);
                 old_cost = get_cost(start,end);
                 self.costs[start,end] = cost_from_fitness(fitness);
                 d_updates.append((start,end,old_cost,cost_from_fitness(fitness)));
 
-            for path,fitness in best_paths.items():
+            for path,fitnesses in best_paths.items():
+                fitness = fitness_from_list(fitnesses);
                 a_updates.append((path,cost_from_fitness(fitness)));
 
             log('running d* iteration')
@@ -430,7 +461,7 @@ if __name__== "__main__":
     runConfig.view_distance = 3.75;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
-    runConfig.parallel_processes = 5;
+    runConfig.parallel_processes = 4;
     runConfig.chunkFactor = 24;
     runConfig.saveFitness = True;
 
@@ -440,7 +471,7 @@ if __name__== "__main__":
     runConfig.fitness_collection_type='delta';
     player.set_NEAT_player(game,runConfig,run_name,runConfig.view_distance,runConfig.tile_scale,checkpoint_run_name='run_10');
 
-    model_path = 'models/test2_highlrate_2.model'
+    model_path = 'models/test_q3_long3.model'
     model = None;
     with open(model_path,'rb') as f:
         model = torch.load(f,map_location=torch.device('cpu'));
@@ -457,8 +488,11 @@ if __name__== "__main__":
         level.task_bounds = None;
         level.task = (48*c.TILE_SIZE,10*c.TILE_SIZE);
         level.save_file(level_path);
+
     goals = [(48*c.TILE_SIZE,i*c.TILE_SIZE) for i in range(20)]; 
-    save = "test_level_play_t4.chp"
+
+
+    save = "test_level_play_t6.chp"
     checkpoint = None;
     if os.path.exists(save):
         print("loading checkpoint...")
@@ -466,5 +500,11 @@ if __name__== "__main__":
             checkpoint = pickle.load(f);
         print("checkpoint successfully loaded")
 
-    winning_path = player.play_level(level,goals,search_data_resolution=4,task_offset_downscale=2,search_checkpoint=checkpoint,checkpoint_save_location=save,training_dat_per_gen=25);
+    winning_path = player.play_level(level,
+        goals,
+        search_data_resolution=4,
+        task_offset_downscale=2,
+        search_checkpoint=checkpoint,
+        checkpoint_save_location=save,
+        training_dat_per_gen=25);
 

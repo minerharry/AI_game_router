@@ -1,6 +1,5 @@
 __author__ = 'minerharry'
 
-# from curses import raw
 from copy import copy
 from email.headerregistry import Group
 import os
@@ -1039,14 +1038,14 @@ class Segment(tools.State):
         size =  (bounds[1]-bounds[0],bounds[3]-bounds[2]);
         self.update_rect_grid(tile_scale,center,size);
 
-        return {
-            'grid_bounds':bounds,
-            'enemy_grid':self.get_enemy_grid(),
-            'collision_grid': self.get_collision_grid(),
-            'powerup_grid':self.get_powerup_grid(),
-            'box_grid':self.get_box_grid(),
-            'brick_grid':self.get_brick_grid(),
-        }
+        return JITDict(delegates={
+            'grid_bounds':lambda:bounds,
+            'enemy_grid':self.get_enemy_grid,
+            'collision_grid': self.get_collision_grid,
+            'powerup_grid':self.get_powerup_grid,
+            'box_grid':self.get_box_grid,
+            'brick_grid':self.get_brick_grid,
+        })
 
 
     #view distance: number of tiles in each direction. EX: view distance of 3.5 would form a 7x7 tile grid with the requisite number of subdivisions as dictated by tile_scale

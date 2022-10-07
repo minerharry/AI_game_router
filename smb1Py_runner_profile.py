@@ -17,7 +17,7 @@ except:
 from games.smb1Py.py_mario_bros.PythonSuperMario_master.source import tools
 from games.smb1Py.py_mario_bros.PythonSuperMario_master.source import constants as c
 import run_states as run_states
-import cProfile as profile
+# import cProfile as profile
 
 steps_threshold = 800;
 
@@ -70,7 +70,7 @@ if __name__ == "__main__":
 
     ##TRAINING_DATA##
     
-    set_data = False;
+    set_data = True;
     add_data = False;
     start_data_index = 0
     additional_data_indices = [3];
@@ -89,11 +89,11 @@ if __name__ == "__main__":
         GenerationOptions(size=(18,14),inner_size=(12,8),num_blocks=(0,6),ground_height=7,task_batch_size=(1,4),num_gaps=(1,3),gap_width=(1,3)), #10
         ];
     
-    orders = [(configs[4],70),(configs[2],20),(configs[5],30),(configs[6],20),(configs[7],10),(configs[9],30),(configs[10],20)];
+    orders = [(configs[4],6)];
 
 
 
-    tdManager = TrainingDataManager(NAME,currentRun,generation_func=partial(generate_data,orders));
+    tdManager = TrainingDataManager(NAME,17,generation_func=partial(generate_data,orders));
     if (run_state == run_states.NEW or set_data):
         data = generate_data(orders);
         tdManager.set_data(data);
@@ -125,7 +125,7 @@ if __name__ == "__main__":
         getFitness,
         getRunning,
         logging=True,
-        parallel=False,
+        parallel=True,
         gameName=NAME,
         returnData=inputData,
         num_trials=1,
@@ -162,7 +162,7 @@ if __name__ == "__main__":
         customGenome.add_connection(config.genome_config,-1,2,-1,True);
         customGenome.add_connection(config.genome_config,-1,3,1,True);
     if (run_state == run_states.CONTINUE):
-        winner = profile.run("runner.continue_run('run_' + str(currentRun),manual_generation=manual_continue_generation,manual_config_override=config_transfer)",filename="smb1Py_profile.stats");
+        winner = eval("runner.continue_run('run_' + str(currentRun),manual_generation=manual_continue_generation,manual_config_override=config_transfer)");
         print('\nBest genome:\n{!s}'.format(winner));
     else:
         local_dir = os.path.dirname(__file__)

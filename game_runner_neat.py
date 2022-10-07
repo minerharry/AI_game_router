@@ -19,6 +19,7 @@ from logReporting import LoggingReporter
 from renderer import Renderer as RendererReporter
 from videofig import videofig as vidfig
 from neat.six_util import iteritems, itervalues
+from viztracer import log_sparse
 try:
     from pympler import tracker
 except:
@@ -42,7 +43,7 @@ class GameRunner:
         self.runConfig = runnerConfig;
         self.generation:int = None;
 
-    def continue_run(self,run_name,render=False,manual_generation=None,manual_config_override=None):
+    def continue_run(self,run_name,render=False,manual_generation=None,manual_config_override=None,single_gen=False):
         checkpoint_folder = 'checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_');
         if manual_generation is None:
             files = os.listdir(checkpoint_folder);
@@ -57,7 +58,7 @@ class GameRunner:
         else:
             pop = neat.Checkpointer.restore_checkpoint(checkpoint_folder + '\\run-checkpoint-' + str(manual_generation) + ".gz",config_transfer=manual_config_override);
 
-        return self.run(pop.config,run_name,render=render,pop=pop);
+        return self.run(pop.config,run_name,render=render,pop=pop,single_gen=single_gen);
 
     def replay_generation(self,generation,run_name,render=False,genome_config_edits=None):
         checkpoint_folder = 'checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_');
@@ -287,7 +288,7 @@ class GameRunner:
                 get_genome_frame.initialized = False;
                 vidfig(len(images),get_genome_frame,play_fps=runnerConfig.playback_fps);
 
-            
+
     def eval_genomes(self,genomes,config):
         if (self.runConfig.recurrent):
             self.eval_genomes_recurrent(genomes,config);
@@ -368,6 +369,7 @@ class GameRunner:
                     genome.fitness += self.eval_genome_feedforward(genome,config)
         else:
             if (self.runConfig.parallel):
+                genomes = genomes[:50];
                 tdata = self.runConfig.training_data.active_data;
                 batch_func = functools.partial(Genome_Executor.map_eval_genomes_feedforward,config,self.runConfig,self.game,genomes,gen=self.generation);
 
