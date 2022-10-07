@@ -40,8 +40,7 @@ def generate_data(instructions:list[tuple[GenerationOptions,int]],shuffle=True):
 NAME = "smb1Py";
 
 if __name__ == "__main__":
-    import gc
-
+ 
 
     multiprocessing.freeze_support();
 
@@ -80,14 +79,14 @@ if __name__ == "__main__":
         GenerationOptions(num_blocks=(0,4),ground_height=7,task_batch_size=(1,4)), #3
         GenerationOptions(num_blocks=(0,8),ground_height=(7,8),task_batch_size=(1,4)), #4
         GenerationOptions(num_blocks=(0,4),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(1,2)), #5
-        GenerationOptions(num_blocks=(0,6),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(1,4)), #6
+        GenerationOptions(num_blocks=(0,6),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(0,4)), #6
         GenerationOptions(num_blocks=(0,4),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(1,3),allow_gap_under_start=True), #7
         GenerationOptions(num_blocks=(0,6),ground_height=7,task_batch_size=(1,3),num_enemies={c.ENEMY_TYPE_GOOMBA:1},valid_enemy_positions=c.GROUNDED), #8
         GenerationOptions(size=(20,15),inner_size=(14,9),num_blocks=(0,8),ground_height=(7,8),task_batch_size=(1,4)), #9
         GenerationOptions(size=(18,14),inner_size=(12,8),num_blocks=(0,6),ground_height=7,task_batch_size=(1,4),num_gaps=(1,3),gap_width=(1,3)), #10
         ];
     
-    orders = [(configs[4],70),(configs[2],20),(configs[5],30),(configs[6],20),(configs[7],10),(configs[9],30),(configs[10],20)];
+    orders = [(configs[4],80),(configs[2],30),(configs[6],20),(configs[7],10),(configs[9],50),(configs[10],30)];
 
 
 
@@ -134,15 +133,15 @@ if __name__ == "__main__":
     runConfig.view_distance = 3.75;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
-    runConfig.parallel_processes = 6;
-    runConfig.chunkFactor = 24;
+    runConfig.parallel_processes = 8;
+    runConfig.chunkFactor = 40;
     runConfig.saveFitness = True;
 
     runConfig.logPath = f'logs\\smb1Py\\run-{currentRun}-log.txt';
     runConfig.fitness_collection_type='delta';
     print(runConfig.gameName);
 
-    game = EvalGame(SMB1Game,num_rendered_processes=4);
+    game = EvalGame(SMB1Game,num_rendered_processes=1);
     
     runner = GameRunner(game,runConfig);
     config_path = os.path.join(os.path.dirname(__file__), 'configs','config-pygame-smb1' + config_suffix);

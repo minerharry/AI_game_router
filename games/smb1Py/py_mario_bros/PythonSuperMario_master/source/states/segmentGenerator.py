@@ -6,6 +6,9 @@ from .segment import SegmentState
 from .. import constants as c
 from ..components.enemy import create_enemy
 
+def dist(p1:tuple[int,int],p2:tuple[int,int]):
+    return ((p1[0]-p2[0])**2+(p1[1]-p2[1])**2)**1/2;
+
 #TODO: add sliders, enemies, and density constraints. Essentially just make it better/exist lol
 class SegmentGenerator:
     
@@ -137,6 +140,13 @@ class SegmentGenerator:
             task_options = floorPositions;
         elif options.taskBlocks == c.INNER:
             task_options = innerTiles;
+
+        if options.task_dist_range is not None:
+            if options.task_dist_range[0] is not None:
+                task_options = [t for t in task_options if dist(player_position,t) > options.task_dist_range[0]]
+            if options.task_dist_range[1] is not None:
+                task_options = [t for t in task_options if dist(player_position,t) < options.task_dist_range[0]]
+
         
         print(task_options);
 
@@ -217,6 +227,7 @@ class GenerationOptions:
     num_gaps:int|tuple[int,int] = 0,
     gap_width:int|tuple[int,int] = 0,
     allow_gap_under_start=False,
+    task_distance_range:None|tuple[float|None,float|None]=(2,None),
     ):
 
         self.size = size;
@@ -233,7 +244,8 @@ class GenerationOptions:
         self.valid_enemy_positions = valid_enemy_positions;
         self.num_gaps = num_gaps;
         self.gap_width = gap_width;
-        self.allow_gap_under_start = allow_gap_under_start
+        self.allow_gap_under_start = allow_gap_under_start;
+        self.task_dist_range = task_distance_range;
 
         self._margins = None;
         

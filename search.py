@@ -1,4 +1,5 @@
 from __future__ import annotations
+import copy
 import heapq as hq
 import itertools
 from typing import Callable, DefaultDict, Generic, Iterable, Iterator, TypeVar
@@ -101,7 +102,6 @@ class DStarSearcher(Generic[N]):
                 self.g[u] = self.rhs[u];
                 self.U.removeItem(u);
                 for s,c in self.pred(u):
-                    # print('pred',s);
                     if (s == self.start):
                         print('start reached -- clause 1');
                         print('g,rhs:',self.g[s],self.rhs[s]);
@@ -115,7 +115,6 @@ class DStarSearcher(Generic[N]):
                 g_old = self.g[u];
                 self.g[u] = float('inf');
                 for s,c in itertools.chain(self.pred(u),[(u,0),]):
-                    # print('pred',s);
                     if (s == self.start):
                         print('start reached -- clause 2')
                         print('g,rhs:',self.g[s],self.rhs[s]);
@@ -242,7 +241,7 @@ class LevelSearcher(Generic[N,T]):
     
     def sorted_edges(self)->list[tuple[N|None,N]]:
         self.open_edges.sort(key=self.sort_key);
-        return self.open_edges;
+        return copy.deepcopy(self.open_edges);
         
     def complete_edge(self,edge:tuple[N|None,N]):
         if edge in self.open_edges:
@@ -252,7 +251,7 @@ class LevelSearcher(Generic[N,T]):
         elif edge in self.completed_edges:
             print("WARNING: attempting to complete edge that has already been completed");
         else:
-            print("WARNING: attempting to complete edge {edge} not in open edges FIX SOON");
+            print(f"WARNING: attempting to complete edge {edge} not in open edges FIX SOON");
             # raise Exception(f"Attempt to complete edge {edge} not in open edges or previously completed")
 
     def update_scores(self,scores:Iterable[tuple[N,float]]):
