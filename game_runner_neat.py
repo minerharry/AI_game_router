@@ -19,7 +19,10 @@ from logReporting import LoggingReporter
 from renderer import Renderer as RendererReporter
 from videofig import videofig as vidfig
 from neat.six_util import iteritems, itervalues
-from viztracer import log_sparse
+try:
+    from viztracer import log_sparse
+except:
+    pass;
 try:
     from pympler import tracker
 except:
@@ -383,7 +386,7 @@ class GameRunner:
                 print(f'Starting parallel processing for {len(genomes)*len(tdata)} evals over {self.runConfig.parallel_processes} processes');
 
                 datum_fitnesses = {};
-                for id,fitnesses in tqdm(self.pool.istarmap(batch_func,[(datum,id) for id,datum in tdata.items()],chunksize=chunkSize),total=len(tdata)):
+                for id,fitnesses in tqdm(self.pool.istarmap(batch_func,[(id,id) for id in tdata],chunksize=chunkSize),total=len(tdata)):
                     # print('id completed:',id);
                     datum_fitnesses[id] = fitnesses;
                 
@@ -396,23 +399,23 @@ class GameRunner:
             else:
                 if hasattr(self.runConfig,"saveFitness") and self.runConfig.saveFitness:
                     fitness_data = {};
-                    for did,datum in tqdm(self.runConfig.training_data.active_data.items()):
+                    for did in tqdm(self.runConfig.training_data.active_data):
                         fitnesses = {};
                         for genome_id, genome in tqdm(genomes):
-                            fitness = self.eval_genome_feedforward(genome,config,trainingDatum=datum)
+                            fitness = self.eval_genome_feedforward(genome,config,trainingDatumId=did)
                             fitnesses[genome_id] = fitness;
                             genome.fitness += fitness;
                         fitness_data[did] = fitnesses;
                     self.fitness_reporter.save_data(fitness_data);
                 else:
-                    for _,datum in tqdm(self.runConfig.training_data.active_data):
+                    for did in tqdm(self.runConfig.training_data.active_data):
                         for genome_id, genome in tqdm(genomes):
-                            genome.fitness += self.eval_genome_feedforward(genome,config,trainingDatum=datum)                
+                            genome.fitness += self.eval_genome_feedforward(genome,config,trainingDatumId=did)                
 
 
 
-    def eval_genome_feedforward(self,genome,config,trainingDatum=None):
-        return Genome_Executor.eval_genome_feedforward(genome,config,self.runConfig,self.game,trainingDatum=trainingDatum)
+    def eval_genome_feedforward(self,genome,config,trainingDatumId:int=None):
+        return Genome_Executor.eval_genome_feedforward(genome,config,self.runConfig,self.game,trainingDatumId=trainingDatumId);
 
 
 class GenomeExecutorInterruptedException(Exception): pass; #idk man
@@ -464,7 +467,7 @@ class Genome_Executor:
             raise GenomeExecutorInterruptedException();
 
     @classmethod
-    def eval_training_data_batch_feedforward(cls,config,runnerConfig,game,genomes,data,return_id,gen=None):
+    def eval_training_data_batch_feedforward(cls,config,runnerConfig,game,genomes,data:list[int],return_id,gen=None):
         try:
             if gen is not None:
                 if gen != cls.generation:
@@ -472,9 +475,9 @@ class Genome_Executor:
                 cls.generation = gen;
             count = 0;
             fitnesses = {genome_id:0 for genome_id,_ in genomes};
-            for datum in data:
+            for datum_id in data:
                 for genome_id,genome in genomes:
-                    fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game,trainingDatum=datum);
+                    fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game,trainingDatumId=datum_id);
                     cls.count += 1;
                     if cls.CHECKPOINT_INTERVAL > 0 and cls.count % cls.CHECKPOINT_INTERVAL == 0:
                         time = datetime.now()
@@ -486,7 +489,7 @@ class Genome_Executor:
 
     #map methods - iterate externally; return_id is used to recombine with i- or async- pool methods where order is not guaranteed
     @classmethod
-    def map_eval_genomes_feedforward(cls,config,runnerConfig,game,genomes,datum,return_id,gen=None):
+    def map_eval_genomes_feedforward(cls,config,runnerConfig,game,genomes,datum_id,return_id,gen=None):
         try:
             if gen is not None:
                 if gen != cls.generation:
@@ -500,7 +503,7 @@ class Genome_Executor:
                         print(f'Parallel Checkpoint - Process #{cls.pnum} at {time}' + ('' if cls.generation is None else f'; Count: {cls.count} evals completed this generation ({cls.generation})') + ('' if cls.last_checkpoint_time is None else f'; Eval Speed: {cls.CHECKPOINT_INTERVAL/(time-cls.last_checkpoint_time).total_seconds():.5f}'));
                         cls.last_checkpoint_time = time;
                     
-                    fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game,trainingDatum=datum);
+                    fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game,trainingDatumId=datum_id);
             return (return_id,fitnesses);
         except KeyboardInterrupt:
             raise GenomeExecutorInterruptedException();
@@ -522,7 +525,7 @@ class Genome_Executor:
             raise GenomeExecutorInterruptedException();
 
     @classmethod
-    def eval_genome_feedforward(cls,genome,config,runnerConfig:runnerConfiguration.RunnerConfig,game:EvalGame,trainingDatum=None):
+    def eval_genome_feedforward(cls,genome,config,runnerConfig:runnerConfiguration.RunnerConfig,game:EvalGame,trainingDatumId=None):
         try:
             net = neat.nn.FeedForwardNetwork.create(genome,config);
             
@@ -531,9 +534,9 @@ class Genome_Executor:
                 fitness = 0;
                 runningGame = None;
                 if cls.pnum is not None:
-                    runningGame = game.start(runnerConfig,training_datum = trainingDatum, process_num = cls.pnum);
+                    runningGame = game.start(runnerConfig,training_datum_id = trainingDatumId, process_num = cls.pnum);
                 else:
-                    runningGame = game.start(runnerConfig,training_datum = trainingDatum)
+                    runningGame = game.start(runnerConfig,training_datum_id = trainingDatumId)
                 if runnerConfig.fitness_collection_type != None and 'delta' in runnerConfig.fitness_collection_type:
                     fitness -= runningGame.getFitnessScore();
 
