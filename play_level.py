@@ -1,12 +1,14 @@
 import copy
+from functools import partial
 import itertools
 import math
 import os
 from pathlib import Path
 import pickle
 import random
-from typing import Callable, DefaultDict, Iterable, Literal
+from typing import Callable, DefaultDict, Generic, Iterable, Literal, NamedTuple, TypeVar
 from baseGame import EvalGame
+from fitnessReporter import FitnessCheckpoint
 from gameReporting import ThreadedGameReporter
 from game_runner_neat import GameRunner
 from games.smb1Py.py_mario_bros.PythonSuperMario_master.smb_game import SMB1Game
@@ -14,17 +16,22 @@ from games.smb1Py.py_mario_bros.PythonSuperMario_master.source import tools
 from games.smb1Py.py_mario_bros.PythonSuperMario_master.source.states.segment import Segment, SegmentState
 from games.smb1Py.py_mario_bros.PythonSuperMario_master.source.states.segmentGenerator import GenerationOptions, SegmentGenerator
 import games.smb1Py.py_mario_bros.PythonSuperMario_master.source.constants as c
+import neat
+from neat.reporting import BaseReporter
 import torch
 import numpy as np
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 from runnerConfiguration import IOData, RunnerConfig
-from guppy import hpy
-hp = hpy();
+# from guppy import hpy
+# hp = hpy();
 
 from search import DStarSearcher, LevelSearcher
-from smb1Py_runner import NAME, getFitness, getRunning, task_obstruction_score
+from smb1Py_runner import NAME, generate_data, getFitness, getRunning, task_obstruction_score
 from training_data import TrainingDataManager
+
+floatPos = tuple[float,float];
+gridPos = tuple[int,int];
 
 def f_x_grad(x,y,p1,p2):
   d1 = (x - p1[0])/max(0.1,dist(x,y,p1));
@@ -61,14 +68,17 @@ def annulus(r,R):
 
 class LevelCheckpoint:
     def __init__(self,
-                edge_costs:dict[tuple[tuple[int,int],tuple[int,int]],float],
-                edge_predictions:dict[tuple[tuple[int,int],tuple[int,int]],float],
+                edge_costs:dict[tuple[gridPos,gridPos],float],
+                edge_predictions:dict[tuple[gridPos,gridPos],float],
                 d_checkpoint:dict,
                 a_checkpoint:dict):
         self.costs = edge_costs;
         self.pred = edge_predictions;
         self.d = d_checkpoint;
         self.a = a_checkpoint;
+
+
+
 
 class LevelPlayer:
     
@@ -80,7 +90,8 @@ class LevelPlayer:
             config_override=None,
             checkpoint_run_name:str|None=None,
             extra_training_data:Iterable[SegmentState]|None=None,
-            extra_training_data_gen:Callable[[],Iterable[SegmentState]]|None=None):
+            extra_training_data_gen:Callable[[],Iterable[SegmentState]]|None=None,
+            fitness_save_path:str|Path|None=None):
 
         self.runConfig = runConfig;
         self.neat_config_override = config_override;
@@ -96,14 +107,17 @@ class LevelPlayer:
         self.runConfig.generations = 1;
         self.gamerunner = GameRunner(self.game,self.runConfig);
 
-        self.task_reporter = TaskFitnessReporter();
+        if fitness_save_path:
+            self.task_reporter = TaskFitnessReporter(fitness_save_path);
+        else:
+            self.task_reporter = TaskFitnessReporter();
         self.game.register_reporter(self.task_reporter);
 
         self.view_distance = player_view_distance if player_view_distance else self.runConfig.view_distance;
         self.tile_scale = player_tile_scale if player_tile_scale else self.runConfig.tile_scale;
 
 
-    def set_fixed_net(self,model:torch.nn.Module,used_grids:str|list[str],endpoint_padding:tuple[int,int],minimum_viable_distance:float,maximum_viable_distance:float):
+    def set_fixed_net(self,model:torch.nn.Module,used_grids:str|list[str],endpoint_padding:gridPos,minimum_viable_distance:float,maximum_viable_distance:float):
         '''initialize fixed net and use parameters.
 
             used grids: what grids from the map data (collision, bricks, enemies, etc) the model uses
@@ -118,7 +132,7 @@ class LevelPlayer:
         self.max_task_dist = maximum_viable_distance;
         self.fixed_padding = endpoint_padding;
 
-    def eval_fixed_net(self,grids,start:tuple[int,int],task:tuple[int,int],size:tuple[int,int])->float:
+    def eval_fixed_net(self,grids,start:gridPos,task:gridPos,size:gridPos)->float:
         
         left,right = (start[0],task[0]) if start[0] < task[0] else (task[0],start[0]);
         top,bottom = (start[1],task[1]) if start[1] < task[1] else (task[1],start[1]);
@@ -138,7 +152,7 @@ class LevelPlayer:
         full = torch.Tensor(grids);
         return self.fixed_net(full).item();
 
-    def eval_NEAT_player(self,tasks:list[list[tuple[float,float]]],level:SegmentState):
+    def eval_NEAT_player(self,tasks:list[list[floatPos]],level:SegmentState):
         '''returns the fitness values (for ALL players) for each leg of the task'''
         self.log("evaluating NEAT-player with training data",len(tasks),'ex:',tasks[0],'and level',level);
         data = [];
@@ -158,7 +172,7 @@ class LevelPlayer:
 
         self.gamerunner.continue_run(self.checkpoint_run_name,manual_config_override=self.neat_config_override);
 
-        return self.task_reporter.get_all_data();
+        return [d.data for d in self.task_reporter.get_all_data()];
 
     def log(self,*args,**kwargs):
         print(*args,**kwargs);
@@ -170,7 +184,7 @@ class LevelPlayer:
     #offset downscale means with how much resolution are potential task blocks generated.
     def play_level(self,
             level:SegmentState,
-            goal:tuple[float,float]|list[tuple[float,float]],
+            goal:floatPos|list[floatPos],
             training_dat_per_gen=50,
             search_data_resolution=5,
             task_offset_downscale=2,
@@ -204,7 +218,7 @@ class LevelPlayer:
         gdat = game.get_game_data(self.view_distance,self.tile_scale);
         mdat = game.get_map_data(search_data_resolution);
 
-        player_start:tuple[float,float] = gdat['pos'];
+        player_start:floatPos = gdat['pos'];
         search_grids = [np.array(mdat[g]) for g in self.fixed_grids];
         grid_size = search_grids[0].shape;
         grids_bounds:tuple[int,int,int,int] =  mdat['grid_bounds'];
@@ -214,7 +228,7 @@ class LevelPlayer:
         if not isinstance(goal,list):
             goal = [goal];
 
-        def in_bounds(pos:tuple[int,int]):
+        def in_bounds(pos:gridPos):
             return pos[0] >= 0 and pos[0] < grid_size[0] and pos[1] >= 0 and pos[1] < grid_size[1];
 
         def cost_from_fitness(fitness:float):
@@ -222,24 +236,24 @@ class LevelPlayer:
                 return float('inf');
             return 1/fitness;
 
-        def pos_to_grid_index(pos:tuple[float,float]):
+        def pos_to_grid_index(pos:floatPos):
             pos = pos[0]-c.TILE_SIZE/(2*search_data_resolution),pos[1]-c.TILE_SIZE/(2*search_data_resolution);
             position_parameter = ((pos[0]-grids_bounds[0])/(grids_bounds[1]-grids_bounds[0]),(pos[1]-grids_bounds[2])/(grids_bounds[3]-grids_bounds[2]));
             closest_pixel = (round(position_parameter[0]*grid_size[0]),round(position_parameter[1]*grid_size[1]))
             return closest_pixel;
 
-        def grid_index_to_pos(index:tuple[int,int]):
+        def grid_index_to_pos(index:gridPos):
             return (c.TILE_SIZE/(2*search_data_resolution)+index[0]/grid_size[0]*(grids_bounds[1]-grids_bounds[0])+grids_bounds[0],c.TILE_SIZE/(2*search_data_resolution)+index[1]/grid_size[1]*(grids_bounds[3]-grids_bounds[2])+grids_bounds[2]);
 
         
         if search_checkpoint is None:
-            self.costs = dict[tuple[tuple[int,int],tuple[int,int]],float]();
-            self.predictions = dict[tuple[tuple[int,int],tuple[int,int]],float]();
+            self.costs = dict[tuple[gridPos,gridPos],float]();
+            self.predictions = dict[tuple[gridPos,gridPos],float]();
         else:
             self.costs = search_checkpoint.costs;
             self.predictions = search_checkpoint.pred;
 
-        def get_cost(start:tuple[int,int],task:tuple[int,int]):
+        def get_cost(start:gridPos,task:gridPos):
             if mdat['collision_grid'][task[0]][task[1]] != 0:
                 return float('inf');
             if (start,task) in self.costs:
@@ -255,7 +269,7 @@ class LevelPlayer:
         task_offsets = [(s[0]*task_offset_downscale,s[1]*task_offset_downscale) for s in annulus(self.min_task_dist/task_offset_downscale,self.max_task_dist/task_offset_downscale)]
         log('offsets generated',len(task_offsets));
 
-        def d_star_heuristic(p1:tuple[int,int]|Literal['goal'],p2:tuple[int,int]|Literal['goal']): #made to be bidirectional since lazy
+        def d_star_heuristic(p1:gridPos|Literal['goal'],p2:gridPos|Literal['goal']): #made to be bidirectional since lazy
             if isinstance(p1,str):
                 try:
                     return min([d_star_heuristic(pos,p2) for pos,_ in d_star_pred(p1)]);
@@ -268,7 +282,7 @@ class LevelPlayer:
 
             return ((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)**0.5;
 
-        def d_star_succ(pos:tuple[int,int]|Literal['goal']): #returns list of (succ,cost(pos,succ))
+        def d_star_succ(pos:gridPos|Literal['goal']): #returns list of (succ,cost(pos,succ))
             if (isinstance(pos,str)):
                 raise Exception("cannot find successors of the goal");
             # log("d_preds");
@@ -280,7 +294,7 @@ class LevelPlayer:
             if pos in goal_idxs:
                 yield ('goal',0);
 
-        def d_star_pred(pos:tuple[int,int]|Literal['goal']): #returns list of (pred,cost(pred,pos))
+        def d_star_pred(pos:gridPos|Literal['goal']): #returns list of (pred,cost(pred,pos))
             # log("d_succs");
             if pos == 'goal':
                 for i in goal_idxs:
@@ -298,16 +312,16 @@ class LevelPlayer:
         log('routing from start',start_idx,'to goals',goal_idxs,'in level of gridded size',grid_size);
 
         check = search_checkpoint.d if search_checkpoint is not None else None;
-        self.d_searcher = DStarSearcher[tuple[int,int]|Literal['goal']](d_star_heuristic,start=start_idx,goal='goal',pred=d_star_pred,succ=d_star_succ,checkpoint=check);
+        self.d_searcher = DStarSearcher[gridPos|Literal['goal']](d_star_heuristic,start=start_idx,goal='goal',pred=d_star_pred,succ=d_star_succ,checkpoint=check);
 
         ### Initialize A* Searcher (runs the level forward, selects training data)
         log("initializing a*")
 
-        def a_star_heuristic(path:tuple[tuple[int,int],...]):
+        def a_star_heuristic(path:tuple[gridPos,...]):
             self.d_searcher.explore_from_position(path[-1]);
             return self.d_searcher.rhs[path[-1]];
 
-        def a_star_succ(path:tuple[tuple[int,int],]):
+        def a_star_succ(path:tuple[gridPos,]):
             end = path[-1];
             for offset in task_offsets:
                 new = (end[0]+offset[0],end[1]+offset[1]);
@@ -317,11 +331,11 @@ class LevelPlayer:
                 newpath.append(new);
                 yield tuple(newpath);
 
-        def a_star_cost(p1:tuple[tuple[int,int],...],p2:tuple[tuple[int,int],...]):
+        def a_star_cost(p1:tuple[gridPos,...],p2:tuple[gridPos,...]):
             return get_cost(p1[-1],p2[-1]);
 
         check = search_checkpoint.a if search_checkpoint is not None else None;
-        self.a_searcher = LevelSearcher[tuple[tuple[int,int],...],tuple[int,int]]((start_idx,),lambda x: x[-1] in goal_idxs,a_star_heuristic,lambda node: node[-1],a_star_succ,a_star_cost,frustration_multiplier=0.02,checkpoint=check);
+        self.a_searcher = LevelSearcher[tuple[gridPos,...],gridPos]((start_idx,),lambda x: x[-1] in goal_idxs,a_star_heuristic,lambda node: node[-1],a_star_succ,a_star_cost,frustration_multiplier=0.02,checkpoint=check);
 
         ### ROUTE + PLAY LEVEL
         log("beginning routing")
@@ -356,13 +370,13 @@ class LevelPlayer:
             log("fitnesses calculated")
             # print(all_fitnesses);
 
-            best_segments:dict[tuple[tuple[int,int],tuple[int,int]],list[float]] = DefaultDict(lambda:[]);
-            best_paths:dict[tuple[tuple[int,int],...],list[float]] = DefaultDict(lambda:[])
-            completed_paths:list[tuple[tuple[int,int]]] = [];
+            best_segments:dict[tuple[gridPos,gridPos],list[float]] = DefaultDict(lambda:[]);
+            best_paths:dict[tuple[gridPos,...],list[float]] = DefaultDict(lambda:[])
+            completed_paths:list[tuple[gridPos]] = [];
             
             for fitness_list in all_fitnesses:
                 acc_fitness = 0;
-                acc_path:list[tuple[int,int]] = [];
+                acc_path:list[gridPos] = [];
                 for (start,end),fitness in fitness_list:
                     if end == 'goal':
                         if tuple(acc_path) not in completed_paths:
@@ -388,8 +402,8 @@ class LevelPlayer:
                         
                         best_paths[tuple(acc_path)].append(acc_fitness);
 
-            d_updates:list[tuple[tuple[int,int]|Literal['goal'],tuple[int,int]|Literal['goal'],float,float]] = [];
-            a_updates:list[tuple[tuple[tuple[int,int],...],float]] = [];
+            d_updates:list[tuple[gridPos|Literal['goal'],gridPos|Literal['goal'],float,float]] = [];
+            a_updates:list[tuple[tuple[gridPos,...],float]] = [];
 
             for (start,end),fitnesses in best_segments.items():
                 fitness = fitness_from_list(fitnesses);
@@ -412,18 +426,29 @@ class LevelPlayer:
         
         return winning_path;
 
+K = TypeVar("K")
+class _IdData(NamedTuple):
+    id:int
+    data:K
+class IdData(_IdData,Generic[K]):
+    pass;
+class TaskFitnessReporter(BaseReporter,ThreadedGameReporter[IdData[list[tuple[tuple[floatPos,floatPos|Literal['goal']],float]]]]): #I'm so sorry
+    def __init__(self,save_path=None,**kwargs):
+        super().__init__(**kwargs);
+        self.save_path = Path(save_path) if save_path else None;
+        self.generation = None;
 
+    def on_training_data_load(self, game: SMB1Game, id:int):
+        self.data_id = id;
 
-class TaskFitnessReporter(ThreadedGameReporter[list[tuple[tuple[tuple[float,float],tuple[float,float]|Literal['goal']],float]]]): #I'm so sorry
-    
     def on_start(self, game: SMB1Game):
-        self.previous_task:tuple[float,float] = game.getMappedData()['pos'];
-        self.current_task:tuple[float,float] = game.getMappedData()['task_position'];
+        self.previous_task:floatPos = game.getMappedData()['pos'];
+        self.current_task:floatPos = game.getMappedData()['task_position'];
         self.current_fitness = game.getFitnessScore();
-        self.current_data:list[tuple[tuple[tuple[float,float],tuple[float,float]|Literal['goal']],float]] = [];
+        self.current_data:list[tuple[tuple[floatPos,floatPos|Literal['goal']],float]] = [];
 
     def on_tick(self, game: SMB1Game, inputs, finish = False):
-        task:tuple[float,float] = game.getMappedData()['task_position'];
+        task:floatPos = game.getMappedData()['task_position'];
         if (task != self.current_task or finish):
             out_fitness = game.getFitnessScore() - self.current_fitness;
             self.current_data.append(((self.previous_task,self.current_task),out_fitness));
@@ -436,11 +461,36 @@ class TaskFitnessReporter(ThreadedGameReporter[list[tuple[tuple[tuple[float,floa
         self.on_tick(game,None,finish=True);
         if game.getMappedData()['task_path_complete']:
             self.current_data.append(((self.previous_task,'goal'),-1));
-        self.put_data(self.current_data);
+        self.put_data(IdData(self.data_id,self.current_data));
+
+    def start_generation(self, generation):
+        print(f"Task Fitness Reporter - generation {f} started");
+        self.generation = generation;
+
+    def end_generation(self, config, population, species_set):
+        print(f"Task Fitness Reporter - generation {self.generation} ended");
+        if self.generation is not None and self.save_path:
+            data = list(self.get_all_data());
+            out:dict[int,list[list[float]]] = DefaultDict(lambda: []);
+            for d in data:
+                self.put_data(d);
+                out[d.id].append([f[1] for f in d.data]);
+            
+            out_path = self.save_path/f"gen_{self.generation}";
+            checkpoint = FitnessCheckpoint(out);
+            checkpoint.save_checkpoint(out_path);
+
+        
+
+    
     
 if __name__== "__main__":
     player = LevelPlayer();
-    game = EvalGame(SMB1Game);
+
+
+    ### LOAD NEAT PLAYER ###
+
+    game = EvalGame(SMB1Game,num_rendered_processes=4);
 
     inputData = [
         'player_state',
@@ -461,15 +511,49 @@ if __name__== "__main__":
     runConfig.view_distance = 3.75;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
-    runConfig.parallel_processes = 4;
+    runConfig.parallel_processes = 6;
     runConfig.chunkFactor = 24;
-    runConfig.saveFitness = True;
+    runConfig.saveFitness = False;
 
     run_name = 'play_test'
 
     runConfig.logPath = f'logs\\smb1Py\\run-{run_name}-log.txt';
     runConfig.fitness_collection_type='delta';
-    player.set_NEAT_player(game,runConfig,run_name,runConfig.view_distance,runConfig.tile_scale,checkpoint_run_name='run_10');
+
+    configs = [
+        GenerationOptions(num_blocks=0,ground_height=7,valid_task_blocks=c.FLOOR,valid_start_blocks=c.FLOOR), #0
+        GenerationOptions(num_blocks=0,ground_height=7,valid_task_blocks=c.INNER,valid_start_blocks=c.FLOOR), #1
+        GenerationOptions(num_blocks=(1,3),ground_height=7,valid_task_blocks=c.INNER,valid_start_blocks=c.FLOOR), #2
+        GenerationOptions(num_blocks=(0,4),ground_height=7,task_batch_size=(1,4)), #3
+        GenerationOptions(num_blocks=(0,8),ground_height=(7,8),task_batch_size=(1,4)), #4
+        GenerationOptions(num_blocks=(0,4),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(1,2)), #5
+        GenerationOptions(num_blocks=(0,6),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(0,4)), #6
+        GenerationOptions(num_blocks=(0,4),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(1,3),allow_gap_under_start=True), #7
+        GenerationOptions(num_blocks=(0,6),ground_height=7,task_batch_size=(1,3),num_enemies={c.ENEMY_TYPE_GOOMBA:1},valid_enemy_positions=c.GROUNDED), #8
+        GenerationOptions(size=(20,15),inner_size=(14,9),num_blocks=(0,8),ground_height=(7,8),task_batch_size=(1,4)), #9
+        GenerationOptions(size=(18,14),inner_size=(12,8),num_blocks=(0,6),ground_height=7,task_batch_size=(1,4),num_gaps=(1,3),gap_width=(1,3)), #10
+        ];
+    
+    orders = [(configs[4],55),(configs[2],20),(configs[6],10),(configs[7],5),(configs[9],35),(configs[10],15)];
+
+    tdat_gen = partial(generate_data,orders)
+
+    fitness_save_path = Path("memories")/"smb1Py"/f"{run_name}_fitness_history";
+
+    transfer = True;
+    if transfer:
+        config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                        neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                        Path("configs")/"config-pygame-smb1-blockgrid");
+        config_transfer = (config, None, None)
+        
+        player.set_NEAT_player(game,runConfig,run_name,runConfig.view_distance,runConfig.tile_scale,checkpoint_run_name='run_10',extra_training_data_gen = tdat_gen,config_override=config_transfer);
+    else:
+        player.set_NEAT_player(game,runConfig,run_name,runConfig.view_distance,runConfig.tile_scale,checkpoint_run_name='run_10',extra_training_data_gen = tdat_gen);
+
+
+
+    ### LOAD FIXED NET ###
 
     model_path = 'models/test_q3_long3.model'
     model = None;
@@ -477,6 +561,10 @@ if __name__== "__main__":
         model = torch.load(f,map_location=torch.device('cpu'));
     model.eval();
     player.set_fixed_net(model,'collision_grid',(6,6),8,40);
+
+
+
+    ### LEVEL INITIATION ###
 
     level_path = Path('levels')/'testing'/'test3.lvl';
     level = None;
@@ -491,8 +579,7 @@ if __name__== "__main__":
 
     goals = [(48*c.TILE_SIZE,i*c.TILE_SIZE) for i in range(20)]; 
 
-
-    save = "test_level_play_t6.chp"
+    save = "level_routing_checkpoints/level3.chp"
     checkpoint = None;
     if os.path.exists(save):
         print("loading checkpoint...")
@@ -506,5 +593,5 @@ if __name__== "__main__":
         task_offset_downscale=2,
         search_checkpoint=checkpoint,
         checkpoint_save_location=save,
-        training_dat_per_gen=25);
+        training_dat_per_gen=40);
 

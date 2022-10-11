@@ -41,18 +41,20 @@ class EvalGame:
         if kwargs is not None:
             for name,arg in kwargs.items():
                 self.initInputs[name] = arg;
-        game = self.gameClass(runnerConfig,**self.initInputs);
-        [game.register_reporter(rep) for rep in self.reporters];
-        [rep.on_start(game) for rep in self.reporters];
+        game = self.gameClass(runnerConfig,reporters=self.reporters,**self.initInputs);
         return game;
         
 
 class RunGame(ABC):
-    def __init__(self,runnerConfig:RunnerConfig,**kwargs):
+    def __init__(self,runnerConfig:RunnerConfig,reporters:list|None=None,**kwargs):
         self.steps = 0;
         self.runConfig = runnerConfig;
         self.reporters:list[GameReporter] = [];
         self.mapDataCache = None;
+        [self.register_reporter(rep) for rep in reporters];
+        [rep.on_start(self) for rep in self.reporters];
+        if ('training_datum_id' in kwargs):
+            [rep.on_training_data_load(self,kwargs['training_datum_id']) for rep in self.reporters];
 
     def getData(self)->list:
         mappedData = self.getMappedData();

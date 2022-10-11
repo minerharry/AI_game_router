@@ -9,6 +9,8 @@ from typing import TypeVar,Generic
 
 
 class GameReporter(abc.ABC):
+    @abstractmethod
+    def on_training_data_load(self,game,id): pass;
     
     @abstractmethod
     def on_start(self,game): pass;

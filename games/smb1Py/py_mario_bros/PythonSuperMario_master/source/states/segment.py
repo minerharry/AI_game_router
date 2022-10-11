@@ -878,7 +878,6 @@ class Segment(tools.State):
     
     def check_for_player_death(self):
         if (self.player.rect.y > self.map_bounds[3]):
-
             self.player.die();
         elif self.task_bounds is not None:
             if not ((self.player.rect.centerx < self.task_bounds[1] and self.player.rect.centerx>self.task_bounds[0]) and (self.player.rect.centery < self.task_bounds[3] and self.player.rect.centery > self.task_bounds[2])):
@@ -893,13 +892,23 @@ class Segment(tools.State):
             p = self.player.rect.center;
             if len(self.task_path) > 1:
                 if math.sqrt((p[0]-self.task[0])**2 + (p[1]-self.task[1])**2) < TASK_PATH_CHANGE_THRESHOLD:
-                    self.task_path.remove(self.task);
-                    self.task_reached += 1;
-                    self.task = self.task_path[0];
+                    self.increment_task_path();
             elif self.player.hitbox.collidepoint(self.task):
-                self.task_path.remove(self.task);
-                self.task_reached += 1;
+                self.increment_task_path(load_next=False);
                 self.done = True;
+
+    def increment_task_path(self,load_next=True,move_player=False):
+        if (len(self.task_path) == 0):
+            raise Exception("Smbpy Segment Error: tried to increment task path with nothing left on the path");
+        if move_player:
+            self.player.rect.centerx = self.task[0];
+            self.player.rect.centry = self.task[1];
+        self.task_path.remove(self.task);
+        self.task_reached += 1;
+        if load_next:
+            self.task = self.task_path[0];
+
+
 
     def check_if_player_on_IN_pipe(self):
         '''check if player is on the pipe which can go down in to it '''

@@ -1,3 +1,4 @@
+from copy import copy
 import os
 from pathlib import Path
 import pickle
@@ -11,6 +12,7 @@ from training_data import TrainingDataManager
 import games.smb1Py.py_mario_bros.PythonSuperMario_master.source.constants as c
 import json
 from skimage.io import imshow
+import copy
 
 data_folders = [Path("H:\\Other computers\\My Computer\\"),Path("memories")][:1];
 start_gens = [1583,1603][:1];
@@ -19,8 +21,8 @@ out_folder = Path("data");
 for n,(data_folder,start_gen,run) in tqdm(enumerate(zip(data_folders,start_gens,runs)),total=len(runs)):
 
     fitness_folder = data_folder/'smb1Py'/f'run_10_fitness_history';
-    dat:dict[int,dict[int,float]] = None;  # type: ignore
-
+    dat:dict[int,dict[int,float|dict[int,float]]|list[float|dict[int,float]]] = None;  # type: ignore
+    #datum_id : {(optional) genome_id : fitness | level_segment_fitnesses}
     process_all = True;
 
     to_process = [];
@@ -56,7 +58,15 @@ for n,(data_folder,start_gen,run) in tqdm(enumerate(zip(data_folders,start_gens,
         training_data = []
 
 
-        for id,fitnesses in tqdm(dat.items()):
+        for id,task_fitnesses in tqdm(dat.items()):
+            if isinstance(task_fitnesses,dict):
+                task_fitnesses = np.array(task_fitnesses.values());
+            else:
+                task_fitnesses = np.array(task_fitnesses);
+            
+            if (len(task_fitnesses.shape) == 1):
+                np.expand_dims(task_fitnesses,0);
+            
             state = TDM[id];
             if not started:
                 game.state.startup(0,{c.LEVEL_NUM:1},initial_state=state);
@@ -64,17 +74,24 @@ for n,(data_folder,start_gen,run) in tqdm(enumerate(zip(data_folders,start_gens,
             else:
                 game.load_segment(state);
 
-            gdat = dict(game.get_game_data(view_distance,tile_scale));
-            mdat = dict(game.get_map_data(tile_scale));
-            flist = np.array(list(fitnesses.values()));
-            fitness_data = {
-                'mean':np.average(flist),
-                'median':np.median(flist),
-                'quantiles':[np.quantile(flist,0.25),np.quantile(flist,0.75)],
-                'max':np.max(flist),
-                'min':np.min(flist),
-            }
-            training_data.append(((gdat,mdat),fitness_data));
+
+            for flist in task_fitnesses:
+                gdat = dict(game.get_game_data(view_distance,tile_scale));
+                mdat = dict(game.get_map_data(tile_scale));
+                
+                fitness_data = {
+                    'mean':np.average(flist),
+                    'median':np.median(flist),
+                    'quantiles':[np.quantile(flist,0.25),np.quantile(flist,0.75)],
+                    'max':np.max(flist),
+                    'min':np.min(flist),
+                }
+
+                training_data.append(((gdat,mdat),fitness_data));
+
+                s:Segment = game.state;
+                s.increment_task_path(move_player=True);
+
 
 
         with open((out_folder/(f'{n}_{p.name}')).with_suffix('.gz'),'wb') as f:
