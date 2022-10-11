@@ -8,6 +8,7 @@ import pickle
 import random
 from typing import Callable, DefaultDict, Generic, Iterable, Literal, NamedTuple, TypeVar
 from baseGame import EvalGame
+from custom_species_set import CustomSpeciesSet
 from fitnessReporter import FitnessCheckpoint
 from gameReporting import ThreadedGameReporter
 from game_runner_neat import GameRunner
@@ -536,14 +537,14 @@ if __name__== "__main__":
     
     orders = [(configs[4],55),(configs[2],20),(configs[6],10),(configs[7],5),(configs[9],35),(configs[10],15)];
 
-    tdat_gen = partial(generate_data,orders)
+    tdat_gen = partial(generate_data,orders);
 
     fitness_save_path = Path("memories")/"smb1Py"/f"{run_name}_fitness_history";
 
     transfer = True;
     if transfer:
         config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
-                        neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                        CustomSpeciesSet, neat.DefaultStagnation,
                         Path("configs")/"config-pygame-smb1-blockgrid");
         config_transfer = (config, None, None)
         
