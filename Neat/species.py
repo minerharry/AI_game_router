@@ -95,6 +95,19 @@ class DefaultSpeciesSet(DefaultClassConfig):
             new_members[sid] = [new_rid]
             unspeciated.remove(new_rid)
 
+        ## NEW IMPLEMENTATION: Calculate representative variation to use the "relative" distance
+        reps = set(itervalues(new_representatives));
+        rep_distances = {};
+        while reps:
+            rid = reps.pop();
+            r = population[rid];
+            for oid in reps:
+                rep_distances[(rid,oid)] = distances(r,population[oid]);
+        
+        rep_stdev = stdev(itervalues(distances.distances));
+
+        self.reporters.info(f'Representative genetic distance (stdev): {rep_stdev}');
+
         # Partition population into species based on genetic similarity.
         while unspeciated:
             gid = unspeciated.pop()
@@ -105,7 +118,7 @@ class DefaultSpeciesSet(DefaultClassConfig):
             for sid, rid in iteritems(new_representatives):
                 rep = population[rid]
                 d = distances(rep, g)
-                if d < compatibility_threshold:
+                if d < compatibility_threshold*rep_stdev:
                     candidates.append((d, sid))
 
             if candidates:

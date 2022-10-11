@@ -94,6 +94,6 @@ class Checkpointer(BaseReporter):
                         for genome in itervalues(population):
                             genome.remap_outputs(outputMap,config.genome_config,newConfig.genome_config);
                     config = newConfig;
-                print(config.genome_config.input_keys)
                 pop = Population(config, (population, species_set, generation))
+                species_set.reporters = pop.reporters;
                 return pop;

@@ -5,6 +5,7 @@ from neat.species import DefaultSpeciesSet, GenomeDistanceCache, Species
 
 class CustomSpeciesSet(DefaultSpeciesSet):
     def speciate(self, config, population, generation):
+        print("speciating");
         """
         Place genomes into species by genetic similarity.
 
@@ -48,6 +49,7 @@ class CustomSpeciesSet(DefaultSpeciesSet):
         
         rep_stdev = stdev(itervalues(distances.distances));
 
+        self.reporters.info(f'Representative genetic distance (stdev): {rep_stdev}');
 
         # Partition population into species based on genetic similarity.
         while unspeciated:

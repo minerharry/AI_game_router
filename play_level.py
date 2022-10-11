@@ -544,7 +544,7 @@ if __name__== "__main__":
     transfer = True;
     if transfer:
         config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
-                        CustomSpeciesSet, neat.DefaultStagnation,
+                        neat.DefaultSpeciesSet, neat.DefaultStagnation,
                         Path("configs")/"config-pygame-smb1-blockgrid");
         config_transfer = (config, None, None)
         
