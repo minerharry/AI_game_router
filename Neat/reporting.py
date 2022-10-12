@@ -20,7 +20,7 @@ class ReporterSet(object):
     and gives methods to dispatch them at appropriate points.
     """
     def __init__(self):
-        self.reporters = []
+        self.reporters:list[BaseReporter] = []
 
     def add(self, reporter):
         self.reporters.append(reporter)
@@ -43,6 +43,14 @@ class ReporterSet(object):
     def post_reproduction(self, config, population, species):
         for r in self.reporters:
             r.post_reproduction(config, population, species)
+
+    def post_speciation(self, config, population, species):
+        for r in self.reporters:
+            r.post_speciation(config, population, species)
+
+    def checkpoint_restored(self, generation):
+        for r in self.reporters:
+            r.checkpoint_restored(generation)
 
     def complete_extinction(self):
         for r in self.reporters:
@@ -73,6 +81,12 @@ class BaseReporter(object):
         pass
 
     def post_reproduction(self, config, population, species):
+        pass
+
+    def post_speciation(self, config, population, species):
+        pass
+
+    def checkpoint_restored(self,generation):
         pass
 
     def complete_extinction(self):

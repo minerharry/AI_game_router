@@ -1,9 +1,12 @@
 """Divides the population into species based on genomic distances."""
 from itertools import count
 
+from tqdm import tqdm
+
 from neat.math_util import mean, stdev
 from neat.six_util import iteritems, iterkeys, itervalues
 from neat.config import ConfigParameter, DefaultClassConfig
+import scipy.stats as st
 
 class Species(object):
     def __init__(self, key, generation):
@@ -51,7 +54,6 @@ class DefaultSpeciesSet(DefaultClassConfig):
 
     def __init__(self, config, reporters):
         # pylint: disable=super-init-not-called
-        self.species_set_config = config
         self.reporters = reporters
         self.indexer = count(1)
         self.species = {}
@@ -60,7 +62,7 @@ class DefaultSpeciesSet(DefaultClassConfig):
     @classmethod
     def parse_config(cls, param_dict):
         return DefaultClassConfig(param_dict,
-                                  [ConfigParameter('compatibility_threshold', float)])
+                                  [ConfigParameter('compatibility_threshold', float),ConfigParameter('compatibility_type',str,default='absolute')]);
 
     def speciate(self, config, population, generation):
         """
@@ -74,14 +76,13 @@ class DefaultSpeciesSet(DefaultClassConfig):
         """
         assert isinstance(population, dict)
 
-        compatibility_threshold = self.species_set_config.compatibility_threshold
 
         # Find the best representatives for each existing species.
         unspeciated = set(iterkeys(population))
         distances = GenomeDistanceCache(config.genome_config)
         new_representatives = {}
         new_members = {}
-        for sid, s in iteritems(self.species):
+        for sid, s in self.species.items():
             candidates = []
             for gid in unspeciated:
                 g = population[gid]
@@ -94,23 +95,26 @@ class DefaultSpeciesSet(DefaultClassConfig):
             new_representatives[sid] = new_rid
             new_members[sid] = [new_rid]
             unspeciated.remove(new_rid)
-
-        ## NEW IMPLEMENTATION: Calculate representative variation to use the "relative" distance
-        reps = set(itervalues(new_representatives));
-        rep_distances = {};
-        while reps:
-            rid = reps.pop();
-            r = population[rid];
-            for oid in reps:
-                rep_distances[(rid,oid)] = distances(r,population[oid]);
         
+        rep_mean = mean(itervalues(distances.distances));
         rep_stdev = stdev(itervalues(distances.distances));
 
-        self.reporters.info(f'Representative genetic distance (stdev): {rep_stdev}');
+        compatibility_threshold = None;
+        if (config.species_set_config.compatibility_type == 'absolute'):
+            compatibility_threshold = config.species_set_config.compatibility_threshold;
+        elif (config.species_set_config.compatibility_type == 'percentile'):
+            z = st.norm.ppf(config.species_set_config.compatibility_threshold);
+            compatibility_threshold = rep_mean + z*rep_stdev;
+        else:
+            raise Exception("Invalid parameter for",self.__class__.__name__," - compatibility_type:",config.species_set_config.compatibility_type);
+
+        self.reporters.info(f"using compatibility threshold {compatibility_threshold}");
+
+        self.reporters.info(f'Mean representative genetic distance {rep_mean:.3f}, stdev: {rep_stdev:.3f}');
 
         # Partition population into species based on genetic similarity.
-        while unspeciated:
-            gid = unspeciated.pop()
+        for gid in unspeciated:
+            # gid = unspeciated.pop()
             g = population[gid]
 
             # Find the species with the most similar representative.
@@ -118,7 +122,7 @@ class DefaultSpeciesSet(DefaultClassConfig):
             for sid, rid in iteritems(new_representatives):
                 rep = population[rid]
                 d = distances(rep, g)
-                if d < compatibility_threshold*rep_stdev:
+                if d < compatibility_threshold:
                     candidates.append((d, sid))
 
             if candidates:

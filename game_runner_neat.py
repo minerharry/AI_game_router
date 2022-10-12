@@ -100,6 +100,7 @@ class GameRunner:
             for reporter in self.runConfig.reporters:
                 pop.add_reporter(reporter);
         if (continuing):
+            pop.reporters.checkpoint_restored(pop.generation);
             pop.complete_generation();
         
         if self.runConfig.parallel and not hasattr(self,'pool'):

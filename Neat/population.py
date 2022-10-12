@@ -47,6 +47,7 @@ class Population(object):
             self.species.speciate(config, self.population, self.generation)
         else:
             self.population, self.species, self.generation = initial_state
+            self.reporters.checkpoint_restored(self.generation);
 
         self.best_genome = None
 
@@ -62,8 +63,12 @@ class Population(object):
         self.population = self.reproduction.reproduce(self.config, self.species,
                                                       self.config.pop_size, self.generation)
 
+        self.reporters.post_reproduction(self.config,self.population,self.species);
+        
         # Divide the new population into species.
         self.species.speciate(self.config, self.population, self.generation)
+
+        self.reporters.post_speciation(self.config,self.population,self.species);
 
         #self.reporters.end_generation(self.config, self.population, self.species)
 
@@ -123,6 +128,8 @@ class Population(object):
             self.population = self.reproduction.reproduce(self.config, self.species,
                                                           self.config.pop_size, self.generation)
 
+            self.reporters.post_reproduction(self.config,self.population,self.species);
+
             # Check for complete extinction.
             if not self.species.species:
                 self.reporters.complete_extinction()
@@ -138,6 +145,8 @@ class Population(object):
 
             # Divide the new population into species.
             self.species.speciate(self.config, self.population, self.generation)
+
+            self.reporters.post_speciation(self.config,self.population,self.species);
 
             self.reporters.end_generation(self.config, self.population, self.species)
 

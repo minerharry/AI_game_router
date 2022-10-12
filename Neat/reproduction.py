@@ -86,6 +86,8 @@ class DefaultReproduction(DefaultClassConfig):
         Handles creation of genomes, either from scratch or by sexual or
         asexual reproduction from parents.
         """
+
+        self.reporters.info(f"Reproducing to population size {pop_size}");
         # TODO: I don't like this modification of the species and stagnation objects,
         # because it requires internal knowledge of the objects.
 
@@ -130,6 +132,7 @@ class DefaultReproduction(DefaultClassConfig):
         # Compute the number of new members for each species in the new generation.
         previous_sizes = [len(s.members) for s in remaining_species]
         min_species_size = self.reproduction_config.min_species_size
+        
         # Isn't the effective min_species_size going to be max(min_species_size,
         # self.reproduction_config.elitism)? That would probably produce more accurate tracking
         # of population sizes and relative fitnesses... doing. TODO: document.
@@ -185,4 +188,6 @@ class DefaultReproduction(DefaultClassConfig):
                 new_population[gid] = child
                 self.ancestors[gid] = (parent1_id, parent2_id)
 
+        if (len(new_population)/pop_size >= 1.5):
+            self.reporters.info(f"Warning: reproduced population with size {len(new_population)} significantly more than target size {pop_size}");
         return new_population

@@ -189,7 +189,7 @@ class Config(object):
         self.genome_config = genome_type.parse_config(genome_dict)
 
         species_set_dict = dict(parameters.items(species_set_type.__name__))
-        self.species_set_config = species_set_type.parse_config(species_set_dict)
+        self.species_set_config = species_set_type.parse_config(species_set_dict);
 
         stagnation_dict = dict(parameters.items(stagnation_type.__name__))
         self.stagnation_config = stagnation_type.parse_config(stagnation_dict)

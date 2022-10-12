@@ -68,12 +68,9 @@ weight_mutate_power     = 0.5
 weight_mutate_rate      = 0.8
 weight_replace_rate     = 0.1
 
-# for compatibility
 [DefaultSpeciesSet]
-compatibility_threshold = 0.05
-
-[CustomSpeciesSet]
-compatibility_threshold = 0.1
+compatibility_type = percentile
+compatibility_threshold = 0.5
 
 [DefaultStagnation]
 species_fitness_func = max

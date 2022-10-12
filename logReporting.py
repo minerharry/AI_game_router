@@ -24,12 +24,15 @@ class LoggingReporter(BaseReporter):
         self.output('\n ****** Running generation {0} ****** \n'.format(generation))
         self.generation_start_time = time.time()
 
-    def end_generation(self, config, population, species_set):
-        ng = len(population)
-        ns = len(species_set.species)
-        outputString = '';
+    def checkpoint_restored(self,generation):
+        self.generation = generation;
+        
+
+    def post_speciation(self, config, population, species_set):
         if self.show_species_detail:
-            outputString += 'Population of {0:d} members in {1:d} species:'.format(ng, ns) + '\n';
+            ng = len(population)
+            ns = len(species_set.species)
+            outputString = 'Population of {0:d} members in {1:d} species:'.format(ng, ns) + '\n';
             sids = list(iterkeys(species_set.species))
             sids.sort()
             outputString += ("   ID   age  size  fitness  adj fit  stag") + '\n';
@@ -42,10 +45,17 @@ class LoggingReporter(BaseReporter):
                 af = "--" if s.adjusted_fitness is None else "{:.3f}".format(s.adjusted_fitness)
                 st = self.generation - s.last_improved
                 outputString += ("  {: >4}  {: >3}  {: >4}  {: >7}  {: >7}  {: >4}".format(sid, a, n, f, af, st)) + '\n';
-        else:
-            outputString += ('Population of {0:d} members in {1:d} species'.format(ng, ns)) + '\n';
+            self.output(outputString);
+            
 
-        elapsed = time.time() - self.generation_start_time
+    def end_generation(self, config, population, species_set):
+        ng = len(population)
+        ns = len(species_set.species)
+        outputString = '';
+        
+        outputString += ('Population of {0:d} members in {1:d} species'.format(ng, ns)) + '\n';
+
+        elapsed = time.time() - self.generation_start_time;
         self.generation_times.append(elapsed)
         self.generation_times = self.generation_times[-10:]
         average = sum(self.generation_times) / len(self.generation_times)
