@@ -24,7 +24,7 @@ class Species(object):
         self.members = members
 
     def get_fitnesses(self):
-        return [m.fitness for m in itervalues(self.members)]
+        return [m.fitness for m in self.members.values()]
 
 
 class GenomeDistanceCache(object):

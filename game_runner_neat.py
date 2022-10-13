@@ -262,8 +262,12 @@ class GameRunner:
             runningGame = self.game.start(runnerConfig,training_datum = training_datum);
             images = [];
             fitness = 0;
-            if runnerConfig.fitness_collection_type != None and 'delta' in runnerConfig.fitness_collection_type:
+            if 'delta' in runnerConfig.fitness_collection_type:
                 fitness -= runningGame.getFitnessScore();
+
+            max_fitness = 0;
+            if 'max' in runnerConfig.fitness_collection_type:
+                max_fitness = runningGame.getFitnessScore();
             #get the current inputs from the running game, as specified by the runnerConfig
             gameData = runningGame.getData();
             while (runningGame.isRunning(useCache=True)):
@@ -276,12 +280,17 @@ class GameRunner:
                     runningGame.tickRenderInput(gameInput);
 
 
-                if (runnerConfig.fitness_collection_type != None and 'continuous' in runnerConfig.fitness_collection_type):
+                if ('continuous' in runnerConfig.fitness_collection_type):
                     fitness += runningGame.getFitnessScore();
+                elif ('max' in runnerConfig.fitness_collection_type):
+                    max_fitness = max(max_fitness,runningGame.getFitnessScore());
 
                 gameData = runningGame.getData();
 
-            fitness += runningGame.getFitnessScore();
+            if 'max' in runnerConfig.fitness_collection_type:
+                fitness += max_fitness;
+            elif 'continuous' not in runnerConfig.fitness_collection_type: #prevent double counting
+                fitness += runningGame.getFitnessScore();
 
             print('final genome fitness: ' + str(fitness));
 

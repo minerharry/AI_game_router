@@ -6,7 +6,7 @@ from training_data import TrainingDataManager
 
 class RunnerConfig:
 
-    def __init__(self,gameFitnessFunction:Callable[[dict],float],gameRunningFunction:Callable[[dict],float],training_data:TrainingDataManager|None=None,logging=False,logPath='',recurrent=False,trial_fitness_aggregation='average',custom_fitness_aggregation=None,time_step=0.05,num_trials=10,parallel=False,returnData:list[str|IOData]=[],gameName='game',num_generations:int|None=300,fitness_collection_type=None):
+    def __init__(self,gameFitnessFunction:Callable[[dict],float],gameRunningFunction:Callable[[dict],float],training_data:TrainingDataManager|None=None,logging=False,logPath='',recurrent=False,trial_fitness_aggregation='average',custom_fitness_aggregation=None,time_step=0.05,num_trials=10,parallel=False,returnData:list[str|IOData]=[],gameName='game',num_generations:int|None=300,fitness_collection_type='final'):
         self.logging = logging;
         self.logPath = logPath;
         self.generations = num_generations;
