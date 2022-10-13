@@ -70,7 +70,7 @@ weight_replace_rate     = 0.1
 
 [DefaultSpeciesSet]
 compatibility_type = percentile
-compatibility_threshold = 0.5
+compatibility_threshold = 0.4
 
 [DefaultStagnation]
 species_fitness_func = max

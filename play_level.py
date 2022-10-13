@@ -164,16 +164,21 @@ class LevelPlayer:
             state.task_path = task_path;
             data.append(state);
 
-        if self.extra_dat_gen:
-            data += self.extra_dat_gen();
-
         self.tdat.set_data(data);
 
-        print("evaluating on data:",list(zip(tasks,self.tdat.active_data.keys())));
+        level_ids = list(self.tdat.active_data.keys());
+
+        num_extra = None;
+        if self.extra_dat_gen:
+            extra = self.extra_dat_gen();
+            num_extra = len(extra);
+            self.tdat.add_data(extra);
+
+        print("evaluating on level data:",list(zip(tasks,self.tdat.active_data.keys())),f"with {num_extra} additional data" if num_extra is not None else "");
 
         self.gamerunner.continue_run(self.checkpoint_run_name,manual_config_override=self.neat_config_override);
 
-        return [d.data for d in self.task_reporter.get_all_data()];
+        return [d.data for d in self.task_reporter.get_all_data() if d.id in level_ids];
 
     def log(self,*args,**kwargs):
         print(*args,**kwargs);
@@ -419,10 +424,11 @@ class LevelPlayer:
             log('running d* iteration')
             self.d_searcher.update_costs(d_updates);
 
+            log('running A* iteration')
+            log(f'{len(completed_paths)} newly completed paths: {completed_paths}')
             for path in completed_paths:
                 self.a_searcher.complete_edge((tuple(path[:-1]),tuple(path)));
 
-            log('running A* iteration')
             self.a_searcher.update_scores(a_updates);
         
         return winning_path;

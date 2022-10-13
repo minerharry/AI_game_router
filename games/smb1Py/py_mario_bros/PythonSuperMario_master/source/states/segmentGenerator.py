@@ -152,7 +152,7 @@ class SegmentGenerator:
                 task_options = [t for t in task_options if dist(player_position,t) < options.task_dist_range[0]]
 
         
-        print(task_options);
+        # print(task_options);
 
         raw_data = [options.size,block_positions,[],[],dynamics,player_position, random.sample(task_options,min(len(task_options),batchSize)),bounds];
         if return_raw:
@@ -165,7 +165,7 @@ class SegmentGenerator:
     def export(size:tuple[int,int],blocks:list[tuple[int,int]],bricks:list,boxes:list,dynamics:dict[str,Any],player_start:tuple[int,int],task_positions:list[tuple[int,int]],task_bounds:tuple[int,int]):
         output_statics = {};
         output_dynamics = {};
-        print(task_positions);
+        # print(task_positions);
         if blocks is not None and len(blocks) > 0:
             output_statics["ground"] = [{"x":pos[0]*c.TILE_SIZE,"y":pos[1]*c.TILE_SIZE,"width":c.TILE_SIZE,"height":c.TILE_SIZE} for pos in blocks];
         if bricks is not None and len(bricks) > 0:
@@ -202,11 +202,11 @@ class SegmentGenerator:
     @staticmethod
     def generateBatch(options,batchSize,**kwargs):
         output = [];
-        print(batchSize)
+        # print(batchSize)
         while len(output) < batchSize:
             output += SegmentGenerator.generate(options,makeBatches=True,**kwargs);
             # print(output);
-            print(len(output));
+            # print(len(output));
         return output[:batchSize];
 
 
