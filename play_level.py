@@ -180,6 +180,7 @@ class LevelPlayer:
 
         result =  [d.data for d in self.task_reporter.get_all_data() if d.id in level_ids];
         print("Neat player evaluated;",len(result),"data collected");
+        return result;
 
     def log(self,*args,**kwargs):
         print(*args,**kwargs);
