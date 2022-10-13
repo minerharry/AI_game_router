@@ -108,7 +108,7 @@ class DefaultSpeciesSet(DefaultClassConfig):
         else:
             raise Exception("Invalid parameter for",self.__class__.__name__," - compatibility_type:",config.species_set_config.compatibility_type);
 
-        self.reporters.info(f"using compatibility threshold {compatibility_threshold}");
+        self.reporters.info(f"Using compatibility threshold {compatibility_threshold:.3f}");
 
         self.reporters.info(f'Mean representative genetic distance {rep_mean:.3f}, stdev: {rep_stdev:.3f}');
 
