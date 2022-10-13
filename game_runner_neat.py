@@ -101,7 +101,7 @@ class GameRunner:
                 pop.add_reporter(reporter);
         if (continuing):
             pop.reporters.checkpoint_restored(pop.generation);
-            pop.complete_generation();
+            # pop.complete_generation();
         
         if self.runConfig.parallel and not hasattr(self,'pool'):
             manager = multiprocessing.Manager()

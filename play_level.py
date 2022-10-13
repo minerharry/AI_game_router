@@ -469,7 +469,7 @@ class TaskFitnessReporter(BaseReporter,ThreadedGameReporter[IdData[list[tuple[tu
         self.on_tick(game,None,finish=True);
         if game.getMappedData()['task_path_complete']:
             self.current_data.append(((self.previous_task,'goal'),-1));
-            print(f"TaskFitnessReporter: Task sequence completed for data {self.data_id}");
+            # print(f"Task Fitness Reporter: Task sequence completed for data {self.data_id}");
         self.put_data(IdData(self.data_id,self.current_data));
 
     def start_generation(self, generation):

@@ -31,11 +31,12 @@ class EvalGame:
 
     def register_reporter(self,reporter:GameReporter):
         if reporter not in self.reporters:
+            print(f"EvalGame: reporter {reporter} registered")
             self.reporters.append(reporter);
 
     def deregister_reporter(self,reporter):
         if reporter in self.reporters:
-            self.reporters.append(reporter);    
+            self.reporters.remove(reporter);    
 
     def start(self,runnerConfig:RunnerConfig,**kwargs):
         if kwargs is not None:
@@ -51,8 +52,9 @@ class RunGame(ABC):
         self.runConfig = runnerConfig;
         self.reporters:list[GameReporter] = [];
         self.mapDataCache = None;
-        [self.register_reporter(rep) for rep in reporters];
-        [rep.on_start(self) for rep in self.reporters];
+        if reporters:
+            [self.register_reporter(rep) for rep in reporters];
+            [rep.on_start(self) for rep in self.reporters];
         if ('training_datum_id' in kwargs):
             [rep.on_training_data_load(self,kwargs['training_datum_id']) for rep in self.reporters];
 

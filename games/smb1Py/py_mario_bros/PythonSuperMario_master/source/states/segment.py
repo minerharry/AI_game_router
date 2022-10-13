@@ -895,14 +895,18 @@ class Segment(tools.State):
                     self.increment_task_path();
             elif self.player.hitbox.collidepoint(self.task):
                 self.increment_task_path(load_next=False);
+                
                 self.done = True;
 
     def increment_task_path(self,load_next=True,move_player=False):
+        assert self.task_path is not None
+        assert self.task is not None
+
         if (len(self.task_path) == 0):
             raise Exception("Smbpy Segment Error: tried to increment task path with nothing left on the path");
         if move_player:
             self.player.rect.centerx = self.task[0];
-            self.player.rect.centry = self.task[1];
+            self.player.rect.centery = self.task[1];
         self.task_path.remove(self.task);
         self.task_reached += 1;
         if load_next:

@@ -58,6 +58,8 @@ class Population(object):
         self.reporters.remove(reporter)
 
     def complete_generation(self):
+        print("generation completed SHOULD NOT HAPPEN");
+        raise Exception();
 
         # Create the next generation from the current generation.
         self.population = self.reproduction.reproduce(self.config, self.species,

@@ -11,9 +11,7 @@ empty_actions = dict(zip(['action','jump','left','right','down'],[False for i in
 class SMB1Game(RunGame):
     
     def __init__(self,runnerConfig:RunnerConfig,**kwargs):
-        self.steps = 0;
         self.runConfig = runnerConfig;
-        self.reporters:list[GameReporter] = [];
         datum = None
         if 'training_datum_id' in kwargs:
             datum = self.runConfig.training_data[kwargs['training_datum_id']];
@@ -41,6 +39,7 @@ class SMB1Game(RunGame):
         self.last_path = None;
         self.frame_counter = 0;
         self.frame_cycle = 4 if not hasattr(runnerConfig,"frame_cycle") else runnerConfig.frame_cycle;
+        super().__init__(runnerConfig,**kwargs);
 
 
     def getOutputData(self):
