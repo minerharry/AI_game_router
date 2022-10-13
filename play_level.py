@@ -178,7 +178,8 @@ class LevelPlayer:
 
         self.gamerunner.continue_run(self.checkpoint_run_name,manual_config_override=self.neat_config_override);
 
-        return [d.data for d in self.task_reporter.get_all_data() if d.id in level_ids];
+        result =  [d.data for d in self.task_reporter.get_all_data() if d.id in level_ids];
+        print("Neat player evaluated;",len(result),"data collected");
 
     def log(self,*args,**kwargs):
         print(*args,**kwargs);
@@ -468,6 +469,7 @@ class TaskFitnessReporter(BaseReporter,ThreadedGameReporter[IdData[list[tuple[tu
         self.on_tick(game,None,finish=True);
         if game.getMappedData()['task_path_complete']:
             self.current_data.append(((self.previous_task,'goal'),-1));
+            print(f"TaskFitnessReporter: Task sequence completed for data {self.data_id}");
         self.put_data(IdData(self.data_id,self.current_data));
 
     def start_generation(self, generation):

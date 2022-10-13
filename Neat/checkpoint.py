@@ -49,7 +49,7 @@ class Checkpointer(BaseReporter):
     def start_generation(self, generation):
         self.current_generation = generation
 
-    def post_evaluate(self, config, population, species_set, best):
+    def end_generation(self, config, population, species_set):
         checkpoint_due = False
 
         if self.time_interval_seconds is not None:
@@ -95,6 +95,6 @@ class Checkpointer(BaseReporter):
                             genome.remap_outputs(outputMap,config.genome_config,newConfig.genome_config);
                     config = newConfig;
 
-                pop = Population(config, (population, species_set, generation));
+                pop = Population(config, (population, species_set, generation+1));
                 species_set.reporters = pop.reporters;
                 return pop;
