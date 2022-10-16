@@ -500,7 +500,7 @@ if __name__== "__main__":
 
     ### LOAD NEAT PLAYER ###
 
-    game = EvalGame(SMB1Game,num_rendered_processes=4);
+    game = EvalGame(SMB1Game,num_rendered_processes=2);
 
     inputData = [
         'player_state',

@@ -182,7 +182,7 @@ class SegmentGenerator:
                 output_statics["enemy"]={"-1":enemy_output};
             else:
                 print("ERROR: non-enemy dynamic object generation not done yet");
-        output_statics[c.MAP_MAPS] = [{c.MAP_BOUNDS:[0,size[0]*c.TILE_SIZE,0,size[1]*c.TILE_SIZE],c.MAP_START:((player_start[0] + 0.5)*c.TILE_SIZE,(player_start[1] + 1)*c.TILE_SIZE)}]; #Add 1 to y and 0.5 to x because player map start is bottom middle not top left
+        output_statics[c.MAP_MAPS] = [{c.MAP_BOUNDS:[0,size[0]*c.TILE_SIZE,0,size[1]*c.TILE_SIZE],c.MAP_START:((player_start[0] + 0.5)*c.TILE_SIZE,(player_start[1] + 0.5)*c.TILE_SIZE)}];
         result:list[SegmentState] = [];
         scaled_bounds = [bound*c.TILE_SIZE for bound in task_bounds]
         #print(task_bounds);

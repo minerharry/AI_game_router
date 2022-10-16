@@ -216,7 +216,7 @@ class Segment(tools.State):
         if 'player' in data:
             self.player = data['player'].sprites()[0];
             self.player_x = self.player.rect.centerx;
-            self.player_y = self.player.rect.bottom;
+            self.player_y = self.player.rect.centery;
             self.player_group = data['player'];
         else:
             self.setup_player(do_viewport=do_viewport);
@@ -350,12 +350,12 @@ class Segment(tools.State):
 
         if type == c.CHECKPOINT_TYPE_MAP:
             self.player.rect.centerx = self.player_x
-            self.player.rect.bottom = self.player_y
+            self.player.rect.centery = self.player_y
             self.player.update_hitbox();
             self.player.state = c.STAND
         elif type == c.CHECKPOINT_TYPE_PIPE_UP:
             self.player.rect.centerx = self.player_x
-            self.player.rect.bottom = c.GROUND_HEIGHT
+            self.player.rect.centery = c.GROUND_HEIGHT
             self.player.update_hitbox();
             self.player.state = c.UP_OUT_PIPE
             self.player.up_pipe_y = self.player_y
@@ -422,11 +422,11 @@ class Segment(tools.State):
         else:
             self.player.restart()
         self.player.rect.centerx = self.player_x
-        self.player.rect.bottom = self.player_y
+        self.player.rect.centery = self.player_y
         self.player.update_hitbox();
         if c.DEBUG:
             self.player.rect.x = c.DEBUG_START_X
-            self.player.rect.bottom = c.DEBUG_START_y
+            self.player.rect.centery = c.DEBUG_START_y
         if (do_viewport):
             self.viewport.x = self.player.rect.x - c.SCREEN_WIDTH//3;
             self.viewport.bottom = self.player.rect.bottom + c.SCREEN_HEIGHT//3;
