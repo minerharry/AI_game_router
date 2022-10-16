@@ -73,6 +73,7 @@ class Segment(tools.State):
         self.last_save = False; #whether the save state button was held last frame
         self.saved_state = None;
         self.last_game_data = None;
+        self.last_grid = None;
         #self.game_info = persist
         #self.persist = self.game_info
         #self.game_info[c.CURRENT_TIME] = current_time
@@ -90,6 +91,7 @@ class Segment(tools.State):
 
         #self.moving_score_list = []
         #self.overhead_info = info.Info(self.game_info, c.LEVEL)
+        setup.get_GFX();
         if initial_state is None:
             if persist[c.LEVEL_NUM] is None:
                 self.blank = True;
@@ -984,14 +986,18 @@ class Segment(tools.State):
         rect.w = w;
         rect.h = h;
 
-    def draw(self, surface):
+    #blit_all will ignore viewport parameter and just draw the entire level on screen, as much as will fit the given surface
+    def draw(self, surface:pg.surface.Surface, blit_all=False):
         if not self.bg_image and self.background is not None:
             self.ground_step_pipe_group.draw(self.background);
             self.bg_image = True;
             # print("drawing background");
 
         if (self.background is not None):
-            self.level.blit(self.background, self.viewport, self.viewport)
+            if not blit_all:
+                self.level.blit(self.background, self.viewport, self.viewport)
+            else:
+                self.level.blit(self.background,(0,0));
 
         self.powerup_group.draw(self.level)
         self.brick_group.draw(self.level)
@@ -1030,8 +1036,10 @@ class Segment(tools.State):
         
         pg.draw.circle(self.level,c.PURPLE,self.map_list[0][1],2/16*c.TILE_SIZE);
 
-        # surface.fill(c.BLACK);
-        surface.blit(self.level, (0,0), (self.viewport.x,self.viewport.y,self.viewport.width,self.viewport.height+40));
+        if not blit_all:
+            surface.blit(self.level, (0,0), (self.viewport.x,self.viewport.y,self.viewport.width,self.viewport.height+40));
+        else:
+            surface.blit(self.level,(0,0));
 
         # print(self.last_game_data);
         if c.DRAW_GRID and self.last_grid:
@@ -1051,7 +1059,7 @@ class Segment(tools.State):
         size =  (bounds[1]-bounds[0],bounds[3]-bounds[2]);
         self.update_rect_grid(tile_scale,center,size);
 
-        return JITDict(delegates={
+        return JITDict[str,Any](delegates={
             'grid_bounds':lambda:bounds,
             'enemy_grid':self.get_enemy_grid,
             'collision_grid': self.get_collision_grid,

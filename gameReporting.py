@@ -1,27 +1,30 @@
-
+from __future__ import annotations
 from abc import abstractmethod
 import abc
 import multiprocessing
 from pkgutil import get_data
-from typing import TypeVar,Generic
+from typing import TypeVar,Generic,TYPE_CHECKING
+if TYPE_CHECKING:
+    from baseGame import RunGame
 
 # from baseGame import RunGame
 
 
-class GameReporter(abc.ABC):
-    @abstractmethod
-    def on_training_data_load(self,game,id): pass;
+class GameReporter():
+    def on_training_data_load(self,game:RunGame,id): pass;
     
-    @abstractmethod
-    def on_start(self,game): pass;
+    def on_start(self,game:RunGame): pass;
 
-    @abstractmethod
-    def on_tick(self,game,inputs): pass;
+    def on_tick(self,game:RunGame,inputs): pass;
 
-    def on_render_tick(self,game,inputs): self.on_tick(game,inputs);
+    def on_render_tick(self,game:RunGame,inputs): self.on_tick(game,inputs);
 
-    @abstractmethod
-    def on_finish(self,game): pass;
+    def on_finish(self,game:RunGame): pass;
+
+    #custom reporter function; game can send signal to reporters and only the ones who have the function will receive it
+    def on_signal(self,game:RunGame,signal:str,*args,**kwargs):
+        if (hasattr(self,signal)):
+            getattr(self,signal)(game,*args,**kwargs);
 
 
 T = TypeVar('T');

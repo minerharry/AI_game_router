@@ -2,6 +2,7 @@ import copy
 from functools import partial
 import itertools
 import math
+import multiprocessing
 import os
 from pathlib import Path
 import pickle
@@ -17,6 +18,7 @@ from games.smb1Py.py_mario_bros.PythonSuperMario_master.source import tools
 from games.smb1Py.py_mario_bros.PythonSuperMario_master.source.states.segment import Segment, SegmentState
 from games.smb1Py.py_mario_bros.PythonSuperMario_master.source.states.segmentGenerator import GenerationOptions, SegmentGenerator
 import games.smb1Py.py_mario_bros.PythonSuperMario_master.source.constants as c
+from level_renderer import LevelRenderer, LevelRendererReporter
 import neat
 from neat.reporting import BaseReporter
 import torch
@@ -166,6 +168,23 @@ class LevelPlayer:
 
         self.tdat.set_data(data);
 
+        renderProcess = None;
+        if self.renderer is not None:
+            reached_idxs = [p[1][-1] for p in self.a_searcher.completed_edges];
+            failed_idxs = [p for _,p in self.costs.keys() if p not in reached_idxs];
+
+            reached = [self.grid_index_to_pos(idx) for idx in reached_idxs];
+            failed = [self.grid_index_to_pos(idx) for idx in failed_idxs];
+            paths:dict[int,Iterable[tuple[float,float]]] = {id:[self.player_start,state.task] + state.task_path for id,state in self.tdat.active_data.items()};
+
+            self.renderer.set_annotations(reached,failed,paths);
+
+            self.renderReporter.reset_paths();
+            self.kill_event = multiprocessing.Event();
+            renderProcess = multiprocessing.Process(target=self.renderReporter.render_loop,args=[self.renderer,self.kill_event]);
+            renderProcess.start();
+
+
         level_ids = list(self.tdat.active_data.keys());
 
         num_extra = None;
@@ -174,12 +193,22 @@ class LevelPlayer:
             num_extra = len(extra);
             self.tdat.add_data(extra);
 
-        print("evaluating on level data:",list(zip(tasks,self.tdat.active_data.keys())),f"with {num_extra} additional data" if num_extra is not None else "");
+        task_list = list(zip(tasks,self.tdat.active_data.keys()))
+        pretty_list = [([(f"{j[0]:.3f}",f"{j[1]:.3f}") for j in t[0]],t[1]) for t in task_list];
+        print("evaluating on level data:",pretty_list,f"with {num_extra} additional data" if num_extra is not None else "");
+        
+        longest = max(tasks,key=lambda x:len(x));
+        print("max length path:",longest,"of length",len(longest));
 
         self.gamerunner.continue_run(self.checkpoint_run_name,manual_config_override=self.neat_config_override);
 
         result =  [d.data for d in self.task_reporter.get_all_data() if d.id in level_ids];
         print("Neat player evaluated;",len(result),"data collected");
+
+        if renderProcess is not None:
+            self.kill_event.set();
+            renderProcess.join();
+
         return result;
 
     def log(self,*args,**kwargs):
@@ -198,7 +227,8 @@ class LevelPlayer:
             task_offset_downscale=2,
             search_checkpoint:LevelCheckpoint|None=None,
             checkpoint_save_location="play_checkpoint.chp",
-            fitness_aggregation_type="max"):
+            fitness_aggregation_type="max",
+            render_progress=True):
 
         fitness_from_list = {
             "max":max,
@@ -217,21 +247,19 @@ class LevelPlayer:
         ### Extract level info for routing purposes
         log("--EXTRACTING LEVEL INFO--");
         log("game startup");
-        game = tools.Control()
-        state_dict = {c.LEVEL: Segment()}
-        game.setup_states(state_dict, c.LEVEL)
-        game.state.startup(0,{c.LEVEL_NUM:1},initial_state=level);
+        game = Segment()
+        game.startup(0,{c.LEVEL_NUM:1},initial_state=level);
 
         log("acquiring map data")
         gdat = game.get_game_data(self.view_distance,self.tile_scale);
         mdat = game.get_map_data(search_data_resolution);
 
-        player_start:floatPos = gdat['pos'];
+        self.player_start:floatPos = gdat['pos'];
         search_grids = [np.array(mdat[g]) for g in self.fixed_grids];
         grid_size = search_grids[0].shape;
         grids_bounds:tuple[int,int,int,int] =  mdat['grid_bounds'];
 
-        log('start position  (continuous):',player_start,'discrete grid size:',grid_size,'discrete grids\' bounds:',grids_bounds);
+        log('start position  (continuous):',self.player_start,'discrete grid size:',grid_size,'discrete grids\' bounds:',grids_bounds);
 
         if not isinstance(goal,list):
             goal = [goal];
@@ -250,9 +278,12 @@ class LevelPlayer:
             closest_pixel = (round(position_parameter[0]*grid_size[0]),round(position_parameter[1]*grid_size[1]))
             return closest_pixel;
 
+        self.pos_to_grid_index = pos_to_grid_index;
+
         def grid_index_to_pos(index:gridPos):
             return (c.TILE_SIZE/(2*search_data_resolution)+index[0]/grid_size[0]*(grids_bounds[1]-grids_bounds[0])+grids_bounds[0],c.TILE_SIZE/(2*search_data_resolution)+index[1]/grid_size[1]*(grids_bounds[3]-grids_bounds[2])+grids_bounds[2]);
 
+        self.grid_index_to_pos = grid_index_to_pos;
         
         if search_checkpoint is None:
             self.costs = dict[tuple[gridPos,gridPos],float]();
@@ -314,7 +345,7 @@ class LevelPlayer:
                 if (in_bounds(task)):
                     yield (task,get_cost(task,pos));
 
-        start_idx = pos_to_grid_index(player_start);
+        start_idx = pos_to_grid_index(self.player_start);
         goal_idxs = [pos_to_grid_index(g) for g in goal];
 
         log('routing from start',start_idx,'to goals',goal_idxs,'in level of gridded size',grid_size);
@@ -355,12 +386,19 @@ class LevelPlayer:
         level_finished = False;
         winning_path = None
 
+        self.renderer = None;
+        if render_progress:
+            self.renderer = LevelRenderer(level,point_size=3,path_width=2,active_path_width=3);
+            self.renderReporter = LevelRendererReporter();
+            self.game.register_reporter(self.renderReporter);
+
         while not level_finished:
             log("checkpoint saved")
             ##save checkpoint
             save_data = self.get_checkpoint_data();
             with open(checkpoint_save_location,'wb') as f:
                 pickle.dump(save_data,f);
+
 
             log("retrieving best edges from A*")
             top_paths = self.a_searcher.sorted_edges()

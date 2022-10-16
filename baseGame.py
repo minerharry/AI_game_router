@@ -54,9 +54,9 @@ class RunGame(ABC):
         self.mapDataCache = None;
         if reporters:
             [self.register_reporter(rep) for rep in reporters];
-            [rep.on_start(self) for rep in self.reporters];
+            self.signal_start();
         if ('training_datum_id' in kwargs):
-            [rep.on_training_data_load(self,kwargs['training_datum_id']) for rep in self.reporters];
+            self.signal_training_data_load(kwargs['training_datum_id'])
 
     def getData(self)->list:
         mappedData = self.getMappedData();
@@ -95,11 +95,11 @@ class RunGame(ABC):
 
     def tickInput(self,inputs):
         self.processInput(inputs);
-        [r.on_tick(self,inputs) for r in self.reporters];
+        self.signal_tick(inputs);
 
     def tickRenderInput(self,inputs):
         self.renderInput(inputs);
-        [r.on_render_tick(self,inputs) for r in self.reporters];
+        self.signal_render_tick(inputs);
 
     @abstractmethod
     def processInput(self, inputs):
@@ -111,16 +111,36 @@ class RunGame(ABC):
 
     def close(self):
         self._close();
-        [r.on_finish(self) for r in self.reporters];
+        self.signal_close();
 
     def _close(self): pass;
 
     def isRunning(self,data=None,useCache=False):
         if data is not None:
             return self.runConfig.gameStillRunning(data);
-        elif useCache:
+        elif useCache and self.mapDataCache:
             return self.runConfig.gameStillRunning(self.mapDataCache);
         return self.runConfig.gameStillRunning(self.getMappedData());
+
+    def signal_start(self,*args,**kwargs):
+        [rep.on_start(self,*args,**kwargs) for rep in self.reporters];
+
+    def signal_training_data_load(self,id,*args,**kwargs):
+        [rep.on_training_data_load(self,id,*args,**kwargs) for rep in self.reporters];
+
+    def signal_tick(self,inputs,*args,**kwargs):
+        [rep.on_tick(self,inputs,*args,**kwargs) for rep in self.reporters];
+
+    def signal_render_tick(self,*args,**kwargs):
+        [rep.on_render_tick(self,*args,**kwargs) for rep in self.reporters];
+
+    def signal_close(self,*args,**kwargs):
+        [rep.on_finish(self,*args,**kwargs) for rep in self.reporters];
+
+    def signal_reporters(self,signal:str,*args,**kwargs):
+        [rep.on_signal(self,signal,*args,**kwargs) for rep in self.reporters];
+
+
 
 class Multi_Data_Game(RunGame):
     #Warning: will not work properly if recurrent net because the net will still have memory from the previous iteration of the game
