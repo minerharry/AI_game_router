@@ -245,15 +245,12 @@ class LevelRendererReporter(ThreadedGameReporter[PathMessage]): #process_num,act
 
 
 if __name__ == "__main__":
-    level_path = Path('levels')/'testing'/'test3.lvl';
+    import pygame as pg
+    level_path = Path('levels')/'testing'/'test1.lvl';
     level = SegmentState(None,None,file_path=level_path);
-    game = tools.Control()
-    s = Segment();
-    state_dict = {c.LEVEL: s}
-    game.setup_states(state_dict, c.LEVEL)
-    game.state.startup(0,{c.LEVEL_NUM:1},initial_state=level);
 
-    display = LevelRenderer(s);
+
+    display = LevelRenderer(level);
 
     display.set_annotations([(10,10),(30,20)],[],{0:((50,50),(60,70),(100,45))});
 
