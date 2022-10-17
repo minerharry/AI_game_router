@@ -202,7 +202,13 @@ class LevelRendererReporter(ThreadedGameReporter[PathMessage]): #process_num,act
         for message in self.get_all_data():
             pid = message.pid;
             did = message.path_id; #data id
-            if did not in renderer.paths:
+            if did not in renderer.paths: #renderer no longer rendering level
+                prev = self.active[pid];
+                if prev not in self.completed:
+                    self.failed.add(prev);
+                    renderer.update_failed_paths(self.failed);
+                self.active.pop(pid);
+                renderer.update_active_paths(self.active.values());
                 continue;
             match message.type:
                 case PathMessage.ACTIVE_CHANGED:
