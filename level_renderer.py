@@ -197,12 +197,12 @@ class LevelRendererReporter(ThreadedGameReporter[PathMessage]): #process_num,act
             self.put_data(PathMessage.complete(self.pid,self.active_id));
             self.id_complete = True;
 
-    def update_display(self,renderer):
+    def update_display(self,renderer:LevelRenderer):
         #pull all updates from the pool
         for message in self.get_all_data():
             pid = message.pid;
             did = message.path_id; #data id
-            if did not in renderer.active_paths:
+            if did not in renderer.paths:
                 continue;
             match message.type:
                 case PathMessage.ACTIVE_CHANGED:
