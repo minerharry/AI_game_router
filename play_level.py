@@ -643,3 +643,6 @@ if __name__== "__main__":
         checkpoint_save_location=save,
         training_dat_per_gen=40);
 
+    print("Level successfully completed!! Winning Path:",winning_path,"completed using the population of generation",player.gamerunner.generation);
+    
+
