@@ -614,7 +614,7 @@ if __name__== "__main__":
 
     ### LEVEL INITIATION ###
 
-    level_path = Path('levels')/'testing'/'test3.lvl';
+    level_path = Path('levels')/'testing'/'test1.lvl';
     level = None;
     if (os.path.exists(level_path)):
         level = SegmentState(None,None,file_path=level_path);
@@ -627,7 +627,7 @@ if __name__== "__main__":
 
     goals = [(48*c.TILE_SIZE,i*c.TILE_SIZE) for i in range(20)]; 
 
-    save = "level_routing_checkpoints/level3.chp"
+    save = "level_routing_checkpoints/level1.chp"
     checkpoint = None;
     if os.path.exists(save):
         print("loading checkpoint...")
