@@ -6,13 +6,27 @@ from training_data import TrainingDataManager
 
 class RunnerConfig:
 
-    def __init__(self,gameFitnessFunction:Callable[[dict],float],gameRunningFunction:Callable[[dict],float],training_data:TrainingDataManager|None=None,logging=False,logPath='',recurrent=False,trial_fitness_aggregation='average',custom_fitness_aggregation=None,time_step=0.05,num_trials=10,parallel=False,returnData:list[str|IOData]=[],gameName='game',num_generations:int|None=300,fitness_collection_type='final'):
+    def __init__(self,
+            gameFitnessFunction:Callable[[dict],float],
+            gameRunningFunction:Callable[[dict],float],
+            training_data:TrainingDataManager|None=None,
+            logging=False,logPath='',
+            recurrent=False,
+            trial_fitness_aggregation='average',custom_fitness_aggregation:None|Callable[[list[float]],float]=None,
+            time_step=0.05,
+            num_trials=10,
+            parallel=False,parallel_processes=4,
+            returnData:list[str|IOData]=[],
+            gameName='game',
+            num_generations:int|None=300,
+            fitness_collection_type='final'):
         self.logging = logging;
         self.logPath = logPath;
         self.generations = num_generations;
         self.recurrent = recurrent;
         self.gameName = gameName;
         self.parallel = parallel;
+        self.parallel_processes = 4;
         self.time_step = time_step;
         self.numTrials = num_trials;
         self.fitnessFromGameData = gameFitnessFunction;
@@ -26,7 +40,7 @@ class RunnerConfig:
             self.customFitnessFunction = None;
         self.trialFitnessAggregation = trial_fitness_aggregation;
 
-    def fitnessFromArray(self):
+    def fitnessFromArray(self)->Callable[[list[float]],float]:
         if self.customFitnessFunction is not None:
             return self.customFitnessFunction;
         elif self.trialFitnessAggregation == 'average':
@@ -38,7 +52,7 @@ class RunnerConfig:
         elif self.trialFitnessAggregation == 'min':
             return lambda array: min(array);
         else:
-            print(f'error: fitness aggregation function {self.trialFitnessAggregation} not defined')
+            raise Exception(f'error: fitness aggregation function {self.trialFitnessAggregation} not defined');
 
     #named input data, flattened
     def flattened_return_data(self):

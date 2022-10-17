@@ -1,15 +1,15 @@
 import re
+from typing import Type
+import ray
 from tqdm import tqdm
 from baseGame import EvalGame, RunGame
 import neat
-import baseGame
 import runnerConfiguration
 import os.path
 import os
 import visualize
 import sys
 import random
-import numpy as np
 import functools
 from fitnessReporter import FitnessReporter
 from datetime import datetime
@@ -113,12 +113,12 @@ class GameRunner:
             if getattr(self.runConfig,'pool_type',None) == 'ray':
                 idQueue = Queue();
                 [idQueue.put(i) for i in range(self.runConfig.parallel_processes)];
-                self.pool:multiprocessing.Pool = multiprocessing.Pool(self.runConfig.parallel_processes, GenomeExecutor.initProcess,(idQueue,self.game.gameClass));
+                self.pool:multiprocessing.Pool = multiprocessing.Pool(self.runConfig.parallel_processes, GenomeExecutor.initProcess,(idQueue,self.game));
             else:
                 manager = multiprocessing.Manager()
                 idQueue = manager.Queue()
                 [idQueue.put(i) for i in range(self.runConfig.parallel_processes)];
-                self.pool:multiprocessing.Pool = multiprocessing.Pool(self.runConfig.parallel_processes, GenomeExecutor.initProcess,(idQueue,self.game.gameClass));
+                self.pool:multiprocessing.Pool = multiprocessing.Pool(self.runConfig.parallel_processes, GenomeExecutor.initProcess,(idQueue,self.game));
 
         if not single_gen or force_fitness:
             self.fitness_reporter = FitnessReporter(self.runConfig.gameName,self.run_name);
@@ -185,7 +185,7 @@ class GameRunner:
             manager = multiprocessing.Manager()
             idQueue = manager.Queue()
             [idQueue.put(i) for i in range(self.runConfig.parallel_processes)];
-            self.pool:multiprocessing.Pool = multiprocessing.Pool(self.runConfig.parallel_processes, GenomeExecutor.initProcess,(idQueue,self.game.gameClass));
+            self.pool:multiprocessing.Pool = multiprocessing.Pool(self.runConfig.parallel_processes, GenomeExecutor.initProcess,(idQueue,self.game));
 
         self.run_name = run_name.replace(' ','_');
         if doFitness:
@@ -437,9 +437,14 @@ class GameRunner:
 
     def eval_genome_feedforward(self,genome,config,trainingDatumId:int=None):
         return GenomeExecutor.eval_genome_feedforward(genome,config,self.runConfig,self.game,trainingDatumId=trainingDatumId);
-
+      
 
 class GenomeExecutorInterruptedException(Exception): pass; #idk man
+
+@ray.remote
+class GenomeExecutorManager():
+    pass;
+
 
 #Genome Executor: Class that handles any and all genome processing, packaged and globalized for easier interface with parallelism
 #Ok, so
@@ -459,9 +464,10 @@ class GenomeExecutor:
 
     #TODO: Abstractify this using gameClass methods
     @classmethod
-    def initProcess(cls,id_queue,gameClass):
+    def initProcess(cls,id_queue,eGame:EvalGame):
         cls.pnum = id_queue.get();
         print(f"process {cls.pnum} started");
+        eGame.gameClass.initProcess(cls.pnum,eGame);
         cls.count = 0;
         if tracker is not None:
             cls.tr = tracker.SummaryTracker();
@@ -475,7 +481,7 @@ class GenomeExecutor:
                 if gen != cls.generation:
                     cls.count = 0;
                 cls.generation = gen;
-            fitnesses = {genome_id:0 for genome_id,_ in genomes};
+            fitnesses:dict[int,float] = {genome_id:0 for genome_id,_ in genomes};
             for genome_id, genome in genomes:
                 cls.count += 1;
                 if cls.CHECKPOINT_INTERVAL > 0 and cls.count % cls.CHECKPOINT_INTERVAL == 0:
@@ -494,8 +500,7 @@ class GenomeExecutor:
                 if gen != cls.generation:
                     cls.count = 0;
                 cls.generation = gen;
-            count = 0;
-            fitnesses = {genome_id:0 for genome_id,_ in genomes};
+            fitnesses:dict[int,float] = {genome_id:0 for genome_id,_ in genomes};
             for datum_id in data:
                 for genome_id,genome in genomes:
                     fitnesses[genome_id] += cls.eval_genome_feedforward(genome,config,runnerConfig,game,trainingDatumId=datum_id);
@@ -516,7 +521,7 @@ class GenomeExecutor:
                 if gen != cls.generation:
                     cls.count = 0;
                 cls.generation = gen;
-            fitnesses = {genome_id:0 for genome_id,_ in genomes};
+            fitnesses:dict[int,float] = {genome_id:0 for genome_id,_ in genomes};
             for genome_id,genome in genomes:
                     cls.count += 1;
                     if cls.CHECKPOINT_INTERVAL > 0 and cls.count % cls.CHECKPOINT_INTERVAL == 0:
@@ -550,7 +555,7 @@ class GenomeExecutor:
         try:
             net = neat.nn.FeedForwardNetwork.create(genome,config);
             
-            fitnesses = [];
+            fitnesses:list[float] = [];
             for _ in range(runnerConfig.numTrials):
                 fitness = 0;
                 runningGame = None;
