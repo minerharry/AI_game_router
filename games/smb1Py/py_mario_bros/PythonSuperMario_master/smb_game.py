@@ -1,4 +1,4 @@
-from baseGame import RunGame
+from baseGame import RunGame,EvalGame
 from abc import abstractmethod
 
 from runnerConfiguration import RunnerConfig
@@ -9,6 +9,15 @@ from .source.states.segment import Segment
 
 empty_actions = dict(zip(['action','jump','left','right','down'],[False for i in range(5)]))
 class SMB1Game(RunGame):
+
+    @classmethod
+    def initProcess(cls, pnum: int, parent_game: EvalGame):
+        game = tools.Control(process_num=pnum);
+        state_dict = {c.LEVEL: Segment()};
+        game.setup_states(state_dict, c.LEVEL)
+        game.state.startup(0,{c.LEVEL_NUM:1});
+        parent_game.initInputs['game'] = game;
+
     
     def __init__(self,runnerConfig:RunnerConfig,**kwargs):
         self.runConfig = runnerConfig;

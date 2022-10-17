@@ -40,13 +40,17 @@ class EvalGame:
 
     def start(self,runnerConfig:RunnerConfig,**kwargs):
         if kwargs is not None:
-            for name,arg in kwargs.items():
-                self.initInputs[name] = arg;
+            self.initInputs.update(kwargs);
         game = self.gameClass(runnerConfig,reporters=self.reporters,**self.initInputs);
         return game;
         
 
 class RunGame(ABC):
+
+    @classmethod
+    def initProcess(cls,pnum:int,parent_game:EvalGame): #for parallel processes
+        pass;
+
     def __init__(self,runnerConfig:RunnerConfig,reporters:list|None=None,**kwargs):
         self.steps = 0;
         self.runConfig = runnerConfig;
