@@ -28,6 +28,12 @@ try:
 except:
     tracker = None;
 
+try:
+    import ray
+    from ray.util.queue import Queue
+except:
+    ray = None;
+
 
 #requires get_genome_frame.images to be set before call
 def get_genome_frame(f,axes):
@@ -104,10 +110,15 @@ class GameRunner:
             # pop.complete_generation();
         
         if self.runConfig.parallel and not hasattr(self,'pool'):
-            manager = multiprocessing.Manager()
-            idQueue = manager.Queue()
-            [idQueue.put(i) for i in range(self.runConfig.parallel_processes)];
-            self.pool:multiprocessing.Pool = multiprocessing.Pool(self.runConfig.parallel_processes, GenomeExecutor.initProcess,(idQueue,self.game));
+            if getattr(self.runConfig,'pool_type',None) == 'ray':
+                idQueue = Queue();
+                [idQueue.put(i) for i in range(self.runConfig.parallel_processes)];
+                self.pool:multiprocessing.Pool = multiprocessing.Pool(self.runConfig.parallel_processes, GenomeExecutor.initProcess,(idQueue,self.game));
+            else:
+                manager = multiprocessing.Manager()
+                idQueue = manager.Queue()
+                [idQueue.put(i) for i in range(self.runConfig.parallel_processes)];
+                self.pool:multiprocessing.Pool = multiprocessing.Pool(self.runConfig.parallel_processes, GenomeExecutor.initProcess,(idQueue,self.game));
 
         if not single_gen or force_fitness:
             self.fitness_reporter = FitnessReporter(self.runConfig.gameName,self.run_name);
@@ -426,8 +437,7 @@ class GameRunner:
 
     def eval_genome_feedforward(self,genome,config,trainingDatumId:int=None):
         return GenomeExecutor.eval_genome_feedforward(genome,config,self.runConfig,self.game,trainingDatumId=trainingDatumId);
-
-
+      
 
 class GenomeExecutorInterruptedException(Exception): pass; #idk man
 
