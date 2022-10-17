@@ -5,7 +5,7 @@ import time
 from typing import Iterable
 from baseGame import RunGame
 from gameReporting import ThreadedGameReporter
-from game_runner_neat import Genome_Executor
+from game_runner_neat import GenomeExecutor
 from games.smb1Py.py_mario_bros.PythonSuperMario_master.smb_game import SMB1Game
 
 from games.smb1Py.py_mario_bros.PythonSuperMario_master.source import constants as c, setup, tools
