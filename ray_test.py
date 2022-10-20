@@ -1,42 +1,30 @@
-from __future__ import annotations
 import os
-from typing import Any
 import ray
-from ray.actor import ActorHandle
+import time
 
-from baseGame import EvalGame, RunGame
-from runnerConfiguration import RunnerConfig
+ray.init(ignore_reinit_error=True)
 
-ray.init();
-
-original = EvalGame(RunGame);
-
-ref = ray.put(original);
-
-@ray.remote
-class IdQueue():
+@ray.remote(max_restarts=0)
+class Actor:
     def __init__(self):
-        self.ids = dict[Any,int]();
-        self.max_id=-1;
+        self.counter = 0
 
-    def get_id(self,key):
-        if key not in self.ids:
-            self.max_id += 1;
-            self.ids[key] = self.max_id;
-            return self.max_id;        
-        return self.ids[key];
+    def increment_and_possibly_fail(self):
+        self.counter += 1
+        time.sleep(0.2)
+        if self.counter == 10:
+            os._exit(0)
+        return self.counter
 
+actor = Actor.remote()
 
-@ray.remote
-def task_func(inc:int,queue,*args,**kwargs):
-    id = ray.get(queue.get_id.remote(os.getpid()));
-    print(id);
-    
-
-a = IdQueue.remote();
-
-# normal = Normal(17);
-
-tasks = [task_func.remote(1,a) for i in range(15)];
-print(ray.get(tasks));
-
+# The actor will be restarted up to 5 times. After that, methods will
+# always raise a `RayActorError` exception. The actor is restarted by
+# rerunning its constructor. Methods that were sent or executing when the
+# actor died will also raise a `RayActorError` exception.
+for _ in range(100):
+    try:
+        counter = ray.get(actor.increment_and_possibly_fail.remote())
+        print(counter)
+    except ray.exceptions.RayActorError:
+        print('FAILURE')

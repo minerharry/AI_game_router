@@ -81,7 +81,12 @@ class RunGame(ABC):
         return result;
 
     def register_reporter(self,reporter:GameReporter):
-        self.reporters.append(reporter);
+        if reporter not in self.reporters:
+            self.reporters.append(reporter);
+
+    def deregister_reporter(self,reporter:GameReporter):
+        if reporter in self.reporters:
+            self.reporters.remove(reporter);
 
     def getFitnessScore(self):
         return self.runConfig.fitnessFromGameData(self.getMappedData());

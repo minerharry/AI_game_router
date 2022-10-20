@@ -18,6 +18,7 @@ from games.smb1Py.py_mario_bros.PythonSuperMario_master.source import tools
 from games.smb1Py.py_mario_bros.PythonSuperMario_master.source.states.segment import Segment, SegmentState
 from games.smb1Py.py_mario_bros.PythonSuperMario_master.source.states.segmentGenerator import GenerationOptions, SegmentGenerator
 import games.smb1Py.py_mario_bros.PythonSuperMario_master.source.constants as c
+from id_data import IdData
 from level_renderer import LevelRenderer, LevelRendererReporter
 import neat
 from neat.reporting import BaseReporter
@@ -25,13 +26,19 @@ import torch
 import numpy as np
 from tqdm import tqdm
 from matplotlib import pyplot as plt
+from ray_event import RayEvent
 from runnerConfiguration import IOData, RunnerConfig
 # from guppy import hpy
 # hp = hpy();
 
 from search import DStarSearcher, LevelSearcher
 from smb1Py_runner import NAME, generate_data, getFitness, getRunning, task_obstruction_score
-from training_data import TrainingDataManager
+from totalsize import total_size
+from training_data import ShelvedTDManager, TrainingDataManager
+try:
+    import ray
+except:
+    ray = None
 
 floatPos = tuple[float,float];
 gridPos = tuple[int,int];
@@ -101,19 +108,18 @@ class LevelPlayer:
         self.run_name = run_name;
         self.checkpoint_run_name = checkpoint_run_name if checkpoint_run_name else self.run_name;
 
-        self.tdat = TrainingDataManager[SegmentState]('smb1Py',run_name);
+        self.tdat = ShelvedTDManager[SegmentState]('smb1Py',run_name);
         self.runConfig.training_data = self.tdat;
 
         self.extra_dat_gen = extra_training_data_gen if extra_training_data_gen else ((lambda: extra_training_data) if extra_training_data else None);
-        
         self.game = game;
         self.runConfig.generations = 1;
         self.gamerunner = GameRunner(self.game,self.runConfig);
 
         if fitness_save_path:
-            self.task_reporter = TaskFitnessReporter(fitness_save_path);
+            self.task_reporter = TaskFitnessReporter(fitness_save_path,queue_type=self.runConfig.queue_type);
         else:
-            self.task_reporter = TaskFitnessReporter();
+            self.task_reporter = TaskFitnessReporter(queue_type=self.runConfig.queue_type);
         self.game.register_reporter(self.task_reporter);
 
         self.view_distance = player_view_distance if player_view_distance else self.runConfig.view_distance;
@@ -180,9 +186,13 @@ class LevelPlayer:
             self.renderer.set_annotations(reached,failed,paths);
 
             self.renderReporter.reset_paths();
-            self.kill_event = multiprocessing.Event();
-            renderProcess = multiprocessing.Process(target=self.renderReporter.render_loop,args=[self.renderer,self.kill_event]);
-            renderProcess.start();
+            if self.runConfig.queue_type == "multiprocessing":
+                self.kill_event = multiprocessing.Event();
+                renderProcess = multiprocessing.Process(target=self.renderReporter.render_loop,args=[self.renderer,self.kill_event]);
+                renderProcess.start();
+            else:
+                self.kill_event = RayEvent();
+                renderProcess = self.renderReporter.ray_render_loop.remote(self.renderReporter,self.renderer,self.kill_event);
 
 
         level_ids = list(self.tdat.active_data.keys());
@@ -207,7 +217,10 @@ class LevelPlayer:
 
         if renderProcess is not None:
             self.kill_event.set();
-            renderProcess.join();
+            if self.runConfig.queue_type=="multiprocessing":
+                renderProcess.join();
+            else:
+                ray.get(renderProcess);
 
         return result;
 
@@ -389,7 +402,7 @@ class LevelPlayer:
         self.renderer = None;
         if render_progress:
             self.renderer = LevelRenderer(level,point_size=3,path_width=2,active_path_width=3);
-            self.renderReporter = LevelRendererReporter();
+            self.renderReporter = LevelRendererReporter(queue_type=self.runConfig.queue_type);
             self.game.register_reporter(self.renderReporter);
 
         while not level_finished:
@@ -473,12 +486,6 @@ class LevelPlayer:
         
         return winning_path;
 
-K = TypeVar("K")
-class _IdData(NamedTuple):
-    id:int
-    data:K
-class IdData(_IdData,Generic[K]):
-    pass;
 class TaskFitnessReporter(BaseReporter,ThreadedGameReporter[IdData[list[tuple[tuple[floatPos,floatPos|Literal['goal']],float]]]]): #I'm so sorry
     def __init__(self,save_path=None,**kwargs):
         super().__init__(**kwargs);
@@ -512,7 +519,7 @@ class TaskFitnessReporter(BaseReporter,ThreadedGameReporter[IdData[list[tuple[tu
         self.put_data(IdData(self.data_id,self.current_data));
 
     def start_generation(self, generation):
-        print(f"Task Fitness Reporter - generation {f} started");
+        print(f"Task Fitness Reporter - generation {generation} started");
         self.generation = generation;
 
     def end_generation(self, config, population, species_set):
@@ -554,13 +561,15 @@ if __name__== "__main__":
         parallel=True,
         gameName=NAME,
         returnData=inputData,
-        num_trials=1);
+        num_trials=1,
+        queue_type="ray",
+        pool_type="ray");
     runConfig.tile_scale = 2;
     runConfig.view_distance = 3.75;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
     runConfig.parallel_processes = 6;
-    runConfig.chunkFactor = 24;
+    runConfig.chunkFactor = 96;
     runConfig.saveFitness = False;
 
     run_name = 'play_test'

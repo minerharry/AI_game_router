@@ -10,6 +10,11 @@ from games.smb1Py.py_mario_bros.PythonSuperMario_master.smb_game import SMB1Game
 from games.smb1Py.py_mario_bros.PythonSuperMario_master.source import constants as c, setup, tools
 from games.smb1Py.py_mario_bros.PythonSuperMario_master.source.states.segment import Segment, SegmentState
 
+try:
+    import ray
+except:
+    ray = None;
+
 class LevelRenderer:
     def __init__(self,state:SegmentState,
             max_dims:tuple[int,int]=(1000,500),
@@ -173,8 +178,8 @@ class PathMessage:
 
 class LevelRendererReporter(ThreadedGameReporter[PathMessage]): #process_num,active_id
     
-    def __init__(self):
-        super().__init__();
+    def __init__(self,**kwargs):
+        super().__init__(**kwargs);
         self.active_id = None;
         self.id_complete = False;
         self.reset_paths();
@@ -237,6 +242,18 @@ class LevelRendererReporter(ThreadedGameReporter[PathMessage]): #process_num,act
                     self.completed.add(did);
                     renderer.update_completed_paths(self.completed);
         renderer.display();
+
+    if ray is not None:
+        #TODO: Consider making this an async actor? research implications
+        #TODO: ADD FAULT TOLERANCE
+        @ray.remote
+        def ray_render_loop(self,renderer:LevelRenderer,kill_event:Event,interval=5): #update interval in seconds
+            import pygame as pg
+            while not kill_event.is_set():
+                self.update_display(renderer);
+                # print(renderer.display_set);
+                pg.event.pump();
+                time.sleep(interval);
 
     def render_loop(self,renderer:LevelRenderer,kill_event:Event,interval=5): #update interval in seconds
         import pygame as pg

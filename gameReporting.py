@@ -7,6 +7,8 @@ from typing import TypeVar,Generic,TYPE_CHECKING
 if TYPE_CHECKING:
     from baseGame import RunGame
 
+from ray.util.queue import Queue
+
 # from baseGame import RunGame
 
 
@@ -29,9 +31,12 @@ class GameReporter():
 
 T = TypeVar('T');
 class ThreadedGameReporter(GameReporter,Generic[T]): #class with nice builtin multithreading functionality
-    def __init__(self):
-        m = multiprocessing.Manager();
-        self.data = m.Queue();
+    def __init__(self,queue_type="multiprocessing"):
+        if queue_type == "ray":
+            self.data = Queue();
+        else:
+            m = multiprocessing.Manager();
+            self.data = m.Queue();
 
     def put_data(self,data:T):
         self.data.put(data);

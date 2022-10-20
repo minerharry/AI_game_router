@@ -16,6 +16,7 @@ class RunnerConfig:
             time_step=0.05,
             num_trials=10,
             parallel=False,parallel_processes=4,
+            pool_type="multiprocessing",queue_type="multiprocessing",
             returnData:list[str|IOData]=[],
             gameName='game',
             num_generations:int|None=300,
@@ -27,6 +28,13 @@ class RunnerConfig:
         self.gameName = gameName;
         self.parallel = parallel;
         self.parallel_processes = 4;
+        self.pool_type=pool_type;
+        self.queue_type=queue_type;
+        if "ray" in [self.queue_type,self.pool_type]:
+            print("ray detected, activating...");
+            import ray
+            ray.init();
+
         self.time_step = time_step;
         self.numTrials = num_trials;
         self.fitnessFromGameData = gameFitnessFunction;
@@ -39,6 +47,7 @@ class RunnerConfig:
         else:
             self.customFitnessFunction = None;
         self.trialFitnessAggregation = trial_fitness_aggregation;
+        self.reporters = [];
 
     def fitnessFromArray(self)->Callable[[list[float]],float]:
         if self.customFitnessFunction is not None:
