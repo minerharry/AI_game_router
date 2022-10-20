@@ -393,7 +393,6 @@ class GameRunner:
                     genome.fitness += self.eval_genome_feedforward(genome,config)
         else:
             if (self.runConfig.parallel):
-                genomes = genomes[:50];
                 tdata = self.runConfig.training_data.active_data;
                 batch_func = functools.partial(GenomeExecutor.map_eval_genomes_feedforward,config,self.runConfig,self.game,genomes,gen=self.generation);
 
