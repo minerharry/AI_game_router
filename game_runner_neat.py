@@ -1,14 +1,11 @@
 import re
 from typing import Any, Callable, Generic, Type
-from cv2 import trace
-import pandas as pd
 import ray
 from ray.util.queue import _QueueActor
 from tqdm import tqdm
 from baseGame import EvalGame, RunGame
 import neat
 import tracemalloc
-import traceback
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from play_level import TaskFitnessReporter
@@ -18,12 +15,9 @@ import os
 import visualize
 import sys
 import random
-import functools
 from fitnessReporter import FitnessReporter
 from datetime import datetime
-import istarmap
 import linecache
-import multiprocessing
 from logReporting import LoggingReporter
 from renderer import Renderer as RendererReporter
 from videofig import videofig as vidfig
