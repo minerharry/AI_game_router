@@ -202,7 +202,7 @@ class ResultThread(threading.Thread):
         object_refs: list,
         single_result: bool = False,
         callback: callable = None,
-        error_callback: callable = None,
+        error_callback: Callable[[Exception], None] = None,
         total_object_refs: Optional[int] = None,
     ):
         threading.Thread.__init__(self, daemon=True)
@@ -384,7 +384,7 @@ class AsyncResult:
 class IMapIterator:
     """Base class for OrderedIMapIterator and UnorderedIMapIterator."""
 
-    def __init__(self, pool, func, iterable, chunksize=None):
+    def __init__(self, pool, func, iterable, chunksize=None,error_callback=None):
         self._pool = pool
         self._func = func
         self._next_chunk_index = 0
@@ -409,7 +409,7 @@ class IMapIterator:
             self._chunksize = chunksize or pool._calculate_chunksize(iterable)
             result_list_size = div_round_up(len(iterable), chunksize)
 
-        self._result_thread = ResultThread([], total_object_refs=result_list_size)
+        self._result_thread = ResultThread([], total_object_refs=result_list_size,error_callback=error_callback);
         self._result_thread.start()
 
         for _ in range(len(self._pool._actor_pool)):
@@ -931,7 +931,10 @@ class Pool:
             error_callback=error_callback,
         )
 
-    def imap(self, func: Callable, iterable: Iterable, chunksize: Optional[int] = 1):
+    def imap(
+        self, func: Callable, iterable: Iterable, chunksize: Optional[int] = 1, 
+        error_callback: Callable[[Exception], None] = None
+    ):
         """Same as `map`, but only submits one batch of tasks to each actor
         process at a time.
 
@@ -946,10 +949,11 @@ class Pool:
         """
 
         self._check_running()
-        return OrderedIMapIterator(self, func, iterable, chunksize=chunksize)
+        return OrderedIMapIterator(self, func, iterable, chunksize=chunksize,error_callback=error_callback)
 
     def imap_unordered(
-        self, func: Callable, iterable: Iterable, chunksize: Optional[int] = 1
+        self, func: Callable, iterable: Iterable, chunksize: Optional[int] = 1, 
+        error_callback: Callable[[Exception], None] = None
     ):
         """Same as `map`, but only submits one batch of tasks to each actor
         process at a time.
@@ -964,7 +968,7 @@ class Pool:
         """
 
         self._check_running()
-        return UnorderedIMapIterator(self, func, iterable, chunksize=chunksize)
+        return UnorderedIMapIterator(self, func, iterable, chunksize=chunksize,error_callback=error_callback)
 
     def _check_running(self):
         if self._closed:

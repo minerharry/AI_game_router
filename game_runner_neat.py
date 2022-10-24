@@ -374,7 +374,7 @@ class GameRunner:
             genome.fitness = 0; #sanity check
         if (self.runConfig.training_data is None):
             if (self.runConfig.parallel):
-                self.pool.send_message('start_generation',self.runConfig,self.generation);
+                self.pool.send_message('start_generation',self.runConfig,self.generation,send_on_start=True);
 
                 chunkFactor = 4;
                 if hasattr(self.runConfig,'chunkFactor') and self.runConfig.chunkFactor is not None:
@@ -456,6 +456,8 @@ class GenomeExecutorException(Exception):
 class GenomeExecutorPool(Pool):
     def __init__(self,*args,**kwargs):
         self._actor_pool:list[tuple[GenomeExecutor,int]];
+        self._start_msg = None;
+        self._start_args = None;
         if 'initializer' in kwargs:
             kwargs.pop('initializer');
         super().__init__(*args,**kwargs);
@@ -467,9 +469,15 @@ class GenomeExecutorPool(Pool):
         # Cache the PoolActor with options
         if not self._pool_actor:
             self._pool_actor = GenomeExecutor.options(**self._ray_remote_args)
-        return (self._pool_actor.remote(self._initializer, self._initargs), 0)
+        actor = self._pool_actor.remote(self._initializer, self._initargs);
+        if self._start_msg is not None:
+            getattr(actor,self._start_msg).remote(*self._start_args[0],**self._start_args[1]);
+        return (actor, 0);
 
-    def send_message(self,msg_func:str,*args,block=False,**kwargs): #NOTE: should only be called if actors don't have any outstanding tasks, don't know if there's a good way to check for that
+    def send_message(self,msg_func:str,*args,block=False,send_on_start=False,**kwargs): #NOTE: should only be called if actors don't have any outstanding tasks, don't know if there's a good way to check for that
+        if send_on_start:
+            self._start_msg = msg_func;
+            self._start_args = (args,kwargs);
         refs = [getattr(actor[0],msg_func).remote(*args,**kwargs) for actor in self._actor_pool];
         return ray.get(refs) if block else refs;
 
