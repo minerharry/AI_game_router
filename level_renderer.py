@@ -1,4 +1,5 @@
 import os
+import sys
 from threading import Event
 from pathlib import Path
 import time
@@ -207,6 +208,9 @@ class LevelRendererReporter(ThreadedGameReporter[PathMessage]): #process_num,act
             pid = message.pid;
             did = message.path_id; #data id
             if did not in renderer.paths: #renderer no longer rendering level
+                if pid not in self.active:
+                    #already popped
+                    continue;
                 prev = self.active[pid];
                 if prev not in self.completed:
                     self.failed.add(prev);
@@ -250,7 +254,10 @@ class LevelRendererReporter(ThreadedGameReporter[PathMessage]): #process_num,act
         def ray_render_loop(self,renderer:LevelRenderer,kill_event:Event,interval=5): #update interval in seconds
             import pygame as pg
             while not kill_event.is_set():
-                self.update_display(renderer);
+                try:
+                    self.update_display(renderer);
+                except:
+                    print(sys.exc_info())
                 # print(renderer.display_set);
                 pg.event.pump();
                 time.sleep(interval);

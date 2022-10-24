@@ -13,3 +13,6 @@
 .vscode/settings.json
 models/test0.model
 # result.json
+**/Lib
+**/Scripts
+**/Include

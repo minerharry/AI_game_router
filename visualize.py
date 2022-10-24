@@ -4,7 +4,10 @@ import copy
 import warnings
 
 import graphviz
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except:
+    plt = None;
 import numpy as np
 
 import os

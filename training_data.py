@@ -93,8 +93,10 @@ class ShelvedTDManager(TrainingDataManager[TD]):
     def create_blank(self):
         self.next_id:int = 0;
         self.active_data:dict[int,TD] = {};
-        self._shelf_file = str(self.data_file.with_suffix(".tdac"));
-        self._shelf = shelve.DbfilenameShelf[TD](self._shelf_file);
+        self._shelf_file = self.data_file.with_suffix(".tdac");
+        if not os.path.exists(self._shelf_file.parent):
+            os.makedirs(self._shelf_file.parent);
+        self._shelf = shelve.DbfilenameShelf[TD](str(self._shelf_file));
 
     def clear_data(self, save=True):
         for id,datum in self.active_data.items():
@@ -129,9 +131,9 @@ class ShelvedTDManager(TrainingDataManager[TD]):
                 ob = pickle.load(f);
                 self.next_id = ob['next_id'];
                 self.active_data = ob['active_data'];
-                self._shelf_file = ob['shelf'] if 'shelf' in ob else str(self.data_file.with_suffix(".tdac"));
+                self._shelf_file = ob['shelf'] if 'shelf' in ob else self.data_file.with_suffix(".tdac");
                 temp_inactive = ob['inactive_data'] if 'inactive_data' in ob else None; #for conversion from base tdmanager compatiblity
-        self._shelf = shelve.DbfilenameShelf[TD](self._shelf_file);
+        self._shelf = shelve.DbfilenameShelf[TD](str(self._shelf_file));
         if temp_inactive:
             print("previous data entry found, loading into shelf...");
             for k,v in tqdm(temp_inactive.items()):

@@ -1,15 +1,12 @@
 import copy
 from functools import partial
-import itertools
 import math
 import multiprocessing
 import os
 from pathlib import Path
 import pickle
-import random
 from typing import Callable, DefaultDict, Generic, Iterable, Literal, NamedTuple, TypeVar
 from baseGame import EvalGame
-from custom_species_set import CustomSpeciesSet
 from fitnessReporter import FitnessCheckpoint
 from gameReporting import ThreadedGameReporter
 from game_runner_neat import GameRunner
@@ -25,7 +22,6 @@ from neat.reporting import BaseReporter
 import torch
 import numpy as np
 from tqdm import tqdm
-from matplotlib import pyplot as plt
 from ray_event import RayEvent
 from runnerConfiguration import IOData, RunnerConfig
 # from guppy import hpy
@@ -33,7 +29,6 @@ from runnerConfiguration import IOData, RunnerConfig
 
 from search import DStarSearcher, LevelSearcher
 from smb1Py_runner import NAME, generate_data, getFitness, getRunning, task_obstruction_score
-from totalsize import total_size
 from training_data import ShelvedTDManager, TrainingDataManager
 try:
     import ray
