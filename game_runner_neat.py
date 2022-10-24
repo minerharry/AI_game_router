@@ -20,7 +20,10 @@ from datetime import datetime
 import linecache
 from logReporting import LoggingReporter
 from renderer import Renderer as RendererReporter
-from videofig import videofig as vidfig
+try:
+    from videofig import videofig as vidfig
+except:
+    vidfig = None;
 from neat.six_util import iteritems, itervalues
 try:
     from viztracer import log_sparse
@@ -220,6 +223,9 @@ class GameRunner:
 
     #render a genome with the game as a recurrent neural net
     def render_genome_recurrent(self, genome, config,net=False):
+        if vidfig is None:
+            warnings.warn("Unable to render genome: visualization not available due to a missing optional dependency (matplotlib)")
+            return
         runnerConfig = self.runConfig;
         time_const = runnerConfig.time_step;
 
