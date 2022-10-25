@@ -1,0 +1,68 @@
+apiVersion: ray.io/v1alpha1
+kind: RayCluster
+metadata:
+  name: raycluster-complete
+spec:
+  rayVersion: "3.0.0dev0"
+  enableInTreeAutoscaling: true
+  headGroupSpec:
+    serviceType: ClusterIP # Options are ClusterIP, NodePort, and LoadBalancer
+    enableIngress: true
+    rayStartParams:
+      block: "true"
+      dashboard-host: "0.0.0.0"
+    template: # Pod template
+        metadata: # Pod metadata
+        spec: # Pod spec
+            containers:
+            - name: ray-head
+              image: minerharry/ai_game_router:smbpy_ai-v0
+              resources:
+                limits:
+                  cpu: 2
+                  memory: 1Gi
+                requests:
+                  cpu: 1
+                  memory: 1Gi
+              # Keep this preStop hook in each Ray container config.
+              lifecycle:
+                preStop:
+                  exec:
+                    command: ["/bin/sh","-c","ray stop"]
+              ports: # Optional service port overrides
+              - containerPort: 6379
+                name: gcs
+              - containerPort: 8265
+                name: dashboard
+              - containerPort: 10001
+                name: client
+              - containerPort: 8000
+                name: serve
+  workerGroupSpecs:
+  - groupName: small-group
+    rayStartParams:
+      block: "true"
+    replicas: 1
+    minReplicas: 1
+    maxReplicas: 5
+    template: # Pod template
+      spec:
+        # Keep this initContainer in each workerGroup template.
+        initContainers:
+        - name: init-myservice
+          image: busybox:1.28
+          command: ['sh', '-c', "until nslookup $RAY_IP.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+        containers:
+        - name: external
+          image: minerharry/ai_game_router:smbpy_ai-v0
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh","-c","ray stop"]
+          resources:
+            limits:
+              cpu: "1"
+              memory: "512Mi"
+            requests:
+              cpu: "500m"
+              memory: "256Mi"
