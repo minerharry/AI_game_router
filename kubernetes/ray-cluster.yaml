@@ -1,12 +1,12 @@
 apiVersion: ray.io/v1alpha1
 kind: RayCluster
 metadata:
-  name: raycluster-complete
+  name: raycluster-smbpy
 spec:
   rayVersion: "3.0.0dev0"
   enableInTreeAutoscaling: true
   headGroupSpec:
-    serviceType: ClusterIP # Options are ClusterIP, NodePort, and LoadBalancer
+    serviceType: LoadBalancer # Options are ClusterIP, NodePort, and LoadBalancer
     enableIngress: true
     rayStartParams:
       block: "true"
@@ -16,7 +16,7 @@ spec:
         spec: # Pod spec
             containers:
             - name: ray-head
-              image: minerharry/ai_game_router:smbpy_ai-v0
+              image: minerharry/ai_game_router:smbpy_ai-v0.1
               resources:
                 limits:
                   cpu: 2
@@ -24,8 +24,15 @@ spec:
                 requests:
                   cpu: 1
                   memory: 1Gi
-              # Keep this preStop hook in each Ray container config.
+              #tell pygame the machine is headless
+              env:
+              - name: SDL_VIDEODRIVER
+                value: "dummy"
               lifecycle:
+                postStart:
+                  exec:
+                    command: ["/bin/sh","-c","cd /router/AI_game_router; git pull",]
+                # Keep this preStop hook in each Ray container config.
                 preStop:
                   exec:
                     command: ["/bin/sh","-c","ray stop"]
@@ -39,7 +46,7 @@ spec:
               - containerPort: 8000
                 name: serve
   workerGroupSpecs:
-  - groupName: small-group
+  - groupName: primary
     rayStartParams:
       block: "true"
     replicas: 1
@@ -54,8 +61,15 @@ spec:
           command: ['sh', '-c', "until nslookup $RAY_IP.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
         containers:
         - name: external
-          image: minerharry/ai_game_router:smbpy_ai-v0
+          image: minerharry/ai_game_router:smbpy_ai-v0.1
+          #tell pygame the machine is headless
+          env:
+          - name: SDL_VIDEODRIVER
+            value: "dummy"
           lifecycle:
+            postStart:
+              exec:
+                command: ["/bin/sh","-c","cd /router/AI_game_router; git pull",]
             preStop:
               exec:
                 command: ["/bin/sh","-c","ray stop"]
