@@ -1,5 +1,6 @@
 __author__ = 'marble_xu'
 import os
+from pathlib import Path
 from . import constants as c
 import pygame as pg
 
@@ -13,13 +14,13 @@ def get_GFX():
         pg.event.set_allowed([pg.KEYDOWN, pg.KEYUP, pg.QUIT])
         pg.display.set_caption(c.ORIGINAL_CAPTION)
         pg.display.set_mode(c.SCREEN_SIZE)
-        _GFX = load_all_gfx("games\\smb1Py\\py_mario_bros\\PythonSuperMario_master\\resources\\graphics")
+        _GFX = load_all_gfx(Path("games\\smb1Py\\py_mario_bros\\PythonSuperMario_master\\resources\\graphics"))
         return _GFX
     else:
         return _GFX
         
 
-def load_all_gfx(directory, colorkey=(255,0,255), accept=('.png', '.jpg', '.bmp', '.gif')):
+def load_all_gfx(directory:Path, colorkey=(255,0,255), accept=('.png', '.jpg', '.bmp', '.gif')):
     graphics = {}
     for pic in os.listdir(directory):
         name, ext = os.path.splitext(pic)
