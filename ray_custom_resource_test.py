@@ -1,7 +1,7 @@
 import time
 import ray
 
-@ray.remote(resources={"Display":0})
+@ray.remote(resources={"Display":1})
 def pwned():
     import pygame as pg
     pg.init();
