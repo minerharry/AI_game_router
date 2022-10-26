@@ -37,6 +37,6 @@ def pwned():
 
 
 if __name__ == "__main__":
-    ray.init(resources={"Display":1});
+    ray.init();
     r = pwned.remote();
     ray.get(r);
