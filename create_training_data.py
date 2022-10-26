@@ -14,7 +14,7 @@ import json
 from skimage.io import imshow
 import copy
 
-data_folders = [Path("H:\\Other computers\\My Computer\\"),Path("memories")][:1];
+data_folders = [Path("H:/Other computers/My Computer/"),Path("memories")][:1];
 start_gens = [1583,1603][:1];
 runs = [10,'play_test'][:1];
 out_folder = Path("data");

@@ -30,7 +30,7 @@ def getRunning(inputs):
 
 runConfig = NESGymRunnerConfig(getFitness,getRunning,parallel=False,gameName='gym_nes_smb1',returnData=['stage','status','world','x_pos','y_pos',IOData('enemy_type','array',array_size=[5]),IOData('enemy_x','array',array_size=[5]),IOData('enemy_y','array',array_size=[5]),IOData('blocks','array',array_size=[8,8]),'powerup_x','powerup_y'],num_trials=1,num_generations=None);
 runConfig.logging = True;
-runConfig.logPath = f'logs\\smb1\\run-{currentRun}-log.txt';
+runConfig.logPath = f'logs/smb1/run-{currentRun}-log.txt';
 runConfig.playback_fps = 20;
 runConfig.fitness_collection_type='continuous'
 print(runConfig.gameName);

@@ -140,7 +140,7 @@ if __name__ == "__main__":
     runConfig.chunkFactor = 24;
     runConfig.saveFitness = True;
 
-    runConfig.logPath = f'logs\\smb1Py\\run-{currentRun}-log.txt';
+    runConfig.logPath = f'logs/smb1Py/run-{currentRun}-log.txt';
     runConfig.fitness_collection_type='delta_max';
     print(runConfig.gameName);
 

@@ -15,7 +15,7 @@ class HoldRightGame(RunGame):
     def renderInput(self,inputs):
         self.processInput(inputs);
         fitness = self.runConfig.fitnessFromGameData(self.getMappedData());
-        baseImage = self.getFieldWithAvatar(self.position,(Image.open('images\\mario_avatar.png') if self.steps%2==0 else Image.open('images\\mario_avatar_2.png')),self.runConfig.animation_pixel_per_unit,self.runConfig.animation_unit_per_sign);
+        baseImage = self.getFieldWithAvatar(self.position,(Image.open('images/mario_avatar.png') if self.steps%2==0 else Image.open('images/mario_avatar_2.png')),self.runConfig.animation_pixel_per_unit,self.runConfig.animation_unit_per_sign);
         draw = ImageDraw.Draw(baseImage);
         font = ImageFont.truetype('arial.ttf',22);
         draw.text((5,5),'fitness: {0}'.format(fitness),fill=(0,255,0))
@@ -27,7 +27,7 @@ class HoldRightGame(RunGame):
     def getSignImage(self,text,color=(0,0,0)):
         text = str(text);
         font = ImageFont.truetype('arial.ttf',22);
-        signBase = Image.open('images\\sign.jpg');
+        signBase = Image.open('images/sign.jpg');
         signSpace = (58,28);
         yPosition = 3;
         if (len(text)>6 or font.getsize(text)[1]>signSpace[1]):
@@ -41,7 +41,7 @@ class HoldRightGame(RunGame):
             
 
     def getSignedField(self,position,pixels_per_unit,units_per_sign):
-        background = Image.open('images\\background.jpg');
+        background = Image.open('images/background.jpg');
         decimal_end = '.' in str(units_per_sign);
         field_unit_width = background.width / pixels_per_unit;
         left_unit = position - field_unit_width/2;
