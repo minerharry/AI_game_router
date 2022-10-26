@@ -34,3 +34,9 @@ def pwned():
         s.fill((0,0,0));
         s.blit(text,(0,0),pg.rect.Rect(0,0,slicepos,text.get_height()));
         pg.display.flip();
+
+
+if __name__ == "__main__":
+    ray.init(resources={"Display":1});
+    r = pwned.remote();
+    ray.get(r);
