@@ -1,17 +1,15 @@
 #!/bin/bash
 #SBATCH --job-name=ray-2node-test
-#SBATCH --nodes=2
+#SBATCH --ntasks=2
 
 #SBATCH --tasks-per-node=1
 #SBATCH --cpus-per-task=5
 #SBATCH --mem-per-cpu=1GB
 #SBATCH --time=2:00:00
+#SBATCH --export=ALL,SDL_VIDEODRIVER="dummy"
 
-
-# Example: module load pytorch/v1.4.0-gpu
-# Example: conda activate my-env
-
-conda activate my-env
+module add anaconda
+conda activate ray-env
 
 ### SETUP RAY
 # Getting the node names
@@ -40,7 +38,7 @@ echo "IP Head: $ip_head"
 echo "Starting HEAD at $head_node"
 srun --nodes=1 --ntasks=1 -w "$head_node" \
     ray start --head --node-ip-address="$head_node_ip" --port=$port \
-    --num-cpus "${SLURM_CPUS_PER_TASK}" --num-gpus "${SLURM_GPUS_PER_TASK}" --block &
+    --num-cpus "${SLURM_CPUS_PER_TASK}" --block &
 
 # optional, though may be useful in certain versions of Ray < 1.0.
 sleep 10
@@ -53,9 +51,10 @@ for ((i = 1; i <= worker_num; i++)); do
     echo "Starting WORKER $i at $node_i"
     srun --nodes=1 --ntasks=1 -w "$node_i" \
         ray start --address "$ip_head" \
-        --num-cpus "${SLURM_CPUS_PER_TASK}" --num-gpus "${SLURM_GPUS_PER_TASK}" --block &
+        --num-cpus "${SLURM_CPUS_PER_TASK}" --block &
     sleep 5
 done
 
-python
 
+
+python AI_game_router/ray_multinode_test.py
