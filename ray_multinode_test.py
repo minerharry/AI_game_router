@@ -6,7 +6,7 @@ import ray
 import time
 import os
 
-@ray.remote(scheduling_strategy="SPREAD")
+@ray.remote
 def hello_world():
     return f"hello world from process {os.getpid()}"
 
