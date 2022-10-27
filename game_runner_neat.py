@@ -116,7 +116,8 @@ class GameRunner:
         if self.runConfig.parallel and not hasattr(self,'pool'):
             idQueue = Queue();
             [idQueue.put(i) for i in range(self.runConfig.parallel_processes)];
-            self.pool = GenomeExecutorPool(self.runConfig.parallel_processes, initargs=(idQueue,self.game,config));
+            pool_kwargs = getattr(self.runConfig,'pool_kwargs',{});
+            self.pool = GenomeExecutorPool(self.runConfig.parallel_processes, initargs=(idQueue,self.game,config),**pool_kwargs);
             
 
         if not single_gen or force_fitness:
@@ -186,7 +187,8 @@ class GameRunner:
         if self.runConfig.parallel:
             idQueue = Queue();
             [idQueue.put(i) for i in range(self.runConfig.parallel_processes)];
-            self.pool = GenomeExecutorPool(self.runConfig.parallel_processes, initargs=(idQueue,self.game,config));
+            pool_kwargs = getattr(self.runConfig,'pool_kwargs',{});
+            self.pool = GenomeExecutorPool(self.runConfig.parallel_processes, initargs=(idQueue,self.game,config),**pool_kwargs);
             
         self.run_name = run_name.replace(' ','_');
         if doFitness:

@@ -21,7 +21,6 @@ def get_GFX():
         
 
 def load_all_gfx(directory:Path, colorkey=(255,0,255), accept=('.png', '.jpg', '.bmp', '.gif')):
-    print(os.getcwd());
     graphics = {}
     for pic in os.listdir(directory):
         name, ext = os.path.splitext(pic)
