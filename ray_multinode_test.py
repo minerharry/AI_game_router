@@ -1,6 +1,10 @@
 # script.py
+import sys
+print(sys.version)
+print(sys.version_info);
 import ray
 import time
+import os
 
 @ray.remote(scheduling_strategy="SPREAD")
 def hello_world():
@@ -9,5 +13,6 @@ def hello_world():
 
 ray.init()
 refs = [hello_world.remote() for _ in range(20)];
+
 
 print(ray.get(refs));
