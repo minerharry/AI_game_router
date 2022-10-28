@@ -4,6 +4,7 @@ import argparse
 
 @ray.remote(resources={"Display":1})
 def pwned():
+    print("pwning...");
     import pygame as pg
     pg.init();
     pg.display.set_caption("I AM HACKING YOUR COMPUTER MWAHAHAHA");
@@ -41,12 +42,21 @@ if __name__ == "__main__":
     print("parsing inputs stuff");
     parser = argparse.ArgumentParser(prog = "multi node display resource tester");
     parser.add_argument("head_node_ip");
-    ip = parser.parse_args().head_node_ip;
-
-    print("starting ray: connecting to remote ip",ip);
-    ray.init(address=ip, log_to_driver=False);
+    parser.add_argument("-n","--no_ray",dest='no_ray',action='store_const',const=True,default=False);
+    args = parser.parse_args();
+    ip = args.head_node_ip;
     import logging
-    logging.info("HELP I CAN'T SEE");
-    print("awaiting resource availability");
-    r = pwned.remote();
-    ray.get(r);
+    logging.info("logging???");
+
+    no_ray = parser.parse_args().no_ray;
+    if not no_ray:
+        print("starting ray: connecting to remote ip",ip);
+        ray.init(address=ip, log_to_driver=False);
+        import logging
+        logging.info("HELP I CAN'T SEE");
+        print("awaiting resource availability");
+        r = pwned.remote();
+        ray.get(r);
+    else:
+        print("not using ray, running pygame");
+        pwned._function();
