@@ -1,5 +1,6 @@
 import time
 import ray
+import argparse
 
 @ray.remote(resources={"Display":1})
 def pwned():
@@ -37,8 +38,13 @@ def pwned():
 
 
 if __name__ == "__main__":
-    print("starting ray");
-    ray.init();
+    print("parsing inputs stuff");
+    parser = argparse.ArgumentParser(prog = "multi node display resource tester");
+    parser.add_argument("head_node_ip");
+    ip = parser.parse_args().head_node_ip;
+
+    print("starting ray: connecting to remote ip",ip);
+    ray.init(address=ip);
     print("awaiting resource availability");
     r = pwned.remote();
     ray.get(r);
