@@ -44,7 +44,9 @@ if __name__ == "__main__":
     ip = parser.parse_args().head_node_ip;
 
     print("starting ray: connecting to remote ip",ip);
-    ray.init(address=ip);
+    ray.init(address=ip, log_to_driver=False);
+    import logging
+    logging.info("HELP I CAN'T SEE");
     print("awaiting resource availability");
     r = pwned.remote();
     ray.get(r);
