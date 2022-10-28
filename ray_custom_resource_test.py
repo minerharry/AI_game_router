@@ -37,6 +37,8 @@ def pwned():
 
 
 if __name__ == "__main__":
+    print("starting ray");
     ray.init();
+    print("awaiting resource availability");
     r = pwned.remote();
     ray.get(r);
