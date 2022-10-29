@@ -53,7 +53,7 @@ if __name__ == "__main__":
     if not no_ray:
         import ray
         print("starting ray: connecting to remote ip",ip);
-        ray.init(address=ip, log_to_driver=False);
+        ray.init(log_to_driver=False);
         import logging
         logging.info("HELP I CAN'T SEE");
         print("awaiting resource availability");
