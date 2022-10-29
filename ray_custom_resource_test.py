@@ -40,6 +40,7 @@ def pwned():
 
 if __name__ == "__main__":
     print("parsing inputs stuff");
+    time.sleep(30);
     parser = argparse.ArgumentParser(prog = "multi node display resource tester");
     parser.add_argument("head_node_ip");
     parser.add_argument("-n","--no_ray",dest='no_ray',action='store_const',const=True,default=False);
