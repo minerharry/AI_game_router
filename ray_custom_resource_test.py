@@ -1,5 +1,5 @@
 import time
-import ray
+# import ray
 import argparse
 
 @ray.remote(resources={"Display":1})
@@ -51,6 +51,7 @@ if __name__ == "__main__":
 
     no_ray = parser.parse_args().no_ray;
     if not no_ray:
+        import ray
         print("starting ray: connecting to remote ip",ip);
         ray.init(address=ip, log_to_driver=False);
         import logging
