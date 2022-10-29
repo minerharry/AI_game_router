@@ -49,12 +49,12 @@ class FitnessCheckpoint:
 class FitnessReporter(BaseReporter):
 
     def __init__(self,gameName,run_name):
-        os.makedirs(f"memories\\{gameName}\\{run_name}_fitness_history",exist_ok=True);
+        os.makedirs(f"memories/{gameName}/{run_name}_fitness_history",exist_ok=True);
         self.gameName = gameName;
         self.run_name = run_name;
 
     def save_data(self,fitness_data):
-        path = f"memories\\{self.gameName}\\{self.run_name}_fitness_history\\gen_{self.generation}";
+        path = f"memories/{self.gameName}/{self.run_name}_fitness_history/gen_{self.generation}";
         checkpoint = FitnessCheckpoint(fitness_data);
         checkpoint.save_checkpoint(path);
         

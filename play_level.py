@@ -569,7 +569,7 @@ if __name__== "__main__":
 
     run_name = 'play_test'
 
-    runConfig.logPath = f'logs\\smb1Py\\run-{run_name}-log.txt';
+    runConfig.logPath = f'logs/smb1Py/run-{run_name}-log.txt';
     runConfig.fitness_collection_type='delta_max';
 
     configs = [

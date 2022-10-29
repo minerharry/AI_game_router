@@ -131,7 +131,7 @@ class Segment(tools.State):
 
     def load_map(self):
         map_file = 'level_' + str(self.level_num) + '.json'
-        file_path = os.path.join('games\\smb1Py\\py_mario_bros\\PythonSuperMario_master','source', 'data', 'maps', map_file)
+        file_path = os.path.join('games/smb1Py/py_mario_bros/PythonSuperMario_master','source', 'data', 'maps', map_file)
         f = open(file_path)
         self.map_data = json.load(f)
         f.close()

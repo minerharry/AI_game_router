@@ -49,6 +49,42 @@ spec:
   - groupName: primary
     rayStartParams:
       block: "true"
+    replicas: 3
+    minReplicas: 3
+    maxReplicas: 5
+    template: # Pod template
+      spec:
+        # Keep this initContainer in each workerGroup template.
+        initContainers:
+        - name: init-myservice
+          image: busybox:1.28
+          command: ['sh', '-c', "until nslookup $RAY_IP.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+        containers:
+        - name: external
+          image: minerharry/ai_game_router:smbpy_ai-v0.1
+          #tell pygame the machine is headless
+          env:
+          - name: SDL_VIDEODRIVER
+            value: "dummy"
+          lifecycle:
+            postStart:
+              exec:
+                command: ["/bin/sh","-c","cd /router/AI_game_router; git pull",]
+            preStop:
+              exec:
+                command: ["/bin/sh","-c","ray stop"]
+          resources:
+            limits:
+              cpu: "1"
+              memory: "512Mi"
+            requests:
+              cpu: "500m"
+              memory: "256Mi"
+  workerGroupSpecs:
+  - groupName: special
+    rayStartParams:
+      block: "true"
+      resources: "{\"Special\":2}"
     replicas: 1
     minReplicas: 1
     maxReplicas: 5

@@ -48,7 +48,7 @@ def quote(identifier,
     if html(identifier) and not isinstance(identifier, NoHtml):
         pass
     elif not valid_id(identifier) or identifier.lower() in dot_keywords:
-        return '"%s"' % identifier.replace('"', '\\"')
+        return '"%s"' % identifier.replace('"', '/"')
     return identifier
 
 

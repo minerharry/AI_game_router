@@ -57,7 +57,7 @@ class GameRunner:
         self.generation:int = None;
 
     def continue_run(self,run_name,render=False,manual_generation=None,manual_config_override=None,single_gen=False):
-        checkpoint_folder = 'checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_');
+        checkpoint_folder = 'checkpoints/games/'+self.runConfig.gameName.replace(' ','_')+'/'+run_name.replace(' ','_');
         if manual_generation is None:
             files = os.listdir(checkpoint_folder);
             maxGen = -1;
@@ -67,15 +67,15 @@ class GameRunner:
                     gen = int(m.group(1));
                     if (gen>maxGen):
                         maxGen = gen;
-            pop = neat.Checkpointer.restore_checkpoint(checkpoint_folder + '\\run-checkpoint-' + str(maxGen) + ".gz",config_transfer=manual_config_override);
+            pop = neat.Checkpointer.restore_checkpoint(checkpoint_folder + '/run-checkpoint-' + str(maxGen) + ".gz",config_transfer=manual_config_override);
         else:
-            pop = neat.Checkpointer.restore_checkpoint(checkpoint_folder + '\\run-checkpoint-' + str(manual_generation) + ".gz",config_transfer=manual_config_override);
+            pop = neat.Checkpointer.restore_checkpoint(checkpoint_folder + '/run-checkpoint-' + str(manual_generation) + ".gz",config_transfer=manual_config_override);
 
         return self.run(pop.config,run_name,render=render,pop=pop,single_gen=single_gen);
 
     def replay_generation(self,generation,run_name,render=False,genome_config_edits=None):
-        checkpoint_folder = 'checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_');
-        pop = neat.Checkpointer.restore_checkpoint(checkpoint_folder + '\\run-checkpoint-' + str(generation) + '.gz');
+        checkpoint_folder = 'checkpoints/games/'+self.runConfig.gameName.replace(' ','_')+'/'+run_name.replace(' ','_');
+        pop = neat.Checkpointer.restore_checkpoint(checkpoint_folder + '/run-checkpoint-' + str(generation) + '.gz');
 
         config = pop.config;
 
@@ -101,8 +101,8 @@ class GameRunner:
         pop.add_reporter(neat.StdOutReporter(True));
 
         if not single_gen:
-            os.makedirs("checkpoints\\games\\"+self.runConfig.gameName.replace(' ','_')+f'\\{self.run_name}',exist_ok=True);            
-            pop.add_reporter(neat.Checkpointer(1,filename_prefix='checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+self.run_name+'\\run-checkpoint-'));
+            os.makedirs("checkpoints/games/"+self.runConfig.gameName.replace(' ','_')+f'/{self.run_name}',exist_ok=True);            
+            pop.add_reporter(neat.Checkpointer(1,filename_prefix='checkpoints/games/'+self.runConfig.gameName.replace(' ','_')+'/'+self.run_name+'/run-checkpoint-'));
 
         if (render):
             pop.add_reporter(RendererReporter(self));
@@ -116,7 +116,8 @@ class GameRunner:
         if self.runConfig.parallel and not hasattr(self,'pool'):
             idQueue = Queue();
             [idQueue.put(i) for i in range(self.runConfig.parallel_processes)];
-            self.pool = GenomeExecutorPool(self.runConfig.parallel_processes, initargs=(idQueue,self.game,config));
+            pool_kwargs = getattr(self.runConfig,'pool_kwargs',{});
+            self.pool = GenomeExecutorPool(self.runConfig.parallel_processes, initargs=(idQueue,self.game,config),**pool_kwargs);
             
 
         if not single_gen or force_fitness:
@@ -130,7 +131,7 @@ class GameRunner:
         return winner;
 
     def check_output_connections(self,generation,run_name,target_output,render=False):
-        file = 'checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_')+'\\run-checkpoint-' + str(generation) + ".gz";
+        file = 'checkpoints/games/'+self.runConfig.gameName.replace(' ','_')+'/'+run_name.replace(' ','_')+'/run-checkpoint-' + str(generation) + ".gz";
         pop = neat.Checkpointer.restore_checkpoint(file);
         connected = [];
         for g in itervalues(pop.population):
@@ -141,7 +142,7 @@ class GameRunner:
         [print (connectedGenome.key) for connectedGenome in connected];
 
     def render_worst_genome(self,generation,config,run_name,net=False):
-        file = 'checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_')+'\\run-checkpoint-' + str(generation) + ".gz";
+        file = 'checkpoints/games/'+self.runConfig.gameName.replace(' ','_')+'/'+run_name.replace(' ','_')+'/run-checkpoint-' + str(generation) + ".gz";
         pop = neat.Checkpointer.restore_checkpoint(file);
         worst = None
         for g in itervalues(pop.population):
@@ -153,7 +154,7 @@ class GameRunner:
             raise Exception("no genomes to eval");
 
     def render_genome_by_id(self,genomeId,generation,config,run_name,net=False):
-        file = 'checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_')+'\\run-checkpoint-' + str(generation) + ".gz";
+        file = 'checkpoints/games/'+self.runConfig.gameName.replace(' ','_')+'/'+run_name.replace(' ','_')+'/run-checkpoint-' + str(generation) + ".gz";
         pop = neat.Checkpointer.restore_checkpoint(file);
         genome = None;
         for g in itervalues(pop.population):
@@ -168,7 +169,7 @@ class GameRunner:
     def replay_best(self,generation,config,run_name,net=False,randomReRoll=False,number=1):
         if number < 1:
             raise Exception("must replay at least one genome");
-        file = 'checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_')+'\\run-checkpoint-' + str(generation) + ".gz";
+        file = 'checkpoints/games/'+self.runConfig.gameName.replace(' ','_')+'/'+run_name.replace(' ','_')+'/run-checkpoint-' + str(generation) + ".gz";
         pop = neat.Checkpointer.restore_checkpoint(file);
         #self.eval_genomes(list(iteritems(pop.population)),config);
         if (randomReRoll):
@@ -178,15 +179,16 @@ class GameRunner:
             self.render_genome(g,config,net=net);
 
     def run_top_genomes(self,generation,config,run_name,number,doFitness=False,randomReRoll=False):
-        checkpoint_folder = 'checkpoints\\games\\'+self.runConfig.gameName.replace(' ','_')+'\\'+run_name.replace(' ','_');
-        pop = neat.Checkpointer.restore_checkpoint(checkpoint_folder + '\\run-checkpoint-' + str(generation) + '.gz');
+        checkpoint_folder = 'checkpoints/games/'+self.runConfig.gameName.replace(' ','_')+'/'+run_name.replace(' ','_');
+        pop = neat.Checkpointer.restore_checkpoint(checkpoint_folder + '/run-checkpoint-' + str(generation) + '.gz');
 
         config = pop.config;
 
         if self.runConfig.parallel:
             idQueue = Queue();
             [idQueue.put(i) for i in range(self.runConfig.parallel_processes)];
-            self.pool = GenomeExecutorPool(self.runConfig.parallel_processes, initargs=(idQueue,self.game,config));
+            pool_kwargs = getattr(self.runConfig,'pool_kwargs',{});
+            self.pool = GenomeExecutorPool(self.runConfig.parallel_processes, initargs=(idQueue,self.game,config),**pool_kwargs);
             
         self.run_name = run_name.replace(' ','_');
         if doFitness:

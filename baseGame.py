@@ -224,7 +224,7 @@ class StarSmash(RunGame):
         self.firing = False;
         self.processInput(inputs);
         if (not self.runConfig.gameStillRunning(self.getMappedData())):
-            return Image.open('images\\epic_fail.png');
+            return Image.open('images/epic_fail.png');
         fitness = self.runConfig.fitnessFromGameData(self.getMappedData());
         baseImage = self.get_screen(self.height,self.firing,self.asteroids,inputs);
         draw = ImageDraw.Draw(baseImage);
@@ -315,14 +315,14 @@ class StarSmash(RunGame):
     
 
     def get_screen(self,ship_height,is_firing,asteroids,inputs):
-        bg = Image.open('images\\calc_bg.png');
+        bg = Image.open('images/calc_bg.png');
         self.paste_ship(bg,ship_height);
         if (is_firing):
             self.paste_beam(bg, ship_height);
         [self.paste_asteroid(bg,asteroid[1],asteroid[0]) for asteroid in asteroids];
-        up = Image.open('images\\up_norm.png') if (inputs[0] <= 0) else Image.open('images\\up_press.png');
-        down = Image.open('images\\down_norm.png') if (inputs[1] <= 0) else Image.open('images\\down_press.png');
-        beamin = Image.open('images\\beam_norm.png') if (not(self.firing)) else Image.open('images\\beam_press.png');
+        up = Image.open('images/up_norm.png') if (inputs[0] <= 0) else Image.open('images/up_press.png');
+        down = Image.open('images/down_norm.png') if (inputs[1] <= 0) else Image.open('images/down_press.png');
+        beamin = Image.open('images/beam_norm.png') if (not(self.firing)) else Image.open('images/beam_press.png');
     
         bg.paste(up,(855,15),up);
         bg.paste(down,(855,55),down);
@@ -337,15 +337,15 @@ class StarSmash(RunGame):
         return bg;
 
     def paste_asteroid(self,bg,x,y):
-        asteroid_pic = Image.open('images\\asteroid.png');
+        asteroid_pic = Image.open('images/asteroid.png');
         self.add_char_to_calc_grid(x,y,asteroid_pic,bg);
 
     def paste_beam(self,bg,height,left=2):
-        beam = Image.open('images\\beam.png');
+        beam = Image.open('images/beam.png');
         self.add_char_to_calc_grid(left,height,beam,bg);
 
     def paste_ship(self,bg,height):
-        self.add_char_to_calc_grid(0,height-1,Image.open('images\\ship_filled.png'),bg);
+        self.add_char_to_calc_grid(0,height-1,Image.open('images/ship_filled.png'),bg);
 
     def add_char_to_calc_grid(self,x,y,char,bg):
         bg.paste(char,(x*60,y*80),char);

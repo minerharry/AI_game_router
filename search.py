@@ -225,7 +225,7 @@ class LevelSearcher(Generic[N,T]):
             prev,node = edge;
             if (prev == None):
                 raise Exception("attempting to sort initial edge, bad juju");
-            return min(self.g[self.node_key(prev)].values()) + self.c(prev,node) + self.h(node);
+            return min(self.g[self.node_key(prev)].values()) + self.frustration[node]*self.frustration_weight + self.c(prev,node) + self.h(node);
         
         self.sort_key = sort_key;
         
