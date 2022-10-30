@@ -257,7 +257,7 @@ class LevelSearcher(Generic[N,T]):
     def update_scores(self,scores:Iterable[tuple[N,float]]):
         for node,score in scores:
             self.frustration[node] += 1;
-            self.g[self.node_key(node)][node] = score + self.frustration[node]*self.frustration_weight;
+            self.g[self.node_key(node)][node] = score;
             
 
     def get_checkpoint_data(self):
