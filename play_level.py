@@ -564,7 +564,7 @@ if __name__== "__main__":
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
     runConfig.parallel_processes = 6;
-    runConfig.chunkFactor = 96;
+    runConfig.chunkFactor = 24;
     runConfig.saveFitness = False;
 
     run_name = 'play_test'
