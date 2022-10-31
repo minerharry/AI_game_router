@@ -586,7 +586,7 @@ if __name__== "__main__":
         GenerationOptions(size=(18,14),inner_size=(12,8),num_blocks=(0,6),ground_height=7,task_batch_size=(1,4),num_gaps=(1,3),gap_width=(1,3)), #10
         ];
     
-    orders = [(configs[4],55),(configs[2],20),(configs[6],10),(configs[7],5),(configs[9],35),(configs[10],15)];
+    orders = [(configs[4],45),(configs[2],15),(configs[6],10),(configs[7],5),(configs[9],30),(configs[10],15)];
 
     tdat_gen = partial(generate_data,orders);
 
