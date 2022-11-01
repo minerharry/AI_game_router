@@ -5,7 +5,10 @@ from ray.util.scheduling_strategies import NodeAffinitySchedulingStrategy
 
 
 ray.init();
+logger = logging.getLogger(__name__)
+
 print("waiting for display node...");
+logger.info("waiting for display node...");
 most_display = None;
 while most_display is None:
     nodes = ray.nodes();

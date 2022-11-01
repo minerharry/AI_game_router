@@ -1,0 +1,1 @@
+(cd AI_game_router/ && srun -p interact --x11=first ray start --address="$ip_head" --resources="{\"Display\":1}" --temp-dir="/nas/longleaf/home/hht/tmp" --block)
