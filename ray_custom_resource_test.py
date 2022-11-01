@@ -1,5 +1,5 @@
 import time
-# import ray
+import ray
 import argparse
 
 @ray.remote(resources={"Display":1})
