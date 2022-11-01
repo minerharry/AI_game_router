@@ -136,7 +136,7 @@ class LevelPlayer:
         self.max_task_dist = maximum_viable_distance;
         self.fixed_padding = endpoint_padding;
 
-    def eval_fixed_net(self,grids,start:gridPos,task:gridPos,size:gridPos)->float:
+    def eval_fixed_net(self,in_grids,start:gridPos,task:gridPos,size:gridPos)->float:
         
         left,right = (start[0],task[0]) if start[0] < task[0] else (task[0],start[0]);
         top,bottom = (start[1],task[1]) if start[1] < task[1] else (task[1],start[1]);
@@ -147,9 +147,9 @@ class LevelPlayer:
         y_grad = np.array([[f_y_grad(x,y,start,task) for x in range(bounds[0],bounds[1]+1)] for y in range(bounds[2],bounds[3]+1)]).transpose();
         smear = np.array([[f_smear(x,y,start,task) for x in range(bounds[0],bounds[1]+1)] for y in range(bounds[2],bounds[3]+1)]).transpose();
 
-        grids = np.array(grids)[:,bounds[0]:bounds[1]+1,bounds[2]:bounds[3]+1]
+        in_grids = np.array(in_grids)[:,bounds[0]:bounds[1]+1,bounds[2]:bounds[3]+1]
         
-        grids:np.ndarray = np.concatenate((grids,[x_grad,y_grad,smear]),axis=0)
+        grids:np.ndarray = np.concatenate((in_grids,[x_grad,y_grad,smear]),axis=0)
 
         grids = np.expand_dims(grids,0);
 
@@ -207,7 +207,8 @@ class LevelPlayer:
 
         self.gamerunner.continue_run(self.checkpoint_run_name,manual_config_override=self.neat_config_override);
 
-        result =  [d.data for d in self.task_reporter.get_all_data() if d.id in level_ids];
+        result:list[list[tuple[tuple[floatPos, floatPos | Literal['complete']], float]]] = [d.data for d in self.task_reporter.get_all_data() if d.id in level_ids];
+        
         print("Neat player evaluated;",len(result),"data collected");
 
         if renderProcess is not None:
@@ -432,7 +433,7 @@ class LevelPlayer:
                 acc_fitness = 0;
                 acc_path:list[gridPos] = [];
                 for (start,end),fitness in fitness_list:
-                    if end == 'goal':
+                    if end == 'complete':
                         if tuple(acc_path) not in completed_paths:
                             completed_paths.append(tuple(acc_path)) 
                             if (start in goal_idxs):
@@ -481,7 +482,7 @@ class LevelPlayer:
         
         return winning_path;
 
-class TaskFitnessReporter(BaseReporter,ThreadedGameReporter[IdData[list[tuple[tuple[floatPos,floatPos|Literal['goal']],float]]]]): #I'm so sorry
+class TaskFitnessReporter(BaseReporter,ThreadedGameReporter[IdData[list[tuple[tuple[floatPos,floatPos|Literal['complete']],float]]]]): #I'm so sorry
     def __init__(self,save_path=None,**kwargs):
         super().__init__(**kwargs);
         self.save_path = Path(save_path) if save_path else None;
@@ -494,7 +495,7 @@ class TaskFitnessReporter(BaseReporter,ThreadedGameReporter[IdData[list[tuple[tu
         self.previous_task:floatPos = game.getMappedData()['pos'];
         self.current_task:floatPos = game.getMappedData()['task_position'];
         self.current_fitness = game.getFitnessScore();
-        self.current_data:list[tuple[tuple[floatPos,floatPos|Literal['goal']],float]] = [];
+        self.current_data:list[tuple[tuple[floatPos,floatPos|Literal['complete']],float]] = [];
 
     def on_tick(self, game: SMB1Game, inputs, finish = False):
         task:floatPos = game.getMappedData()['task_position'];
@@ -509,7 +510,7 @@ class TaskFitnessReporter(BaseReporter,ThreadedGameReporter[IdData[list[tuple[tu
     def on_finish(self, game: SMB1Game):
         self.on_tick(game,None,finish=True);
         if game.getMappedData()['task_path_complete']:
-            self.current_data.append(((self.previous_task,'goal'),-1));
+            self.current_data.append(((self.previous_task,'complete'),-1));
             # print(f"Task Fitness Reporter: Task sequence completed for data {self.data_id}");
         self.put_data(IdData(self.data_id,self.current_data));
 
