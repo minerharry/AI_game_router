@@ -18,8 +18,8 @@ print("display node obtained, display cores available:",num_display);
 
 basic_cores = ray.cluster_resources()["CPU"]-num_display-2; #two extra cores for whatever
 
-cpu_bundles = [{"CPU":1} for _ in range(basic_cores)];
-display_bundles = [{"Display":0.01,"CPU":1} for _ in range(num_display)];
+cpu_bundles = [{"CPU":1} for _ in range(int(basic_cores))];
+display_bundles = [{"Display":0.01,"CPU":1} for _ in range(int(num_display))];
 
 group = placement_group(cpu_bundles + display_bundles,strategy="SPREAD");
 st = PlacementGroupSchedulingStrategy(group);
