@@ -30,20 +30,21 @@ print(placement_group_table(group));
 st = PlacementGroupSchedulingStrategy(group);
 
 @ray.remote(scheduling_strategy=st)
-def show_context():
-    context = ray.get_runtime_context();
-    c = context.get()
-    c["resources"] = context.get_assigned_resources();
-    print(c);
-    print(os.environ["SDL_VIDEODRIVER"] if "SDL_VIDEODRIVER" in os.environ else None);
-    time.sleep(4);
-    return c['node_id'];
+class cActor():
+    def show_context():
+        context = ray.get_runtime_context();
+        c = context.get()
+        c["resources"] = context.get_assigned_resources();
+        print(c);
+        print(os.environ["SDL_VIDEODRIVER"] if "SDL_VIDEODRIVER" in os.environ else None);
+        time.sleep(4);
+        return c['node_id'];
 
 print("Cluster total resources:",ray.cluster_resources());
 print("Cluster resource availability:",ray.available_resources());
 print("Cluster nodes:",ray.nodes());
-refs = [1 for _ in range(len(total_bundles))];
-t = [show_context.remote() for c in refs];
+refs = [cActor.remote() for c in range(len(total_bundles))];
+t = [c.show_context.remote() for c in refs];
 
 ids = ray.get(t);
 

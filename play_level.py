@@ -543,7 +543,7 @@ if __name__== "__main__":
     from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
     player = LevelPlayer();
 
-    ray.init(address=sys.argv[1] or "auto");
+    ray.init(address=sys.argv[1] if len(sys.argv) > 1 else None);
 
     print("waiting for display node...");
     num_display = 0

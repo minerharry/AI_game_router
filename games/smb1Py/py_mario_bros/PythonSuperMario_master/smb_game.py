@@ -20,7 +20,7 @@ class SMB1Game(RunGame):
         parent_game.initInputs['game'] = game;
 
     
-    def __init__(self,runnerConfig:RunnerConfig,**kwargs):
+    def __init__(self,runnerConfig:RunnerConfig,parentGame:EvalGame=None,**kwargs):
         self.runConfig = runnerConfig;
         datum = None
         if 'training_datum_id' in kwargs:
@@ -44,7 +44,8 @@ class SMB1Game(RunGame):
             state_dict = {c.LEVEL: Segment()}
             self.game.setup_states(state_dict, c.LEVEL)
             self.game.state.startup(0,{c.LEVEL_NUM:1},initial_state=datum);
-            kwargs['game'] = self.game;
+            if parentGame:
+                parentGame.initInputs["game"] = self.game;
         else:
             self.game = kwargs["game"];
             self.game.load_segment(datum);
