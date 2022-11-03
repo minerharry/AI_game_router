@@ -34,7 +34,9 @@ print("Cluster total resources:",ray.cluster_resources());
 print("Cluster resource availability:",ray.available_resources());
 print("Cluster nodes:",ray.nodes());
 refs = [contextActor.remote() for _ in range(20)];
-[c.show_context.remote() for c in refs];
+t = [c.show_context.remote() for c in refs];
+
+ray.get(t);
 
     
 
