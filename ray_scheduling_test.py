@@ -10,7 +10,9 @@ ray.init(address=sys.argv[1] or "auto");
 print("waiting for display node...");
 num_display = 0
 while num_display < 2:
-    num_display = ray.cluster_resources()["Display"]
+    r = ray.cluster_resources();
+    if "Display" in r:
+        num_display = r["Display"]
     time.sleep(5);
 print("display node obtained, display cores available:",num_display);
 
