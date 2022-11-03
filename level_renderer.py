@@ -250,7 +250,7 @@ class LevelRendererReporter(ThreadedGameReporter[PathMessage]): #process_num,act
     if ray is not None:
         #TODO: Consider making this an async actor? research implications
         #TODO: ADD FAULT TOLERANCE
-        @ray.remote
+        @ray.remote(resources={"Display":0.01})
         def ray_render_loop(self,renderer:LevelRenderer,kill_event:Event,interval=5): #update interval in seconds
             import pygame as pg
             while not kill_event.is_set():

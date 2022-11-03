@@ -557,7 +557,7 @@ if __name__== "__main__":
     basic_cores = ray.cluster_resources()["CPU"]-num_display-2; #two extra cores for whatever
 
     cpu_bundles = [{"CPU":1} for _ in range(int(basic_cores))];
-    display_bundles = [{"Display":0.01,"CPU":1} for _ in range(int(num_display))];
+    display_bundles = [{"Display":0.01,"CPU":1} for _ in range(int(num_display) - 1)];
 
     total_bundles = cpu_bundles + display_bundles
     group = placement_group(total_bundles,strategy="SPREAD");
