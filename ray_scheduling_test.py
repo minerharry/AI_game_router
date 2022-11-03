@@ -4,7 +4,7 @@ from ray.util.multiprocessing import Pool
 from ray.util.scheduling_strategies import NodeAffinitySchedulingStrategy
 import sys
 
-ray.init(ip=sys.argv[1] or "auto");
+ray.init(address=sys.argv[1] or "auto");
 
 print("waiting for display node...");
 most_display = None;
