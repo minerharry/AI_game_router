@@ -26,6 +26,7 @@ def show_context():
     c = context.get()
     c["resources"] = context.get_assigned_resources();
     print(c);
+    time.sleep(4);
     return c;
 
 print("Cluster total resources:",ray.cluster_resources());
