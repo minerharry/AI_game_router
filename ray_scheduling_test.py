@@ -23,6 +23,7 @@ cpu_bundles = [{"CPU":1} for _ in range(int(basic_cores))];
 display_bundles = [{"Display":0.01,"CPU":1} for _ in range(int(num_display))];
 
 group = placement_group(cpu_bundles + display_bundles,strategy="SPREAD");
+ray.get(group.ready());
 st = PlacementGroupSchedulingStrategy(group);
 
 @ray.remote(scheduling_strategy=st)
@@ -32,9 +33,9 @@ class contextActor:
         c = context.get()
         c["resources"] = context.get_assigned_resources();
         print(c);
-        print(os.environ["SDL_VIDEODRIVER"])
+        print(os.environ["SDL_VIDEODRIVER"] if "SDL_VIDEODRIVER" in os.environ else None);
         time.sleep(4);
-        return c;
+        return c['node_id'];
 
 print("Cluster total resources:",ray.cluster_resources());
 print("Cluster resource availability:",ray.available_resources());
@@ -42,7 +43,9 @@ print("Cluster nodes:",ray.nodes());
 refs = [contextActor.remote() for _ in range(20)];
 t = [c.show_context.remote() for c in refs];
 
-ray.get(t);
+ids = ray.get(t);
+
+print([f"{id}: {ids.count(id)}" for id in set(ids)]);
 
     
 
