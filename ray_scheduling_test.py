@@ -30,7 +30,7 @@ def show_context():
 
 print("Cluster total resources:",ray.cluster_resources());
 print("Cluster resource availability:",ray.available_resources());
-
+print("Cluster nodes:",ray.nodes());
 refs = [show_context.remote() for _ in range(20)];
 ray.get(refs);
 
