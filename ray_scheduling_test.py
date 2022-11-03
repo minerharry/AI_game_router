@@ -18,6 +18,7 @@ while most_display is None:
                 most_display = n["NodeID"];
                 max_display = d
     time.sleep(5);
+print("display node obtained");
 
 @ray.remote(scheduling_strategy=NodeAffinitySchedulingStrategy(most_display,soft=True))
 def show_context():
@@ -27,9 +28,11 @@ def show_context():
     print(c);
     return c;
 
+print("Cluster total resources:",ray.cluster_resources());
+print("Cluster resource availability:",ray.available_resources());
 
 refs = [show_context.remote() for _ in range(20)];
-print(ray.get(refs));
+ray.get(refs);
 
     
 
