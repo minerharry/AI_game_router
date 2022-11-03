@@ -2,7 +2,7 @@ import time
 import ray
 from ray.util.multiprocessing import Pool
 from ray.util.scheduling_strategies import NodeAffinitySchedulingStrategy, PlacementGroupSchedulingStrategy
-from ray.util.placement_group import placement_group
+from ray.util.placement_group import placement_group, placement_group_table
 import sys
 import os
 
@@ -24,6 +24,7 @@ display_bundles = [{"Display":0.01,"CPU":1} for _ in range(int(num_display))];
 
 group = placement_group(cpu_bundles + display_bundles,strategy="SPREAD");
 ray.get(group.ready());
+print(placement_group_table(group));
 st = PlacementGroupSchedulingStrategy(group);
 
 @ray.remote(scheduling_strategy=st)
