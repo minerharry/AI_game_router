@@ -591,7 +591,7 @@ if __name__== "__main__":
     runConfig.view_distance = 3.75;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
-    runConfig.parallel_processes = 6;
+    runConfig.parallel_processes = len(total_bundles);
     runConfig.chunkFactor = 24;
     runConfig.saveFitness = False;
 
