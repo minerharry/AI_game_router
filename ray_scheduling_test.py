@@ -1,26 +1,28 @@
 import time
 import ray
 from ray.util.multiprocessing import Pool
-from ray.util.scheduling_strategies import NodeAffinitySchedulingStrategy
+from ray.util.scheduling_strategies import NodeAffinitySchedulingStrategy, PlacementGroupSchedulingStrategy
+from ray.util.placement_group import placement_group
 import sys
 
 ray.init(address=sys.argv[1] or "auto");
 
 print("waiting for display node...");
-most_display = None;
-while most_display is None:
-    nodes = ray.nodes();
-    max_display = 0;
-    for n in nodes:
-        if "Display" in n["Resources"]:
-            d = n["Resources"]["Display"];
-            if d > max_display:
-                most_display = n["NodeID"];
-                max_display = d
+num_display = 0
+while num_display < 2:
+    num_display = ray.cluster_resources()["Display"]
     time.sleep(5);
-print("display node obtained:",most_display);
+print("display node obtained, display cores available:",num_display);
 
-@ray.remote(scheduling_strategy=NodeAffinitySchedulingStrategy(most_display,soft=True))
+basic_cores = ray.cluster_resources()["CPU"]-num_display-2; #two extra cores for whatever
+
+cpu_bundles = [{"CPU":1} for _ in range(basic_cores)];
+display_bundles = [{"Display":0.01,"CPU":1} for _ in range(num_display)];
+
+group = placement_group(cpu_bundles + display_bundles,strategy="SPREAD");
+st = PlacementGroupSchedulingStrategy(group);
+
+@ray.remote(scheduling_strategy=st)
 class contextActor:
     def show_context(self):
         context = ray.get_runtime_context();
