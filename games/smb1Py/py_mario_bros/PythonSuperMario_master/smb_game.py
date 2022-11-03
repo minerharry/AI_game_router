@@ -27,9 +27,9 @@ class SMB1Game(RunGame):
             datum = self.runConfig.training_data[kwargs['training_datum_id']];
         if 'game' not in kwargs:
             if 'auto_detect_render' in kwargs and kwargs['auto_detect_render']:
-
                 no_render = 'SDL_VIDEODRIVER' in os.environ and os.environ['SDL_VIDEODRIVER'] == 'dummy';
-                print("Autodetecting render node:","render node detected, activating graphics" if not no_render else "non-rendering node detected, deactivating graphics");
+                import ray
+                print("Autodetecting render node:","render node detected, activating graphics" if not no_render else "non-rendering node detected, deactivating graphics","on node",ray.get_runtime_context().get_node_id());
                 c.GRAPHICS_SETTINGS = c.NONE if no_render else c.LOW;
             elif 'GRAPHICS_SETTINGS' in kwargs:
                 c.GRAPHICS_SETTINGS = kwargs['GRAPHICS_SETTINGS'];

@@ -553,6 +553,7 @@ if __name__== "__main__":
             num_display = r["Display"]
         time.sleep(5);
     print("display node obtained, display cores available:",num_display);
+    print("cluster nodes:",ray.nodes());
 
     basic_cores = ray.cluster_resources()["CPU"]-num_display-2; #two extra cores for whatever
 
