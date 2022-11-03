@@ -33,7 +33,7 @@ class RunnerConfig:
         if "ray" in [self.queue_type,self.pool_type]:
             print("ray detected, activating...");
             import ray
-            ray.init();
+            ray.init(ignore_reinit_error=True);
 
         self.time_step = time_step;
         self.numTrials = num_trials;
