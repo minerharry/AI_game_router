@@ -1,4 +1,5 @@
 import time
+from numpy import disp
 import ray
 from ray.util.multiprocessing import Pool
 from ray.util.scheduling_strategies import NodeAffinitySchedulingStrategy, PlacementGroupSchedulingStrategy
@@ -22,7 +23,8 @@ basic_cores = ray.cluster_resources()["CPU"]-num_display-2; #two extra cores for
 cpu_bundles = [{"CPU":1} for _ in range(int(basic_cores))];
 display_bundles = [{"Display":0.01,"CPU":1} for _ in range(int(num_display))];
 
-group = placement_group(cpu_bundles + display_bundles,strategy="SPREAD");
+total_bundles = cpu_bundles + display_bundles
+group = placement_group(total_bundles,strategy="SPREAD");
 ray.get(group.ready());
 print(placement_group_table(group));
 st = PlacementGroupSchedulingStrategy(group);
@@ -40,7 +42,7 @@ def show_context():
 print("Cluster total resources:",ray.cluster_resources());
 print("Cluster resource availability:",ray.available_resources());
 print("Cluster nodes:",ray.nodes());
-refs = [1 for _ in range(20)];
+refs = [1 for _ in range(len(total_bundles))];
 t = [show_context.remote() for c in refs];
 
 ids = ray.get(t);
