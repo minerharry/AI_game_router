@@ -27,7 +27,10 @@ class SMB1Game(RunGame):
             datum = self.runConfig.training_data[kwargs['training_datum_id']];
         if 'game' not in kwargs:
             if 'auto_detect_render' in kwargs and kwargs['auto_detect_render']:
-                c.GRAPHICS_SETTINGS = c.NONE if 'SDL_VIDEODRIVER' not in os.environ and os.environ['SDL_VIDEODRIVER'] == 'dummy' else c.LOW;
+
+                no_render = 'SDL_VIDEODRIVER' in os.environ and os.environ['SDL_VIDEODRIVER'] == 'dummy';
+                print("Autodetecting render node:","render node detected, activating graphics" if not no_render else "non-rendering node detected, deactivating graphics");
+                c.GRAPHICS_SETTINGS = c.NONE if no_render else c.LOW;
             elif 'GRAPHICS_SETTINGS' in kwargs:
                 c.GRAPHICS_SETTINGS = kwargs['GRAPHICS_SETTINGS'];
             elif 'num_rendered_processes' in kwargs and 'process_num' in kwargs:

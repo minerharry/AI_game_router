@@ -504,7 +504,7 @@ class GenomeExecutor:
         pass
 
     def run_batch(self, func:str, batch):
-        print("running function batch on",func);
+        # print("running function batch on",func);
         results = []
         f = getattr(self,func,None);
         assert isinstance(f,Callable);
