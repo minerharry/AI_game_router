@@ -633,7 +633,7 @@ if __name__== "__main__":
         player.set_NEAT_player(game,runConfig,run_name,runConfig.view_distance,runConfig.tile_scale,checkpoint_run_name='run_10',extra_training_data_gen = tdat_gen);
 
 
-    runConfig.pool_kwargs = {'ray_remote_args':{'scheduling_strategy':st}};
+    runConfig.pool_kwargs = {'ray_remote_args':{'scheduling_strategy':st,'num_cpus':1}};
 
 
     ### LOAD FIXED NET ###
