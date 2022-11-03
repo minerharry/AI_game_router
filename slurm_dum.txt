@@ -1,1 +1,1 @@
-(cd AI_game_router/ && srun -p interact --x11=first ray start --address="$ip_head" --resources="{\"Display\":1}" --temp-dir="/nas/longleaf/home/hht/tmp" --block)
+srun --ntasks=1 --x11=first -p interact ray start --address=172.26.113.180:6379 --resources="{\"Display\":1}" --temp-dir=/nas/longleaf/home/hht/tmp --block

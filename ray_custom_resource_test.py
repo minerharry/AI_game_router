@@ -1,6 +1,8 @@
 import time
 import ray
 import argparse
+import ray
+import sys
 
 @ray.remote(resources={"Display":1})
 def pwned():
@@ -14,7 +16,7 @@ def pwned():
 
     f = pg.font.Font('arial.ttf',20);
 
-    text = f.render("you just got pwned from a google cloud server!!!!",True,(255,0,0),(0,0,0));
+    text = f.render("you just got pwned from the longleaf server!!!!",True,(255,0,0),(0,0,0));
 
     print(text.get_size());
 
@@ -40,25 +42,10 @@ def pwned():
 
 if __name__ == "__main__":
     print("parsing inputs stuff");
-    time.sleep(30);
-    parser = argparse.ArgumentParser(prog = "multi node display resource tester");
-    parser.add_argument("head_node_ip");
-    parser.add_argument("-n","--no_ray",dest='no_ray',action='store_const',const=True,default=False);
-    args = parser.parse_args();
-    ip = args.head_node_ip;
-    import logging
-    logging.info("logging???");
+    ip = sys.argv[1] or "auto"
+    print("starting ray: connecting to remote ip",ip);
 
-    no_ray = parser.parse_args().no_ray;
-    if not no_ray:
-        import ray
-        print("starting ray: connecting to remote ip",ip);
-        ray.init(log_to_driver=False);
-        import logging
-        logging.info("HELP I CAN'T SEE");
-        print("awaiting resource availability");
-        r = pwned.remote();
-        ray.get(r);
-    else:
-        print("not using ray, running pygame");
-        pwned._function();
+    ray.init(address=ip,log_to_driver=False);
+    print("awaiting resource availability");
+    r = pwned.remote();
+    ray.get(r);
