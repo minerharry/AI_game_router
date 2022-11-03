@@ -29,7 +29,7 @@ ray.get(group.ready());
 print(placement_group_table(group));
 st = PlacementGroupSchedulingStrategy(group);
 
-@ray.remote(scheduling_strategy=st)
+@ray.remote(scheduling_strategy=st, num_cpus=1)
 class cActor():
     def __init__(self):
         context = ray.get_runtime_context();
@@ -38,10 +38,10 @@ class cActor():
         print(c);
         print(os.environ["SDL_VIDEODRIVER"] if "SDL_VIDEODRIVER" in os.environ else None);
         time.sleep(4);
-        return c['node_id'];
+        self.res = c['node_id'];
 
     def ping(self):
-        pass;
+        return self.res;
 
 print("Cluster total resources:",ray.cluster_resources());
 print("Cluster resource availability:",ray.available_resources());
