@@ -18,7 +18,7 @@ while most_display is None:
                 most_display = n["NodeID"];
                 max_display = d
     time.sleep(5);
-print("display node obtained");
+print("display node obtained:",most_display);
 
 @ray.remote(scheduling_strategy=NodeAffinitySchedulingStrategy(most_display,soft=True))
 def show_context():
