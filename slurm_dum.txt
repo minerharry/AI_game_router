@@ -1,1 +1,1 @@
-srun --ntasks=1 --ntasks-per-node=4 --time=2:00:00 --x11=first -p interact ray start --address=172.26.114.37:6379 --resources="{\"Display\":4}" --num-cpus=4 --temp-dir=/nas/longleaf/home/hht/tmp --block
+srun --ntasks=1 --ntasks-per-node=1 --cpus-per-task=4 --time=5:00:00 --x11=first -p interact ray start --address=172.26.113.214:6379 --resources="{\"Display\":4}" --num-cpus=4 --temp-dir=/nas/longleaf/home/hht/tmp --block
