@@ -4,6 +4,7 @@ from ray.util.multiprocessing import Pool
 from ray.util.scheduling_strategies import NodeAffinitySchedulingStrategy, PlacementGroupSchedulingStrategy
 from ray.util.placement_group import placement_group
 import sys
+import os
 
 ray.init(address=sys.argv[1] or "auto");
 
@@ -31,6 +32,7 @@ class contextActor:
         c = context.get()
         c["resources"] = context.get_assigned_resources();
         print(c);
+        print(os.environ["SDL_VIDEODRIVER"])
         time.sleep(4);
         return c;
 
