@@ -40,12 +40,15 @@ class cActor():
         time.sleep(4);
         return c['node_id'];
 
+    def ping(self):
+        pass;
+
 print("Cluster total resources:",ray.cluster_resources());
 print("Cluster resource availability:",ray.available_resources());
 print("Cluster nodes:",ray.nodes());
 refs = [cActor.remote() for c in range(len(total_bundles))];
 
-ids = ray.get(refs);
+ids = ray.get([t.ping() for t in refs]);
 
 print([f"{id}: {ids.count(id)}" for id in set(ids)]);
 
