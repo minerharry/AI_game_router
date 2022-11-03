@@ -5,6 +5,8 @@ import multiprocessing
 import os
 from pathlib import Path
 import pickle
+import sys
+import time
 from typing import Callable, DefaultDict, Generic, Iterable, Literal, NamedTuple, TypeVar
 from baseGame import EvalGame
 from fitnessReporter import FitnessCheckpoint
@@ -536,12 +538,37 @@ class TaskFitnessReporter(BaseReporter,ThreadedGameReporter[IdData[list[tuple[tu
     
     
 if __name__== "__main__":
+    import ray
+    from ray.util.placement_group import placement_group,placement_group_table
+    from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
     player = LevelPlayer();
+
+    ray.init(address=sys.argv[1] or "auto");
+
+    print("waiting for display node...");
+    num_display = 0
+    while num_display < 2:
+        r = ray.cluster_resources();
+        if "Display" in r:
+            num_display = r["Display"]
+        time.sleep(5);
+    print("display node obtained, display cores available:",num_display);
+
+    basic_cores = ray.cluster_resources()["CPU"]-num_display-2; #two extra cores for whatever
+
+    cpu_bundles = [{"CPU":1} for _ in range(int(basic_cores))];
+    display_bundles = [{"Display":0.01,"CPU":1} for _ in range(int(num_display))];
+
+    total_bundles = cpu_bundles + display_bundles
+    group = placement_group(total_bundles,strategy="SPREAD");
+    ray.get(group.ready());
+    print(placement_group_table(group));
+    st = PlacementGroupSchedulingStrategy(group);
 
 
     ### LOAD NEAT PLAYER ###
 
-    game = EvalGame(SMB1Game,num_rendered_processes=2);
+    game = EvalGame(SMB1Game,auto_detect_render=True);
 
     inputData = [
         'player_state',
@@ -604,6 +631,8 @@ if __name__== "__main__":
     else:
         player.set_NEAT_player(game,runConfig,run_name,runConfig.view_distance,runConfig.tile_scale,checkpoint_run_name='run_10',extra_training_data_gen = tdat_gen);
 
+
+    runConfig.pool_kwargs = {'scheduling_strategy':st};
 
 
     ### LOAD FIXED NET ###

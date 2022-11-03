@@ -1,3 +1,4 @@
+import os
 from baseGame import RunGame,EvalGame
 from abc import abstractmethod
 
@@ -25,7 +26,9 @@ class SMB1Game(RunGame):
         if 'training_datum_id' in kwargs:
             datum = self.runConfig.training_data[kwargs['training_datum_id']];
         if 'game' not in kwargs:
-            if 'GRAPHICS_SETTINGS' in kwargs:
+            if 'auto_detect_render' in kwargs and kwargs['auto_detect_render']:
+                c.GRAPHICS_SETTINGS = c.NONE if 'SDL_VIDEODRIVER' not in os.environ and os.environ['SDL_VIDEODRIVER'] == 'dummy' else c.LOW;
+            elif 'GRAPHICS_SETTINGS' in kwargs:
                 c.GRAPHICS_SETTINGS = kwargs['GRAPHICS_SETTINGS'];
             elif 'num_rendered_processes' in kwargs and 'process_num' in kwargs:
                 if (kwargs['process_num']>=kwargs['num_rendered_processes']):
