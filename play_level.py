@@ -202,10 +202,10 @@ class LevelPlayer:
 
         task_list = list(zip(tasks,self.tdat.active_data.keys()))
         pretty_list = [([(f"{j[0]:.3f}",f"{j[1]:.3f}") for j in t[0]],t[1]) for t in task_list];
-        print("evaluating on level data:",pretty_list,f"with {num_extra} additional data" if num_extra is not None else "");
+        print("evaluating on level data:",pretty_list,f"with {num_extra} additional data" if num_extra is not None else "",flush=True);
         
         longest = max(tasks,key=lambda x:len(x));
-        print("max length path:",longest,"of length",len(longest));
+        print("max length path:",longest,"of length",len(longest),flush=True);
 
         self.gamerunner.continue_run(self.checkpoint_run_name,manual_config_override=self.neat_config_override);
 

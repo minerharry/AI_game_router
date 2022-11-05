@@ -91,7 +91,8 @@ class DStarSearcher(Generic[N]):
     def computeShortestPath(self):
         #while [start is not on the best path] or [start is locally inconsistent]
         while self.U.topKey() < self.calculateKey(self.start) or self.rhs[self.start] > self.g[self.start]:
-            # print('path changed');
+            print('path changed, exploring from pos',self.start);
+            print("Top key:",self.U.topKey(),"with start key",self.calculateKey(self.start));
             k_old,u = self.U.pop();
             k_new = self.calculateKey(u);
             # print(u)
@@ -222,6 +223,7 @@ class LevelSearcher(Generic[N,T]):
         self.cameFrom = {};
 
         def sort_key(edge:tuple[N|None,N]):
+            print(edge);
             prev,node = edge;
             if (prev == None):
                 raise Exception("attempting to sort initial edge, bad juju");
