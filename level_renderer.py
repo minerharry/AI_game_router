@@ -257,7 +257,7 @@ class LevelRendererReporter(ThreadedGameReporter[PathMessage]): #process_num,act
                 try:
                     self.update_display(renderer);
                 except:
-                    print(sys.exc_info())
+                    print("error in ray render loop:",sys.exc_info());
                 # print(renderer.display_set);
                 pg.event.pump();
                 time.sleep(interval);
