@@ -543,7 +543,7 @@ if __name__== "__main__":
     from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
     player = LevelPlayer();
 
-    ray.init(address=sys.argv[1] or "auto");
+    ray.init(address=sys.argv[1] if len(sys.argv) > 1 else None);
 
     print("waiting for display node...");
     num_display = 0
@@ -553,6 +553,7 @@ if __name__== "__main__":
             num_display = r["Display"]
         time.sleep(5);
     print("display node obtained, display cores available:",num_display);
+    print("cluster nodes:",ray.nodes());
 
     basic_cores = ray.cluster_resources()["CPU"]-num_display-2; #two extra cores for whatever
 
@@ -632,7 +633,7 @@ if __name__== "__main__":
         player.set_NEAT_player(game,runConfig,run_name,runConfig.view_distance,runConfig.tile_scale,checkpoint_run_name='run_10',extra_training_data_gen = tdat_gen);
 
 
-    runConfig.pool_kwargs = {'ray_remote_args':{'scheduling_strategy':st}};
+    runConfig.pool_kwargs = {'ray_remote_args':{'scheduling_strategy':st,'num_cpus':1}};
 
 
     ### LOAD FIXED NET ###

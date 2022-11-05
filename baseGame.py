@@ -27,6 +27,7 @@ class EvalGame:
     def __init__(self,gameClass:Type[RunGame],**kwargs):
         self.gameClass = gameClass;
         self.initInputs = kwargs;
+        self.initInputs["parentGame"] = self;
         self.reporters:list[GameReporter] = [];
 
     def register_reporter(self,reporter:GameReporter):

@@ -20,14 +20,17 @@ class SMB1Game(RunGame):
         parent_game.initInputs['game'] = game;
 
     
-    def __init__(self,runnerConfig:RunnerConfig,**kwargs):
+    def __init__(self,runnerConfig:RunnerConfig,parentGame:EvalGame=None,**kwargs):
         self.runConfig = runnerConfig;
         datum = None
         if 'training_datum_id' in kwargs:
             datum = self.runConfig.training_data[kwargs['training_datum_id']];
         if 'game' not in kwargs:
             if 'auto_detect_render' in kwargs and kwargs['auto_detect_render']:
-                c.GRAPHICS_SETTINGS = c.NONE if 'SDL_VIDEODRIVER' not in os.environ and os.environ['SDL_VIDEODRIVER'] == 'dummy' else c.LOW;
+                no_render = 'SDL_VIDEODRIVER' in os.environ and os.environ['SDL_VIDEODRIVER'] == 'dummy';
+                import ray
+                print("Autodetecting render node:","render node detected, activating graphics" if not no_render else "non-rendering node detected, deactivating graphics","on node",ray.get_runtime_context().get_node_id());
+                c.GRAPHICS_SETTINGS = c.NONE if no_render else c.LOW;
             elif 'GRAPHICS_SETTINGS' in kwargs:
                 c.GRAPHICS_SETTINGS = kwargs['GRAPHICS_SETTINGS'];
             elif 'num_rendered_processes' in kwargs and 'process_num' in kwargs:
@@ -41,7 +44,8 @@ class SMB1Game(RunGame):
             state_dict = {c.LEVEL: Segment()}
             self.game.setup_states(state_dict, c.LEVEL)
             self.game.state.startup(0,{c.LEVEL_NUM:1},initial_state=datum);
-            kwargs['game'] = self.game;
+            if parentGame:
+                parentGame.initInputs["game"] = self.game;
         else:
             self.game = kwargs["game"];
             self.game.load_segment(datum);

@@ -491,7 +491,7 @@ class GenomeExecutorPool(Pool):
 #This is pretty much entirely for multiprocessing reasons. These functions used to be part of the game_runner_neat class, but there ended up being a lot of pickling overhead, and - more importantly - process id assignment requires global variables. 
 #Since global variables are hard and dumb, I use class variables and class methods instead. Basically the same thing, but still encapsulated.
 #These functions were almost entirely cut&pasted from the above class, and the functions were aliased for backwards compatibility
-@ray.remote
+@ray.remote(num_cpus=1) #necessary for placement group scheduling to work
 class GenomeExecutor:
     """Actor used to process tasks submitted to a Pool."""
 
@@ -504,7 +504,7 @@ class GenomeExecutor:
         pass
 
     def run_batch(self, func:str, batch):
-        print("running function batch on",func);
+        # print("running function batch on",func);
         results = []
         f = getattr(self,func,None);
         assert isinstance(f,Callable);
