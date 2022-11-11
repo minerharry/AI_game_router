@@ -1,1 +1,5 @@
-srun --ntasks=1 --ntasks-per-node=1 --cpus-per-task=3 --time=9:00:00 --x11=first ray start --address=172.26.114.37:6379 --resources="{\"Display\":3}" --num-cpus=4 --temp-dir=/nas/longleaf/home/hht/tmp --block
+Worker: (n times)
+srun --ntasks=1 --ntasks-per-node=1 --cpus-per-task=3 --time=7-0:00:00 --x11=first ray start --address=172.26.114.37:6379 --resources="{\"Display\":3}" --num-cpus=4 --temp-dir=/nas/longleaf/home/hht/tmp --block
+
+Display (once):
+srun --ntasks=1 --ntasks-per-node=1 --cpus-per-task=3 --time=7-0:00:00 --x11=first ray start --address=172.26.114.37:6379 --resources="{\"Display\":3}" --num-cpus=3 --temp-dir=/nas/longleaf/home/hht/tmp --block

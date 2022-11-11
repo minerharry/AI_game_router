@@ -1,3 +1,4 @@
+import argparse
 import copy
 from functools import partial
 import math
@@ -542,34 +543,49 @@ if __name__== "__main__":
     from ray.util.placement_group import placement_group,placement_group_table
     from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
     player = LevelPlayer();
+    parser = argparse.ArgumentParser(
+                    prog = 'Play SMBPy Level',
+                    description = 'attempt to play a level using multiprocessing w/ ray')
+    parser.add_argument('ip');
+    parser.add_argument('-L', '--local_display',action='store_true')
 
-    ray.init(address=sys.argv[1] if len(sys.argv) > 1 else None);
+    args = parser.parse_args();
+    ip = args.ip;
+    local_display = args.local_display;
 
-    print("waiting for display node...");
-    num_display = 0
-    while num_display < 2:
-        r = ray.cluster_resources();
-        if "Display" in r:
-            num_display = r["Display"]
-        time.sleep(5);
-    print("display node obtained, display cores available:",num_display);
-    print("cluster nodes:",ray.nodes());
+    print("Displaying locally" if local_display else "Displaying remotely");
 
-    basic_cores = ray.cluster_resources()["CPU"]-num_display-2; #two extra cores for whatever
+    
 
-    cpu_bundles = [{"CPU":1} for _ in range(int(basic_cores))];
-    display_bundles = [{"Display":0.01,"CPU":1} for _ in range(int(num_display) - 1)];
+    if not local_display:
+        ray.init(address=ip);
+        print("waiting for display node...");
+        num_display = 0
+        while num_display < 2:
+            r = ray.cluster_resources();
+            if "Display" in r:
+                num_display = r["Display"]
+            time.sleep(5);
+        print("display node obtained, display cores available:",num_display);
+        print("cluster nodes:",ray.nodes());
 
-    total_bundles = cpu_bundles + display_bundles
-    group = placement_group(total_bundles,strategy="SPREAD");
-    ray.get(group.ready());
-    print(placement_group_table(group));
-    st = PlacementGroupSchedulingStrategy(group);
+        basic_cores = ray.cluster_resources()["CPU"]-num_display-2; #two extra cores for whatever
+
+        cpu_bundles = [{"CPU":1} for _ in range(int(basic_cores))];
+        display_bundles = [{"Display":0.01,"CPU":1} for _ in range(int(num_display) - 1)];
+
+        total_bundles = cpu_bundles + display_bundles
+        group = placement_group(total_bundles,strategy="SPREAD");
+        ray.get(group.ready());
+        print(placement_group_table(group));
+        st = PlacementGroupSchedulingStrategy(group);
+    else:
+        ray.init(resources={"Display":100});
 
 
     ### LOAD NEAT PLAYER ###
 
-    game = EvalGame(SMB1Game,auto_detect_render=True);
+    game = EvalGame(SMB1Game,auto_detect_render=False,num_rendered_processes=2) if local_display else EvalGame(SMB1Game,auto_detect_render=True);
 
     inputData = [
         'player_state',
@@ -592,7 +608,7 @@ if __name__== "__main__":
     runConfig.view_distance = 3.75;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
-    runConfig.parallel_processes = len(total_bundles);
+    runConfig.parallel_processes = 8;
     runConfig.chunkFactor = 24;
     runConfig.saveFitness = False;
 
@@ -633,7 +649,8 @@ if __name__== "__main__":
         player.set_NEAT_player(game,runConfig,run_name,runConfig.view_distance,runConfig.tile_scale,checkpoint_run_name='run_10',extra_training_data_gen = tdat_gen);
 
 
-    runConfig.pool_kwargs = {'ray_remote_args':{'scheduling_strategy':st,'num_cpus':1}};
+    if not local_display:
+        runConfig.pool_kwargs = {'ray_remote_args':{'scheduling_strategy':st,'num_cpus':1}};
 
 
     ### LOAD FIXED NET ###

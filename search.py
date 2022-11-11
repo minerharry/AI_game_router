@@ -91,8 +91,8 @@ class DStarSearcher(Generic[N]):
     def computeShortestPath(self):
         #while [start is not on the best path] or [start is locally inconsistent]
         while self.U.topKey() < self.calculateKey(self.start) or self.rhs[self.start] > self.g[self.start]:
-            print('path changed, exploring from pos',self.start);
-            print("Top key:",self.U.topKey(),"with start key",self.calculateKey(self.start));
+            # print('path changed, exploring from pos',self.start);
+            # print("Top key:",self.U.topKey(),"with start key",self.calculateKey(self.start));
             k_old,u = self.U.pop();
             k_new = self.calculateKey(u);
             # print(u)
@@ -103,30 +103,15 @@ class DStarSearcher(Generic[N]):
                 self.g[u] = self.rhs[u];
                 self.U.removeItem(u);
                 for s,c in self.pred(u):
-                    if (s == self.start):
-                        print('start reached -- clause 1');
-                        print('g,rhs:',self.g[s],self.rhs[s]);
                     self.rhs[s] = min(self.rhs[s],c+self.g[u]);
-                    if (s == self.start):
-                        print('g,rhs:',self.g[s],self.rhs[s]);
                     self.updateVertex(s);
-                    if (s == self.start):
-                        print('g,rhs:',self.g[s],self.rhs[s]);
             else:
                 g_old = self.g[u];
                 self.g[u] = float('inf');
                 for s,c in itertools.chain(self.pred(u),[(u,0),]):
-                    if (s == self.start):
-                        print('start reached -- clause 2')
-                        print('g,rhs:',self.g[s],self.rhs[s]);
                     if self.rhs[s] == c + g_old and s != self.goal:
                         self.rhs[s] = min([c+self.g[sp] for sp,c in self.succ(s)]);
-                        if (s == self.start):
-                            print('start - clause 3 triggered');
-                            print('g,rhs:',self.g[s],self.rhs[s]);
                     self.updateVertex(s);
-                    if (s == self.start):
-                        print('g,rhs:',self.g[s],self.rhs[s]);
 
         # print(self.g[self.start],self.rhs[self.start]);
 
@@ -223,7 +208,6 @@ class LevelSearcher(Generic[N,T]):
         self.cameFrom = {};
 
         def sort_key(edge:tuple[N|None,N]):
-            print(edge);
             prev,node = edge;
             if (prev == None):
                 raise Exception("attempting to sort initial edge, bad juju");
