@@ -585,7 +585,7 @@ if __name__== "__main__":
 
     ### LOAD NEAT PLAYER ###
 
-    game = EvalGame(SMB1Game,auto_detect_render=False,num_rendered_processes=2) if local_display else EvalGame(SMB1Game,auto_detect_render=True);
+    game = EvalGame(SMB1Game,auto_detect_render=False,num_rendered_processes=10) if local_display else EvalGame(SMB1Game,auto_detect_render=True);
 
     inputData = [
         'player_state',
@@ -608,9 +608,10 @@ if __name__== "__main__":
     runConfig.view_distance = 3.75;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
-    runConfig.parallel_processes = 8;
+    runConfig.parallel_processes = 3;
     runConfig.chunkFactor = 24;
     runConfig.saveFitness = False;
+    runConfig.profile_processes = True;
 
     run_name = 'play_test'
 
@@ -693,7 +694,8 @@ if __name__== "__main__":
         task_offset_downscale=2,
         search_checkpoint=checkpoint,
         checkpoint_save_location=save,
-        training_dat_per_gen=40);
+        training_dat_per_gen=40,
+        render_progress=True);
 
     print("Level successfully completed!! Winning Path:",winning_path,"completed using the population of generation",player.gamerunner.generation);
     

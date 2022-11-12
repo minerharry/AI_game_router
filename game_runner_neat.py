@@ -1,3 +1,5 @@
+from __future__ import annotations
+from pathlib import Path
 import re
 from typing import Any, Callable, Generic, Type
 import ray
@@ -33,6 +35,13 @@ try:
     from pympler import tracker,asizeof,summary
 except:
     tracker,asizeof = None,None;
+try:
+    import cProfile as profile
+except:
+    try:
+        import profile
+    except:
+        profile = None;
 
 import ray
 from ray.util.queue import Queue
@@ -117,7 +126,8 @@ class GameRunner:
             idQueue = Queue();
             [idQueue.put(i) for i in range(self.runConfig.parallel_processes)];
             pool_kwargs = getattr(self.runConfig,'pool_kwargs',{});
-            self.pool = GenomeExecutorPool(self.runConfig.parallel_processes, initargs=(idQueue,self.game,config),**pool_kwargs);
+            do_profile = getattr(self.runConfig,"profile_processes");
+            self.pool = GenomeExecutorPool(self.runConfig.parallel_processes, initargs=(self.game,config,idQueue,do_profile),**pool_kwargs);
             
 
         if not single_gen or force_fitness:
@@ -188,7 +198,7 @@ class GameRunner:
             idQueue = Queue();
             [idQueue.put(i) for i in range(self.runConfig.parallel_processes)];
             pool_kwargs = getattr(self.runConfig,'pool_kwargs',{});
-            self.pool = GenomeExecutorPool(self.runConfig.parallel_processes, initargs=(idQueue,self.game,config),**pool_kwargs);
+            self.pool = GenomeExecutorPool(self.runConfig.parallel_processes, initargs=(self.game,config,idQueue),**pool_kwargs);
             
         self.run_name = run_name.replace(' ','_');
         if doFitness:
@@ -364,11 +374,11 @@ class GameRunner:
         
 
     #parallel versions of eval_genomes_feedforward - DUMMY FUNCTIONS, should never be passed to a parallel process; pass the GenomeExecutor function itself
-    def eval_genome_batch_feedforward(self,genomes,config,processNum):
-        return GenomeExecutor.eval_genome_batch_feedforward(config,self.runConfig,self.game,genomes,None)[1];
+    def eval_genome_batch_feedforward(self,executor:GenomeExecutor,genomes,config,processNum):
+        return executor.eval_genome_batch_feedforward(config,self.runConfig,self.game,genomes,None)[1];
     
-    def eval_training_data_batch_feedforward(self,genomes,config,data):
-        return GenomeExecutor.eval_training_data_batch_feedforward(config,self.runConfig,self.game,genomes,data,None)[1];
+    def eval_training_data_batch_feedforward(self,executor:GenomeExecutor,genomes,config,data):
+        return executor.eval_training_data_batch_feedforward(config,self.runConfig,self.game,genomes,data,None)[1];
 
     #evaluate a population with the game as a feedforward neural net
     def eval_genomes_feedforward(self, genomes, config):
@@ -397,12 +407,12 @@ class GameRunner:
                 for genome_id,genome in genomes:
                     genome.fitness += fitnesses[genome_id];
             else:
+                executor = GenomeExecutor()
                 for genome_id, genome in tqdm(genomes):
-                    genome.fitness += self.eval_genome_feedforward(genome,config)
+                    genome.fitness += self.eval_genome_feedforward(executor,genome,config)
         else:
             if (self.runConfig.parallel):
-                self.pool.send_message('start_generation',self.runConfig,self.generation,genomes);
-                genomes = genomes;
+                self.pool.send_message('start_generation',self.runConfig,self.generation,genomes[:50]);
                 tdata = self.runConfig.training_data.active_data;
 
                 chunkFactor = 4;
@@ -430,25 +440,40 @@ class GameRunner:
                     for genome_id,genome in genomes:
                         genome.fitness += fitnesses[genome_id];
             else:
+                do_profile = getattr(self.runConfig,"profile_processes");
+                executor = GenomeExecutor();
                 if hasattr(self.runConfig,"saveFitness") and self.runConfig.saveFitness:
                     fitness_data = {};
                     for did in tqdm(self.runConfig.training_data.active_data):
+                        if do_profile:
+                            self.profiler = profile.Profile();
+                            self.profiler.enable();
                         fitnesses = {};
-                        for genome_id, genome in tqdm(genomes):
-                            fitness = self.eval_genome_feedforward(genome,config,trainingDatumId=did)
+                        for genome_id, genome in tqdm(genomes[:50]):
+                            fitness = self.eval_genome_feedforward(executor,genome,config,trainingDatumId=did)
                             fitnesses[genome_id] = fitness;
                             genome.fitness += fitness;
                         fitness_data[did] = fitnesses;
+                        if do_profile:
+                            self.profiler.disable();
+                            self.profiler.dump_stats("profile_logs/single_profile.stats");
                     self.fitness_reporter.save_data(fitness_data);
                 else:
                     for did in tqdm(self.runConfig.training_data.active_data):
-                        for genome_id, genome in tqdm(genomes):
-                            genome.fitness += self.eval_genome_feedforward(genome,config,trainingDatumId=did)                
+                        if do_profile:
+                            self.profiler = profile.Profile();
+                            self.profiler.enable();
+                        for genome_id, genome in tqdm(genomes[:50]):
+                            genome.fitness += self.eval_genome_feedforward(executor,genome,config,trainingDatumId=did)                
+                        
+                        if do_profile:
+                            self.profiler.disable();
+                            self.profiler.dump_stats("profile_logs/single_profile.stats");
 
 
 
-    def eval_genome_feedforward(self,genome,config,trainingDatumId:int=None):
-        return GenomeExecutor.eval_genome_feedforward(genome,config,self.runConfig,self.game,trainingDatumId=trainingDatumId);
+    def eval_genome_feedforward(self,executor:GenomeExecutor,genome,config,trainingDatumId:int=None):
+        return executor.eval_genome_feedforward(genome,config,self.runConfig,self.game,trainingDatumId=trainingDatumId);
       
 
 class GenomeExecutorException(Exception): 
@@ -457,7 +482,7 @@ class GenomeExecutorException(Exception):
 
 class GenomeExecutorPool(Pool):
     def __init__(self,*args,**kwargs):
-        self._actor_pool:list[tuple[GenomeExecutor,int]];
+        self._actor_pool:list[tuple[GenomeExecutorActor,int]];
         self._start_msg = None;
         self._start_args = None;
         if 'initializer' in kwargs:
@@ -470,7 +495,7 @@ class GenomeExecutorPool(Pool):
         # due to a limitation in cloudpickle.
         # Cache the PoolActor with options
         if not self._pool_actor:
-            self._pool_actor = GenomeExecutor.options(**self._ray_remote_args)
+            self._pool_actor = GenomeExecutorActor.options(**self._ray_remote_args)
         actor = self._pool_actor.remote(self._initializer, self._initargs);
         if self._start_msg is not None:
             getattr(actor,self._start_msg).remote(*self._start_args[0],**self._start_args[1]);
@@ -485,17 +510,15 @@ class GenomeExecutorPool(Pool):
 
         
 
-#Genome Executor: Class that handles any and all genome processing, packaged and globalized for easier interface with parallelism
-#Ok, so
-#WHY does this exist, you may ask?
-#This is pretty much entirely for multiprocessing reasons. These functions used to be part of the game_runner_neat class, but there ended up being a lot of pickling overhead, and - more importantly - process id assignment requires global variables. 
-#Since global variables are hard and dumb, I use class variables and class methods instead. Basically the same thing, but still encapsulated.
+
+
 #These functions were almost entirely cut&pasted from the above class, and the functions were aliased for backwards compatibility
-@ray.remote(num_cpus=1) #necessary for placement group scheduling to work
 class GenomeExecutor:
     """Actor used to process tasks submitted to a Pool."""
 
     def __init__(self, initializer=None, initargs=None):
+        self.pnum = None;
+        self.game = None;
         initargs = initargs or ()
         self.initial = self.initProcess(*initargs)
 
@@ -508,6 +531,12 @@ class GenomeExecutor:
         results = []
         f = getattr(self,func,None);
         assert isinstance(f,Callable);
+        
+        if self.profile:
+            assert profile
+            self.profiler = profile.Profile();
+            self.profiler.enable();
+
         for args, kwargs in batch:
             args = args or ()
             kwargs = kwargs or {}
@@ -515,15 +544,22 @@ class GenomeExecutor:
                 results.append(f(*args, **kwargs))
             except Exception as e:
                 results.append(GenomeExecutorException(e))
+        
+        if self.profile:
+            self.profiler.disable();
+            self.profiler.dump_stats(Path("profile_logs")/f"{self.pnum}_profile.stats");
+
         return results
 
 
     CHECKPOINT_INTERVAL = 0; # interval <= 0 means no checkins
-    def initProcess(self,id_queue:Queue,game:EvalGame,neat_config):
-        self.pnum = id_queue.get();
+    def initProcess(self,game:EvalGame=None,neat_config=None,id_queue:Queue=None,do_profile=False):
+        if id_queue:
+            self.pnum = id_queue.get();
+            print(f"process {self.pnum} started");
         self.game = game;
         print(f"process {self.pnum} started");
-        # eGame.gameClass.initProcess(self.pnum,eGame);
+        self.profile = profile and do_profile;
         self.count = 0;
         self.generation = None;
         self.last_checkpoint_time = None;
@@ -658,6 +694,11 @@ class GenomeExecutor:
             return fitness; 
         except KeyboardInterrupt:
             raise GenomeExecutorException(KeyboardInterrupt());
+
+@ray.remote(num_cpus=1) #necessary for placement group scheduling to work
+class GenomeExecutorActor(GenomeExecutor):
+    pass;
+
 
 def display_diff(diff:list[tracemalloc.StatisticDiff],limit=10):
     print("[ Top 10 differences ]")
