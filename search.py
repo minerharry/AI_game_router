@@ -211,14 +211,14 @@ class LevelSearcher(Generic[N,T]):
             prev,node = edge;
             if (prev == None):
                 raise Exception("attempting to sort initial edge, bad juju");
-            return min(self.g[self.node_key(prev)].values()) + self.frustration[node]*self.frustration_weight + self.c(prev,node) + self.h(node);
+            return min(self.g[self.node_key(prev)].values()) + self.frustration[edge]*self.frustration_weight + self.c(prev,node) + self.h(node);
         
         self.sort_key = sort_key;
         
         if checkpoint is None:
             self.g = DefaultDict[T,dict[N|None,float]](lambda: {None:float('inf')});
             self.g[self.node_key(self.start)][None] = 0;
-            self.frustration:dict[N,int] = DefaultDict(lambda:0);
+            self.frustration:dict[tuple[N|None,N],int] = DefaultDict(lambda:0);
             self.open_edges:list[tuple[N|None,N]] = [(None,start)]; #priority list of (prev,current) sorted by the sum of: a) the g score to the previous node, b) the estimated cost (self.c) from previous to current, and c) the heuristic from current
             self.completed_edges:list[tuple[N|None,N]] = [];
             self.complete_edge((None,start));
@@ -242,8 +242,12 @@ class LevelSearcher(Generic[N,T]):
 
     def update_scores(self,scores:Iterable[tuple[N,float]]):
         for node,score in scores:
-            self.frustration[node] += 1;
             self.g[self.node_key(node)][node] = score;
+
+    def register_attempts(self,paths_attempted:Iterable[tuple[N|None,N]]):
+        for path in paths_attempted:
+            self.frustration[path] += 1;
+
             
 
     def get_checkpoint_data(self):
@@ -253,7 +257,7 @@ class LevelSearcher(Generic[N,T]):
         self.g = DefaultDict[T,dict[N|None,float]](lambda: {None:float('inf')},checkpoint['g']);
         self.open_edges = checkpoint['open'];
         self.completed_edges = checkpoint['complete'] if 'complete' in checkpoint else [];
-        self.frustration = DefaultDict[N,int](lambda:0,checkpoint['frustration'] if 'frustration' in checkpoint else {});
+        self.frustration = DefaultDict[tuple[N|None,N],int](lambda:0,checkpoint['frustration'] if 'frustration' in checkpoint else {});
         
         
 

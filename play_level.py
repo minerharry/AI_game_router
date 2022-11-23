@@ -420,13 +420,15 @@ class LevelPlayer:
             top_paths = top_paths[:training_dat_per_gen];
             log(len(top_paths),"edges retrieved");
 
-            top_paths = [[grid_index_to_pos(task) for task in path] for _prev,path in top_paths];
+            player_paths = [[grid_index_to_pos(task) for task in path] for _prev,path in top_paths];
             
 
             log("NEAT-player attempting level segments");
-            all_fitnesses = self.eval_NEAT_player(top_paths,level);
+            all_fitnesses = self.eval_NEAT_player(player_paths,level);
             log("fitnesses calculated")
-            # print(all_fitnesses);
+
+            self.a_searcher.register_attempts(top_paths);
+
 
             best_segments:dict[tuple[gridPos,gridPos],list[float]] = DefaultDict(lambda:[]);
             best_paths:dict[tuple[gridPos,...],list[float]] = DefaultDict(lambda:[])
