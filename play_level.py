@@ -441,7 +441,7 @@ class LevelPlayer:
                     if end == 'complete':
                         if tuple(acc_path) not in completed_paths:
                             completed_paths.append(tuple(acc_path)) 
-                            if (start in goal_idxs):
+                            if (pos_to_grid_index(start) in goal_idxs):
                                 level_finished = True;
                                 winning_path = acc_path;
 
@@ -610,7 +610,7 @@ if __name__== "__main__":
     runConfig.view_distance = 3.75;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
-    runConfig.parallel_processes = 8;
+    runConfig.parallel_processes = 5;
     runConfig.chunkFactor = 24;
     runConfig.saveFitness = False;
 
@@ -668,7 +668,7 @@ if __name__== "__main__":
 
     ### LEVEL INITIATION ###
 
-    level_path = Path('levels')/'testing'/'test1.lvl';
+    level_path = Path('levels')/'testing'/'test2.lvl';
     level = None;
     if (os.path.exists(level_path)):
         level = SegmentState(None,None,file_path=level_path);
@@ -681,7 +681,7 @@ if __name__== "__main__":
 
     goals = [(48*c.TILE_SIZE,i*c.TILE_SIZE) for i in range(20)]; 
 
-    save = "level_routing_checkpoints/level1.chp"
+    save = "level_routing_checkpoints/level2.chp"
     checkpoint = None;
     if os.path.exists(save):
         print("loading checkpoint...")
