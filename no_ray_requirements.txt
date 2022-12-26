@@ -16,16 +16,19 @@ packaging==21.3
 Pillow==9.2.0
 platformdirs==2.5.2
 protobuf==3.20.3
-pygame==2.1.2
+pygame==2.1.2; python_version < '3.11'
+--pre pygame; python_version == '3.11'
 pyparsing==3.0.9
 pyrsistent==0.18.1
 PyYAML==6.0
 requests==2.28.1
 scipy==1.9.3
 six==1.16.0
-torch==1.12.1
+torch==1.12.1; python_version < '3.11'
+--pre torch; python_version == '3.11'
 torchvision==0.13.1
 tqdm==4.64.1
 typing_extensions==4.4.0
 urllib3==1.26.12
 virtualenv==20.16.5
+dill==0.3.6
