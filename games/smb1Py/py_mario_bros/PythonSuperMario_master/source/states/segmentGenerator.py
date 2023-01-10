@@ -2,6 +2,8 @@ from __future__ import annotations
 import json
 import random
 from typing import Any, Literal
+
+from rectangle_simplification import simplify_rectangles
 from .segment import SegmentState
 from .. import constants as c
 from ..components.enemy import create_enemy
@@ -167,7 +169,7 @@ class SegmentGenerator:
         output_dynamics = {};
         # print(task_positions);
         if blocks is not None and len(blocks) > 0:
-            output_statics["ground"] = [{"x":pos[0]*c.TILE_SIZE,"y":pos[1]*c.TILE_SIZE,"width":c.TILE_SIZE,"height":c.TILE_SIZE} for pos in blocks];
+            output_statics["ground"] = [{"x":rect.left*c.TILE_SIZE,"y":rect.top*c.TILE_SIZE,"width":rect.width*c.TILE_SIZE,"height":rect.height*c.TILE_SIZE} for rect in simplify_rectangles(blocks)];
         if bricks is not None and len(bricks) > 0:
             print("ERROR: brick generation not done yet");
         if boxes is not None and len(boxes) > 0:

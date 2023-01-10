@@ -679,7 +679,12 @@ if __name__== "__main__":
         level.task = (48*c.TILE_SIZE,10*c.TILE_SIZE);
         level.save_file(level_path);
 
-    goals = [(48*c.TILE_SIZE,i*c.TILE_SIZE) for i in range(20)]; 
+    try:
+        goalx = level.static_data[c.MAP_MAPS][0][c.MAP_FLAGX];
+    except:
+        goalx = 48*c.TILE_SIZE
+
+    goals = [(goalx,i*c.TILE_SIZE) for i in range(20)]; 
 
     save = "level_routing_checkpoints/level1.chp"
     checkpoint = None;
