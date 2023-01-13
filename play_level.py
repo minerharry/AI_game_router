@@ -32,7 +32,7 @@ from runnerConfiguration import IOData, RunnerConfig
 
 from search import DStarSearcher, LevelSearcher
 from smb1Py_runner import NAME, generate_data, getFitness, getRunning, task_obstruction_score
-from training_data import ShelvedTDManager, TrainingDataManager
+from training_data import ShelvedTDManager, SourcedShelvedTDManager, TrainingDataManager
 try:
     import ray
 except:
@@ -106,7 +106,7 @@ class LevelPlayer:
         self.run_name = run_name;
         self.checkpoint_run_name = checkpoint_run_name if checkpoint_run_name else self.run_name;
 
-        self.tdat = ShelvedTDManager[SegmentState]('smb1Py',run_name);
+        self.tdat = SourcedShelvedTDManager[SegmentState]('smb1Py',run_name);
         self.runConfig.training_data = self.tdat;
 
         self.extra_dat_gen = extra_training_data_gen if extra_training_data_gen else ((lambda: extra_training_data) if extra_training_data else None);
@@ -170,7 +170,7 @@ class LevelPlayer:
             state.task_path = task_path;
             data.append(state);
 
-        self.tdat.set_data(data);
+        self. .set_data(data);
 
         renderProcess = None;
         if self.renderer is not None:
