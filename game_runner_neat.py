@@ -214,12 +214,12 @@ class GameRunner:
             else:
                 self.render_genome_feedforward(genome,config,net=net);
         else:
-            
-            for datum in self.runConfig.training_data.active_data.values():
-                if (self.runConfig.recurrent):  
-                    self.render_genome_recurrent(genome,config,net=False,training_datum = datum);
-                else:
-                    self.render_genome_feedforward(genome,config,net=False,training_datum = datum);
+            with self.runConfig.training_data.poll_data(self.generation) as tdata:
+                for _,datum in tdata.items():
+                    if (self.runConfig.recurrent):  
+                        self.render_genome_recurrent(genome,config,net=False,training_datum = datum);
+                    else:
+                        self.render_genome_feedforward(genome,config,net=False,training_datum = datum);
 
 
 
@@ -401,38 +401,38 @@ class GameRunner:
                     genome.fitness += self.eval_genome_feedforward(genome,config)
         else:
             if (self.runConfig.parallel):
-                self.pool.send_message('start_generation',self.runConfig,self.generation,genomes);
-                genomes = genomes;
-                tdata = self.runConfig.training_data.active_data;
+                with self.runConfig.training_data(self.generation) as tdata:
+                    self.pool.send_message('start_generation',self.runConfig,self.generation,genomes);
+                    genomes = genomes;
 
-                chunkFactor = 4;
-                if hasattr(self.runConfig,'chunkFactor') and self.runConfig.chunkFactor is not None:
-                    chunkFactor = self.runConfig.chunkFactor;
-                
-                chunkSize,extra = divmod(len(tdata), self.runConfig.parallel_processes * chunkFactor);
-                if extra:
-                    chunkSize += 1;
-                chunkSize = 1;
-                print(f'Starting parallel processing for {len(genomes)*len(tdata)} evals over {self.runConfig.parallel_processes} processes');
+                    chunkFactor = 4;
+                    if hasattr(self.runConfig,'chunkFactor') and self.runConfig.chunkFactor is not None:
+                        chunkFactor = self.runConfig.chunkFactor;
+                    
+                    chunkSize,extra = divmod(len(tdata), self.runConfig.parallel_processes * chunkFactor);
+                    if extra:
+                        chunkSize += 1;
+                    chunkSize = 1;
+                    print(f'Starting parallel processing for {len(genomes)*len(tdata)} evals over {self.runConfig.parallel_processes} processes');
 
-                datum_fitnesses = {};
-                for x in tqdm(self.pool.imap_unordered('map_eval_genomes_feedforward',[(id,id) for id in tdata],chunksize=chunkSize),total=len(tdata)):
-                    if (isinstance(x,Exception)):
-                        raise x;
-                    id,fitnesses = x;
-                    # print('id completed:',id);
-                    datum_fitnesses[id] = fitnesses;
-                
-                if hasattr(self.runConfig,"saveFitness") and self.runConfig.saveFitness:
-                    self.fitness_reporter.save_data(datum_fitnesses);
-                
-                for fitnesses in datum_fitnesses.values():
-                    for genome_id,genome in genomes:
-                        genome.fitness += fitnesses[genome_id];
+                    datum_fitnesses = {};
+                    for x in tqdm(self.pool.imap_unordered('map_eval_genomes_feedforward',[(id,id) for id in tdata],chunksize=chunkSize),total=len(tdata)):
+                        if (isinstance(x,Exception)):
+                            raise x;
+                        id,fitnesses = x;
+                        # print('id completed:',id);
+                        datum_fitnesses[id] = fitnesses;
+                    
+                    if hasattr(self.runConfig,"saveFitness") and self.runConfig.saveFitness:
+                        self.fitness_reporter.save_data(datum_fitnesses);
+                    
+                    for fitnesses in datum_fitnesses.values():
+                        for genome_id,genome in genomes:
+                            genome.fitness += fitnesses[genome_id];
             else:
                 if hasattr(self.runConfig,"saveFitness") and self.runConfig.saveFitness:
                     fitness_data = {};
-                    for did in tqdm(self.runConfig.training_data.active_data):
+                    for did in tqdm(self.runConfig.training_data):
                         fitnesses = {};
                         for genome_id, genome in tqdm(genomes):
                             fitness = self.eval_genome_feedforward(genome,config,trainingDatumId=did)
@@ -441,7 +441,7 @@ class GameRunner:
                         fitness_data[did] = fitnesses;
                     self.fitness_reporter.save_data(fitness_data);
                 else:
-                    for did in tqdm(self.runConfig.training_data.active_data):
+                    for did in tqdm(self.runConfig.training_data):
                         for genome_id, genome in tqdm(genomes):
                             genome.fitness += self.eval_genome_feedforward(genome,config,trainingDatumId=did)                
 
