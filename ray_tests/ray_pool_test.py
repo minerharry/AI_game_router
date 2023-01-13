@@ -12,8 +12,13 @@ print("ideal time:",sum(lengths)/num_procs);
 
 start = time.time();
 
+class ContextArr:
+    def __init__(self,data):
+        self.data = data;
 
-def wait_time(t):
+
+def wait_time(i,arr):
+    t = arr[i];
     print(f"waiting {t} seconds...",f"@{time.time()-start}")
     time.sleep(t);
     print(f"done!",f"@{time.time()-start}");
