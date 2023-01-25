@@ -1,4 +1,5 @@
 import re
+from traceback import format_tb
 from typing import Any, Callable, Generic, Type
 import ray
 from ray.util.queue import _QueueActor
@@ -452,8 +453,12 @@ class GameRunner:
       
 
 class GenomeExecutorException(Exception): 
-    def __init__(self,e):
-        self.underlying = e;
+    def __init__(self,e:Exception,traceback=None):
+        self.__context__ = e;
+        self.tb = traceback;
+    
+    def __str__(self):
+        return f"underlying exception {self.__context__} thrown during genomeexecutor execution" + (f" with traceback {self.tb}" if self.tb else None)
 
 class GenomeExecutorPool(Pool):
     def __init__(self,*args,**kwargs):
@@ -514,7 +519,7 @@ class GenomeExecutor:
             try:
                 results.append(f(*args, **kwargs))
             except Exception as e:
-                results.append(GenomeExecutorException(e))
+                results.append(GenomeExecutorException(e,format_tb(e.__traceback__)))
         return results
 
 
@@ -700,6 +705,6 @@ def display_top(snapshot:tracemalloc.Snapshot, key_type='lineno', limit=10):
             print("%s other: %.1f KiB" % (len(other), size / 1024))
         total = sum(stat.size for stat in top_stats)
         print("Total allocated size: %.1f KiB" % (total / 1024))
-    except e:
+    except Exception as e:
         print(e);
-        raise e.with_traceback();
+        raise e;

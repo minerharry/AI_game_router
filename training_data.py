@@ -13,8 +13,8 @@ from tqdm import tqdm
 TD = TypeVar('TD');
 class TrainingDataManager(Generic[TD]):
 
-    def __init__(self,game_name,run,data_folder:os.PathLike="memories",ext="tdat",override_filepath:os.Pathlike=None):
-        self.data_file:Path = Path(override_filepath) or Path(data_folder)/game_name/(f"run-{run}.{ext}");
+    def __init__(self,game_name,run,data_folder:os.PathLike="memories",ext="tdat",override_filepath:str|Path|os.Pathlike|None=None):
+        self.data_file:Path = Path(override_filepath) if override_filepath else Path(data_folder)/game_name/(f"run-{run}.{ext}");
         if (os.path.exists(self.data_file)):
             self.load_data();
         else:
@@ -173,8 +173,8 @@ class TDSource(Protocol[TD]):
         return ConstantTDSource(data);
 
     @staticmethod
-    def schedule(scheduled_data:Iterable[Iterable[int]],startgen:int|None=None)->TDSource:
-        return ScheduledTDSource(scheduled_data,startgen=startgen);
+    def iterator(scheduled_data:Iterator[Iterable[int]],startgen:int|None=None)->TDSource:
+        return IteratorTDSource(scheduled_data,startgen=startgen);
 
     @staticmethod
     def generator(generator_func:Callable[[int],Iterable[TD]]):
@@ -227,17 +227,24 @@ class IteratorTDSource(TDSource[TD],Generic[TD]):
 
 class SourcedTDMixin(Generic[TD]):
 
-    def __init__(self,sources:list[TDSource[TD]],game_name,run,*args,data_folder:os.PathLike="memories",ext="tdat",override_filepath=None,**kwargs):
+    def __init__(self,game_name,run,*args,initial_sources:list[TDSource[TD]],data_folder:os.PathLike="memories",ext="tdat",override_filepath=None,**kwargs):
         super().__init__(game_name,run,*args,data_folder=data_folder,ext=ext,override_filepath=override_filepath,**kwargs);
-        self.sources = sources
+        self.sources = {}
+        self.add_source(*initial_sources);
         self.active_data:dict[int,TD]
         self.source_map = {};
+        self._next_source_id = 0;
+
+    def next_source_id(self):
+        id = self._next_source_id;
+        self._next_source_id += 1;
+        return id;
 
     def get_datum_source(self,id:int):
         return self.source_map[id] if id in self.source_map else None;
 
     def add_source(self,*sources:TDSource[TD]):
-        [self.sources.append(s) for s in sources];
+        [self.sources.update({self.next_source_id:s}) for s in sources];
 
     def remove_source(self,source):
         self.sources.remove(source);
@@ -270,9 +277,9 @@ class SourcedTDMixin(Generic[TD]):
             self.clear_data(save=True);
 
 
-class ShelvedTDManager(TrainingDataManager[TD],ShelvedTDMixin[TD],Generic[TD]): pass;
-class SourcedTDManager(TrainingDataManager[TD],SourcedTDMixin[TD],Generic[TD]): pass;
-class SourcedShelvedTDManager(TrainingDataManager[TD],SourcedTDMixin[TD],ShelvedTDMixin[TD],Generic[TD]): pass;
+class ShelvedTDManager(ShelvedTDMixin[TD],TrainingDataManager[TD],Generic[TD]): pass;
+class SourcedTDManager(SourcedTDMixin[TD],TrainingDataManager[TD],Generic[TD]): pass;
+class SourcedShelvedTDManager(ShelvedTDMixin[TD],SourcedTDMixin[TD],TrainingDataManager[TD],Generic[TD]): pass;
 
 
 class DataQueue(Generic[TD]):

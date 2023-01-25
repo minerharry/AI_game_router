@@ -189,8 +189,8 @@ class LevelPlayer:
             multiprocessing_type="ray")->TDSource[SegmentState]:
 
         gen = self._yield_NEAT_data(game,level,goal,fitness_save_path,training_dat_per_gen,search_data_resolution,task_offset_downscale,search_checkpoint,checkpoint_save_location,fitness_aggregation_type,render_progress,multiprocessing_type)
-        source = IteratorTDSource(gen)
-        return source;
+        self.source = IteratorTDSource(gen)
+        return self.source;
 
     def _yield_NEAT_data(self,
             game:EvalGame,
@@ -212,9 +212,9 @@ class LevelPlayer:
         self.game = game;
 
         if fitness_save_path:
-            self.task_reporter = TaskFitnessReporter(self.getSource(),fitness_save_path,queue_type=self.multi);
+            self.task_reporter = TaskFitnessReporter(source=self.source,save_path=fitness_save_path,queue_type=self.multi);
         else:
-            self.task_reporter = TaskFitnessReporter(queue_type=self.multi);
+            self.task_reporter = TaskFitnessReporter(source=self.source,queue_type=self.multi);
         self.game.register_reporter(self.task_reporter);
 
         fitness_from_list = {
@@ -378,7 +378,7 @@ class LevelPlayer:
         self.renderer = None;
         if render_progress:
             self.renderer = LevelRenderer(level,point_size=3,path_width=2,active_path_width=3);
-            self.renderReporter = LevelRendererReporter(self.getSource(),queue_type=self.multi);
+            self.renderReporter = LevelRendererReporter(self.source,queue_type=self.multi);
             self.game.register_reporter(self.renderReporter);
 
         while not level_finished:
@@ -435,6 +435,7 @@ class LevelPlayer:
                     renderProcess.start();
                 elif self.multi == "ray":
                     self.kill_event = RayEvent();
+                    ray.util.inspect_serializability(self.renderReporter);
                     renderProcess = self.renderReporter.ray_render_loop.remote(self.renderReporter,self.renderer,self.kill_event);
                 else:
                     raise Exception();
@@ -784,6 +785,10 @@ if __name__== "__main__":
 
 
     ### RUN NEAT ###
+
+    manager = SourcedShelvedTDManager([levelTDSource,auto_gen_source],'smb1Py',run_name);
+    manager.add_source();
+    runConfig.training_data = manager;
 
     gamerunner.continue_run("run_10");
     
