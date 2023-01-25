@@ -1,19 +1,14 @@
 from __future__ import annotations
 from abc import abstractmethod
 from contextlib import contextmanager
-from lib2to3.pgen2.pgen import generate_grammar
 from pathlib import Path
 import os
 import pickle
-import queue
-import sys
-from typing import Any, Generic, Iterable, MutableMapping, Protocol, TypeVar,Callable
+from typing import Any, Generic, Iterable, Iterator, MutableMapping, Protocol, TypeVar,Callable
 from interrupt import DelayedKeyboardInterrupt
-from neat.reporting import BaseReporter
 from filelock import FileLock
 import shelve
 from tqdm import tqdm
-
 
 TD = TypeVar('TD');
 class TrainingDataManager(Generic[TD]):
@@ -105,7 +100,13 @@ class TrainingDataManager(Generic[TD]):
     def items(self):
         return self.active_data.items();
         
-            
+class Metadatum(Generic[TD]):
+    def __init__(self,value:TD):
+        self.value = value;
+
+    def datum(self):
+        return self.value;
+
 class ShelvedTDMixin(Generic[TD]):
     def create_blank(self):
         super().create_blank();
@@ -184,19 +185,43 @@ class GeneratorTDSource(TDSource[TD],Generic[TD]):
     def __call__(self, gen: int) -> Iterable[TD]: 
         try: return self.genr(gen); 
         except TypeError: return self.genr();
+    def empty(self):
+        return False;
+
+# DOESN'T WORK UNLESS USED IN ASYNCIO LOOP
+# class AsyncStreamTDSource(TDSource[TD],Generic[TD]):
+#     def __init__(self): 
+#         self.event = Event(); 
+#         self.data = None;
+#         self.done = False;
+#     async def __call__(self) -> Iterable[TD]: 
+#         await self.event.wait();
+#         self.event.clear();
+#         return self.data;
+#     def put_data(self,data:Iterable[TD]):
+#         if self.event.is_set():
+#             raise Exception("Error: Cannot add extra data to the stream before empty")
+#         self.data = data;
+#         self.event.set();
+#     def empty(self):
+#         return self.done;
+#     def end_stream(self):
+#         self.done = True;
 
 class ConstantTDSource(TDSource[TD],Generic[TD]):
     def __init__(self,data:Iterable[TD]): self.data = data;
     def __call__(self, gen: int): return self.data;
     def empty(self): return False;
 
-class ScheduledTDSource(TDSource[TD],Generic[TD]):
-    def __init__(self,scheduled_data:Iterable[Iterable[int]],startgen:int|None=None): self.iterator = iter(scheduled_data); self.start = startgen; self.finished = False;
+class IteratorTDSource(TDSource[TD],Generic[TD]):
+    def __init__(self,scheduled_data:Iterator[Iterable[TD]],startgen:int|None=None): self.iterator = scheduled_data; self.start = startgen; self.finished = False;
     def __call__(self, gen: int) -> Iterable[TD]: 
         if self.start == gen: self.start = None;
         if self.start is None:
             try: return next(self.iterator)
             except StopIteration: self.finished = True; return [];
+        else:
+            return [];
     def empty(self) -> bool: return self.finished
 
 
@@ -206,6 +231,10 @@ class SourcedTDMixin(Generic[TD]):
         super().__init__(game_name,run,*args,data_folder=data_folder,ext=ext,override_filepath=override_filepath,**kwargs);
         self.sources = sources
         self.active_data:dict[int,TD]
+        self.source_map = {};
+
+    def get_datum_source(self,id:int):
+        return self.source_map[id] if id in self.source_map else None;
 
     def add_source(self,*sources:TDSource[TD]):
         [self.sources.append(s) for s in sources];
@@ -225,11 +254,17 @@ class SourcedTDMixin(Generic[TD]):
     def set_data(self,*args,**kwargs):
         raise NotImplementedError("setting data directly not supported for source-based training data manager; add a constant source instead")
 
+    def source_next_id(self,source:TDSource):
+        id:int = self.next_id();
+        self.source_map[id] = source;
+        return id;
+
     @contextmanager
-    def poll_data(self):
+    def poll_data(self,generation:int):
         try:
+            self.source_map = {};
             for source in self.sources:
-                self.active_data.update([self.next_id(),datum for datum in source(generation)]);
+                self.active_data.update([(self.source_next_id(source),datum) for datum in source(generation)]);
             yield self.active_data;
         finally:
             self.clear_data(save=True);

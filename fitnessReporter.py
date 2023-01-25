@@ -21,9 +21,9 @@ class FitnessCheckpoint:
             res:list[GenomeFitness];
             if isinstance(tdat_data,dict):
                 ## genome_id mapped fitness data
-                res = [GenomeFitness(id,data) for id,data in tdat_data.items()];
+                res = [GenomeFitness(data,id) for id,data in tdat_data.items()];
             else:
-                res = [GenomeFitness(-1,data) for data in tdat_data];
+                res = [GenomeFitness(data,-1) for data in tdat_data];
             self.data[tdat_id] = res;
 
     def save_checkpoint(self,path:str|Path,override_ext=True):

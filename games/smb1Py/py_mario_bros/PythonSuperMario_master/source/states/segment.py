@@ -23,6 +23,7 @@ class SegmentState:
     def __init__(self, dynamic_data, static_data, task:None|tuple[float,float] = None, task_bounds=None, task_path:None|list[tuple[float,float]]=None, file_path = None, raw_data = None):
         self.last_grid = None;
         self.raw_data = raw_data;
+        self.source_id = -1;
         if (file_path is not None):
             with open(file_path,'rb') as f:
                 self.raw_data = pickle.load(f);
@@ -50,6 +51,12 @@ class SegmentState:
 
     def equal_static_data(self,other_data):
         return json.dumps(other_data) == json.dumps(self.static_data); #using json dumps to ensure that only the dict values are compared and not class sources; that way, if static data gets treated as a class for generation purposes, it can still work exactly the same
+
+    def copy(self):
+        return self.__copy__();
+
+    def deepcopy(self):
+        return self.__deepcopy__();
 
     def __copy__(self):
         return self.__deepcopy__();

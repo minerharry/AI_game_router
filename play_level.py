@@ -27,12 +27,9 @@ import numpy as np
 from tqdm import tqdm
 from ray_event import RayEvent
 from runnerConfiguration import IOData, RunnerConfig
-# from guppy import hpy
-# hp = hpy();
-
 from search import DStarSearcher, LevelSearcher
 from smb1Py_runner import NAME, generate_data, getFitness, getRunning, task_obstruction_score
-from training_data import ShelvedTDManager, SourcedShelvedTDManager, TrainingDataManager
+from training_data import GeneratorTDSource, IteratorTDSource, SourcedShelvedTDManager,TDSource
 try:
     import ray
 except:
@@ -89,39 +86,43 @@ class LevelCheckpoint:
 
 
 class LevelPlayer:
-    
-    def __init__(self): pass;
 
-    def set_NEAT_player(self,game:EvalGame,runConfig:RunnerConfig,run_name:str,
-            player_view_distance:None|int=None,
-            player_tile_scale:None|int=None,
-            config_override=None,
-            checkpoint_run_name:str|None=None,
-            extra_training_data:Iterable[SegmentState]|None=None,
-            extra_training_data_gen:Callable[[],Iterable[SegmentState]]|None=None,
-            fitness_save_path:str|Path|None=None):
 
-        self.runConfig = runConfig;
-        self.neat_config_override = config_override;
-        self.run_name = run_name;
-        self.checkpoint_run_name = checkpoint_run_name if checkpoint_run_name else self.run_name;
+    def set_level_info(self,view_distance:int,tile_scale:int):
+        self.view_distance = view_distance;
+        self.tile_scale = tile_scale;
 
-        self.tdat = SourcedShelvedTDManager[SegmentState]('smb1Py',run_name);
-        self.runConfig.training_data = self.tdat;
 
-        self.extra_dat_gen = extra_training_data_gen if extra_training_data_gen else ((lambda: extra_training_data) if extra_training_data else None);
-        self.game = game;
-        self.runConfig.generations = 1;
-        self.gamerunner = GameRunner(self.game,self.runConfig);
+    # def set_NEAT_player(self,game:EvalGame,runConfig:RunnerConfig,run_name:str,
+    #         player_view_distance:None|int=None,
+    #         player_tile_scale:None|int=None,
+    #         config_override=None,
+    #         checkpoint_run_name:str|None=None,
+    #         extra_training_data:Iterable[SegmentState]|None=None,
+    #         extra_training_data_gen:Callable[[],Iterable[SegmentState]]|None=None,
+    #         fitness_save_path:str|Path|None=None):
 
-        if fitness_save_path:
-            self.task_reporter = TaskFitnessReporter(fitness_save_path,queue_type=self.runConfig.queue_type);
-        else:
-            self.task_reporter = TaskFitnessReporter(queue_type=self.runConfig.queue_type);
-        self.game.register_reporter(self.task_reporter);
+    #     self.runConfig = runConfig;
+    #     self.neat_config_override = config_override;
+    #     self.run_name = run_name;
+    #     self.checkpoint_run_name = checkpoint_run_name if checkpoint_run_name else self.run_name;
 
-        self.view_distance = player_view_distance if player_view_distance else self.runConfig.view_distance;
-        self.tile_scale = player_tile_scale if player_tile_scale else self.runConfig.tile_scale;
+    #     self.tdat = SourcedShelvedTDManager[SegmentState]('smb1Py',run_name);
+    #     self.runConfig.training_data = self.tdat;
+
+    #     self.extra_dat_gen = extra_training_data_gen if extra_training_data_gen else ((lambda: extra_training_data) if extra_training_data else None);
+    #     self.game = game;
+    #     self.runConfig.generations = 1;
+    #     self.gamerunner = GameRunner(self.game,self.runConfig);
+
+    #     if fitness_save_path:
+    #         self.task_reporter = TaskFitnessReporter(fitness_save_path,queue_type=self.runConfig.queue_type);
+    #     else:
+    #         self.task_reporter = TaskFitnessReporter(queue_type=self.runConfig.queue_type);
+    #     self.game.register_reporter(self.task_reporter);
+
+    #     self.view_distance = player_view_distance if player_view_distance else self.runConfig.view_distance;
+    #     self.tile_scale = player_tile_scale if player_tile_scale else self.runConfig.tile_scale;
 
 
     def set_fixed_net(self,model:torch.nn.Module,used_grids:str|list[str],endpoint_padding:gridPos,minimum_viable_distance:float,maximum_viable_distance:float):
@@ -159,69 +160,11 @@ class LevelPlayer:
         full = torch.Tensor(grids);
         return self.fixed_net(full).item();
 
-    def eval_NEAT_player(self,tasks:list[list[floatPos]],level:SegmentState):
-        '''returns the fitness values (for ALL players) for each leg of the task'''
-        self.log("evaluating NEAT-player with training data",len(tasks),'ex:',tasks[0],'and level',level);
-        data = [];
-        for task_path in tasks:
-            state = copy.deepcopy(level);
-            task_path = task_path[1:];
-            state.task = task_path[0];
-            state.task_path = task_path;
-            data.append(state);
-
-        self. .set_data(data);
-
-        renderProcess = None;
-        if self.renderer is not None:
-            reached_idxs = [p[1][-1] for p in self.a_searcher.completed_edges];
-            failed_idxs = [p for _,p in self.costs.keys() if p not in reached_idxs];
-
-            reached = [self.grid_index_to_pos(idx) for idx in reached_idxs];
-            failed = [self.grid_index_to_pos(idx) for idx in failed_idxs];
-            paths:dict[int,Iterable[tuple[float,float]]] = {id:[self.player_start,state.task] + state.task_path for id,state in self.tdat.active_data.items()};
-
-            self.renderer.set_annotations(reached,failed,paths);
-
-            self.renderReporter.reset_paths();
-            if self.runConfig.queue_type == "multiprocessing":
-                self.kill_event = multiprocessing.Event();
-                renderProcess = multiprocessing.Process(target=self.renderReporter.render_loop,args=[self.renderer,self.kill_event]);
-                renderProcess.start();
-            else:
-                self.kill_event = RayEvent();
-                renderProcess = self.renderReporter.ray_render_loop.remote(self.renderReporter,self.renderer,self.kill_event);
+    # def eval_NEAT_player(self,tasks:list[list[floatPos]],level:SegmentState):
+    #     '''returns the fitness values (for ALL players) for each leg of the task'''
 
 
-        level_ids = list(self.tdat.active_data.keys());
-
-        num_extra = None;
-        if self.extra_dat_gen:
-            extra = self.extra_dat_gen();
-            num_extra = len(extra);
-            self.tdat.add_data(extra);
-
-        task_list = list(zip(tasks,self.tdat.active_data.keys()))
-        pretty_list = [([(f"{j[0]:.3f}",f"{j[1]:.3f}") for j in t[0]],t[1]) for t in task_list];
-        print("evaluating on level data:",pretty_list,f"with {num_extra} additional data" if num_extra is not None else "",flush=True);
-        
-        longest = max(tasks,key=lambda x:len(x));
-        print("max length path:",longest,"of length",len(longest),flush=True);
-
-        self.gamerunner.continue_run(self.checkpoint_run_name,manual_config_override=self.neat_config_override);
-
-        result:list[list[tuple[tuple[floatPos, floatPos | Literal['complete']], float]]] = [d.data for d in self.task_reporter.get_all_data() if d.id in level_ids];
-        
-        print("Neat player evaluated;",len(result),"data collected");
-
-        if renderProcess is not None:
-            self.kill_event.set();
-            if self.runConfig.queue_type=="multiprocessing":
-                renderProcess.join();
-            else:
-                ray.get(renderProcess);
-
-        return result;
+    #     return result;
 
     def log(self,*args,**kwargs):
         print(*args,**kwargs);
@@ -232,22 +175,54 @@ class LevelPlayer:
     #given a level (no task, no task_bounds), a goal block or set of blocks
     #offset downscale means with how much resolution are potential task blocks generated.
     def play_level(self,
+            game:EvalGame,
             level:SegmentState,
             goal:floatPos|list[floatPos],
+            fitness_save_path:str|Path|os.PathLike|None,
             training_dat_per_gen=50,
             search_data_resolution=5,
             task_offset_downscale=2,
             search_checkpoint:LevelCheckpoint|None=None,
             checkpoint_save_location="play_checkpoint.chp",
             fitness_aggregation_type="max",
-            render_progress=True):
+            render_progress=True,
+            multiprocessing_type="ray")->TDSource[SegmentState]:
+
+        gen = self._yield_NEAT_data(game,level,goal,fitness_save_path,training_dat_per_gen,search_data_resolution,task_offset_downscale,search_checkpoint,checkpoint_save_location,fitness_aggregation_type,render_progress,multiprocessing_type)
+        source = IteratorTDSource(gen)
+        return source;
+
+    def _yield_NEAT_data(self,
+            game:EvalGame,
+            level:SegmentState,
+            goal:floatPos|list[floatPos],
+            fitness_save_path:str|Path|os.PathLike|None,
+            training_dat_per_gen:int,
+            search_data_resolution:int,
+            task_offset_downscale:int,
+            search_checkpoint:LevelCheckpoint|None,
+            checkpoint_save_location:str|Path|os.PathLike,
+            fitness_aggregation_type:str,
+            render_progress:bool,
+            multiprocessing_type:Literal["ray","multiprocessing"]):
+        self.multi = multiprocessing_type
+        if self.multi not in ["multiprocessing","ray"]:
+            raise TypeError(f"library type {self.multi} not known");
+
+        self.game = game;
+
+        if fitness_save_path:
+            self.task_reporter = TaskFitnessReporter(self.getSource(),fitness_save_path,queue_type=self.multi);
+        else:
+            self.task_reporter = TaskFitnessReporter(queue_type=self.multi);
+        self.game.register_reporter(self.task_reporter);
 
         fitness_from_list = {
             "max":max,
             "median":np.median,
             "mean":np.average,
-            "q3":lambda l: np.quartile(l,0.75),
-            "q1":lambda l: np.quartile(l,0.25),
+            "q3":lambda l: np.quantile(l,0.75),
+            "q1":lambda l: np.quantile(l,0.25),
             "min":min
         }[fitness_aggregation_type];
         log = self.log #shorthand
@@ -259,12 +234,14 @@ class LevelPlayer:
         ### Extract level info for routing purposes
         log("--EXTRACTING LEVEL INFO--");
         log("game startup");
-        game = Segment()
-        game.startup(0,{c.LEVEL_NUM:1},initial_state=level);
+        data_game = Segment()
+        data_game.startup(0,{c.LEVEL_NUM:1},initial_state=level);
 
         log("acquiring map data")
-        gdat = game.get_game_data(self.view_distance,self.tile_scale);
-        mdat = game.get_map_data(search_data_resolution);
+        gdat = data_game.get_game_data(self.view_distance,self.tile_scale);
+        mdat = data_game.get_map_data(search_data_resolution);
+
+        del data_game;
 
         self.player_start:floatPos = gdat['pos'];
         search_grids = [np.array(mdat[g]) for g in self.fixed_grids];
@@ -312,7 +289,6 @@ class LevelPlayer:
             elif (start,task) not in self.predictions:
                 self.predictions[start,task] = cost_from_fitness(dist(*grid_index_to_pos(start),grid_index_to_pos(task))*self.eval_fixed_net(search_grids,start,task,grid_size));
             return self.predictions[start,task];          
-
 
 
         ### Initialize D* Searcher (run in reverse through the level)
@@ -388,6 +364,7 @@ class LevelPlayer:
         check = search_checkpoint.a if search_checkpoint is not None else None;
         self.a_searcher = LevelSearcher[tuple[gridPos,...],gridPos]((start_idx,),lambda x: x[-1] in goal_idxs,a_star_heuristic,lambda node: node[-1],a_star_succ,a_star_cost,frustration_multiplier=0.02,checkpoint=check);
 
+
         ### ROUTE + PLAY LEVEL
         log("beginning routing")
 
@@ -401,7 +378,7 @@ class LevelPlayer:
         self.renderer = None;
         if render_progress:
             self.renderer = LevelRenderer(level,point_size=3,path_width=2,active_path_width=3);
-            self.renderReporter = LevelRendererReporter(queue_type=self.runConfig.queue_type);
+            self.renderReporter = LevelRendererReporter(self.getSource(),queue_type=self.multi);
             self.game.register_reporter(self.renderReporter);
 
         while not level_finished:
@@ -424,7 +401,59 @@ class LevelPlayer:
             
 
             log("NEAT-player attempting level segments");
-            all_fitnesses = self.eval_NEAT_player(player_paths,level);
+            
+
+            ### Evaluating neat player, used to be its own function, copy-pasted
+            tasks = player_paths
+
+            self.log("evaluating NEAT-player with training data",len(tasks),'ex:',tasks[0],'and level',level);
+            data:list[SegmentState] = [];
+            for i,task_path in enumerate(tasks):
+                state = level.deepcopy();
+                task_path = task_path[1:];
+                state.task = task_path[0];
+                state.task_path = task_path;
+                state.source_id = i;
+                data.append(state);
+            
+
+            renderProcess = None;
+            if self.renderer is not None:
+                reached_idxs = [p[1][-1] for p in self.a_searcher.completed_edges];
+                failed_idxs = [p for _,p in self.costs.keys() if p not in reached_idxs];
+
+                reached = [self.grid_index_to_pos(idx) for idx in reached_idxs];
+                failed = [self.grid_index_to_pos(idx) for idx in failed_idxs];
+                paths:dict[int,Iterable[tuple[float,float]]] = {state.source_id:[self.player_start,state.task] + state.task_path for state in data};
+
+                self.renderer.set_annotations(reached,failed,paths);
+
+                self.renderReporter.reset_paths();
+                if self.multi == "multiprocessing":
+                    self.kill_event = multiprocessing.Event();
+                    renderProcess = multiprocessing.Process(target=self.renderReporter.render_loop,args=[self.renderer,self.kill_event]);
+                    renderProcess.start();
+                elif self.multi == "ray":
+                    self.kill_event = RayEvent();
+                    renderProcess = self.renderReporter.ray_render_loop.remote(self.renderReporter,self.renderer,self.kill_event);
+                else:
+                    raise Exception();
+
+            yield data;
+
+
+            result:list[list[tuple[tuple[floatPos, floatPos | Literal['complete']], float]]] = [d.data for d in self.task_reporter.get_all_data()];
+            
+            print("Neat player evaluated;",len(result),"data collected");
+
+            if renderProcess is not None:
+                self.kill_event.set();
+                if self.multi=="multiprocessing":
+                    renderProcess.join();
+                else:
+                    ray.get(renderProcess);
+            
+            all_fitnesses = result
             log("fitnesses calculated")
 
             self.a_searcher.register_attempts(top_paths);
@@ -485,16 +514,28 @@ class LevelPlayer:
 
             self.a_searcher.update_scores(a_updates);
         
-        return winning_path;
+        if render_progress:
+            self.game.deregister_reporter(self.renderReporter)
+
+        self.winning_path = winning_path;
 
 class TaskFitnessReporter(BaseReporter,ThreadedGameReporter[IdData[list[tuple[tuple[floatPos,floatPos|Literal['complete']],float]]]]): #I'm so sorry
-    def __init__(self,save_path=None,**kwargs):
+    def __init__(self,source:TDSource|None=None,save_path=None,**kwargs):
         super().__init__(**kwargs);
         self.save_path = Path(save_path) if save_path else None;
         self.generation = None;
+        self.active = False if source is not None else True;
+        self.source = source;
 
     def on_training_data_load(self, game: SMB1Game, id:int):
+        if self.data_list is not None:
+            self.put_all_data(*self.data_list);
         self.data_id = id;
+        self.data_list = [];
+        if self.source is not None:
+            t:SourcedShelvedTDManager = game.runConfig.training_data
+            self.active = t.get_datum_source(id) == self.source;
+
 
     def on_start(self, game: SMB1Game):
         self.previous_task:floatPos = game.getMappedData()['pos'];
@@ -517,7 +558,7 @@ class TaskFitnessReporter(BaseReporter,ThreadedGameReporter[IdData[list[tuple[tu
         if game.getMappedData()['task_path_complete']:
             self.current_data.append(((self.previous_task,'complete'),-1));
             # print(f"Task Fitness Reporter: Task sequence completed for data {self.data_id}");
-        self.put_data(IdData(self.data_id,self.current_data));
+        self.data_list.append(IdData(self.data_id,self.current_data));
 
     def start_generation(self, generation):
         print(f"Task Fitness Reporter - generation {generation} started");
@@ -541,10 +582,11 @@ class TaskFitnessReporter(BaseReporter,ThreadedGameReporter[IdData[list[tuple[tu
     
     
 if __name__== "__main__":
+    
+    ### PREPARE RAY / MULTIPROCESSING / CMDLINE STUFF ###
     import ray
     from ray.util.placement_group import placement_group,placement_group_table
     from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
-    player = LevelPlayer();
     parser = argparse.ArgumentParser(
                     prog = 'Play SMBPy Level',
                     description = 'attempt to play a level using multiprocessing w/ ray')
@@ -573,7 +615,7 @@ if __name__== "__main__":
 
         basic_cores = ray.cluster_resources()["CPU"]-num_display-2; #two extra cores for whatever
 
-        cpu_bundles = [{"CPU":1} for _ in range(int(basic_cores))];
+        cpu_bundles = [{"CPU":1.0} for _ in range(int(basic_cores))];
         display_bundles = [{"Display":0.01,"CPU":1} for _ in range(int(num_display) - 1)];
 
         total_bundles = cpu_bundles + display_bundles
@@ -583,6 +625,7 @@ if __name__== "__main__":
         st = PlacementGroupSchedulingStrategy(group);
     else:
         ray.init(resources={"Display":100});
+
 
 
     ### LOAD NEAT PLAYER ###
@@ -610,7 +653,7 @@ if __name__== "__main__":
     runConfig.view_distance = 3.75;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
-    runConfig.parallel_processes = 5;
+    runConfig.parallel_processes = 1;
     runConfig.chunkFactor = 24;
     runConfig.saveFitness = False;
 
@@ -619,40 +662,37 @@ if __name__== "__main__":
     runConfig.logPath = f'logs/smb1Py/run-{run_name}-log.txt';
     runConfig.fitness_collection_type='delta_max';
 
-    configs = [
-        GenerationOptions(num_blocks=0,ground_height=7,valid_task_blocks=c.FLOOR,valid_start_blocks=c.FLOOR), #0
-        GenerationOptions(num_blocks=0,ground_height=7,valid_task_blocks=c.INNER,valid_start_blocks=c.FLOOR), #1
-        GenerationOptions(num_blocks=(1,3),ground_height=7,valid_task_blocks=c.INNER,valid_start_blocks=c.FLOOR), #2
-        GenerationOptions(num_blocks=(0,4),ground_height=7,task_batch_size=(1,4)), #3
-        GenerationOptions(num_blocks=(0,8),ground_height=(7,8),task_batch_size=(1,4)), #4
-        GenerationOptions(num_blocks=(0,4),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(1,2)), #5
-        GenerationOptions(num_blocks=(0,6),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(0,4)), #6
-        GenerationOptions(num_blocks=(0,4),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(1,3),allow_gap_under_start=True), #7
-        GenerationOptions(num_blocks=(0,6),ground_height=7,task_batch_size=(1,3),num_enemies={c.ENEMY_TYPE_GOOMBA:1},valid_enemy_positions=c.GROUNDED), #8
-        GenerationOptions(size=(20,15),inner_size=(14,9),num_blocks=(0,8),ground_height=(7,8),task_batch_size=(1,4)), #9
-        GenerationOptions(size=(18,14),inner_size=(12,8),num_blocks=(0,6),ground_height=7,task_batch_size=(1,4),num_gaps=(1,3),gap_width=(1,3)), #10
-        ];
-    
-    orders = [(configs[4],45),(configs[2],15),(configs[6],10),(configs[7],5),(configs[9],30),(configs[10],15)];
-
-    tdat_gen = partial(generate_data,orders);
-
-    fitness_save_path = Path("memories")/"smb1Py"/f"{run_name}_fitness_history";
-
-    transfer = True;
-    if transfer:
-        config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
-                        neat.DefaultSpeciesSet, neat.DefaultStagnation,
-                        Path("configs")/"config-pygame-smb1-blockgrid");
-        config_transfer = (config, None, None)
-        
-        player.set_NEAT_player(game,runConfig,run_name,runConfig.view_distance,runConfig.tile_scale,checkpoint_run_name='run_10',extra_training_data_gen = tdat_gen,config_override=config_transfer);
-    else:
-        player.set_NEAT_player(game,runConfig,run_name,runConfig.view_distance,runConfig.tile_scale,checkpoint_run_name='run_10',extra_training_data_gen = tdat_gen);
-
-
     if not local_display:
         runConfig.pool_kwargs = {'ray_remote_args':{'scheduling_strategy':st,'num_cpus':1}};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+    # transfer = True;
+    # if transfer:
+    #     config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
+    #                     neat.DefaultSpeciesSet, neat.DefaultStagnation,
+    #                     Path("configs")/"config-pygame-smb1-blockgrid");
+    #     config_transfer = (config, None, None)
+        
+    gamerunner = GameRunner(game,runConfig);
 
 
     ### LOAD FIXED NET ###
@@ -662,11 +702,15 @@ if __name__== "__main__":
     with open(model_path,'rb') as f:
         model = torch.load(f,map_location=torch.device('cpu'));
     model.eval();
-    player.set_fixed_net(model,'collision_grid',(6,6),8,40);
 
 
 
-    ### LEVEL INITIATION ###
+    
+    
+    
+    #### LEVEL PLAYER SOURCE ####
+
+    ### LOAD/GENERATE LEVEL ###
 
     level_path = Path('levels')/'testing'/'test2.lvl';
     level = None;
@@ -694,14 +738,56 @@ if __name__== "__main__":
             checkpoint = pickle.load(f);
         print("checkpoint successfully loaded")
 
-    winning_path = player.play_level(level,
-        goals,
-        search_data_resolution=4,
-        task_offset_downscale=2,
-        search_checkpoint=checkpoint,
-        checkpoint_save_location=save,
-        training_dat_per_gen=40);
 
+    fitness_save_path = Path("memories")/"smb1Py"/f"{run_name}_fitness_history";
+    player = LevelPlayer();
+    player.set_fixed_net(model,'collision_grid',(6,6),8,40);
+    player.set_level_info(int(runConfig.view_distance),runConfig.tile_scale);
+
+    levelTDSource = player.play_level(
+            game,
+            level,
+            goals,
+            fitness_save_path=fitness_save_path,
+            search_data_resolution=4,
+            task_offset_downscale=2,
+            search_checkpoint=checkpoint,
+            checkpoint_save_location=save,
+            training_dat_per_gen=40);
+        
+
+
+
+
+    ### AUTO GENERATED TRAINING SOURCE ###
+
+    configs = [
+        GenerationOptions(num_blocks=0,ground_height=7,valid_task_blocks=c.FLOOR,valid_start_blocks=c.FLOOR), #0
+        GenerationOptions(num_blocks=0,ground_height=7,valid_task_blocks=c.INNER,valid_start_blocks=c.FLOOR), #1
+        GenerationOptions(num_blocks=(1,3),ground_height=7,valid_task_blocks=c.INNER,valid_start_blocks=c.FLOOR), #2
+        GenerationOptions(num_blocks=(0,4),ground_height=7,task_batch_size=(1,4)), #3
+        GenerationOptions(num_blocks=(0,8),ground_height=(7,8),task_batch_size=(1,4)), #4
+        GenerationOptions(num_blocks=(0,4),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(1,2)), #5
+        GenerationOptions(num_blocks=(0,6),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(0,4)), #6
+        GenerationOptions(num_blocks=(0,4),ground_height=7,task_batch_size=(1,4),num_gaps=(1,2),gap_width=(1,3),allow_gap_under_start=True), #7
+        GenerationOptions(num_blocks=(0,6),ground_height=7,task_batch_size=(1,3),num_enemies={c.ENEMY_TYPE_GOOMBA:1},valid_enemy_positions=c.GROUNDED), #8
+        GenerationOptions(size=(20,15),inner_size=(14,9),num_blocks=(0,8),ground_height=(7,8),task_batch_size=(1,4)), #9
+        GenerationOptions(size=(18,14),inner_size=(12,8),num_blocks=(0,6),ground_height=7,task_batch_size=(1,4),num_gaps=(1,3),gap_width=(1,3)), #10
+        ];
+    
+    orders = [(configs[4],45),(configs[2],15),(configs[6],10),(configs[7],5),(configs[9],30),(configs[10],15)];
+
+    tdat_gen = partial(generate_data,orders);
+
+    auto_gen_source = GeneratorTDSource(tdat_gen);
+
+
+
+    ### RUN NEAT ###
+
+    gamerunner.continue_run("run_10");
+    
+    
     print("Level successfully completed!! Winning Path:",winning_path,"completed using the population of generation",player.gamerunner.generation);
     
 

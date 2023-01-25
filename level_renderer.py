@@ -10,6 +10,7 @@ from games.smb1Py.py_mario_bros.PythonSuperMario_master.smb_game import SMB1Game
 
 from games.smb1Py.py_mario_bros.PythonSuperMario_master.source import constants as c, setup, tools
 from games.smb1Py.py_mario_bros.PythonSuperMario_master.source.states.segment import Segment, SegmentState
+from training_data import TDSource
 
 try:
     import ray
@@ -164,50 +165,57 @@ class LevelRenderer:
 class PathMessage:
     ACTIVE_CHANGED=0;
     PATH_COMPLETED=1;
-    def __init__(self,pid:int,message_type:int,path_id:int):
+    def __init__(self,pid:int,message_type:int,path_id:int|None):
         self.pid = pid;
         self.type = message_type;
         self.path_id = path_id;
 
     @classmethod
-    def complete(cls,pid,path_id):
+    def complete(cls,pid:int,path_id:int|None):
         return PathMessage(pid,cls.PATH_COMPLETED,path_id);
 
     @classmethod
-    def active(cls,pid,path_id):
+    def active(cls,pid:int,path_id:int|None):
         return PathMessage(pid,cls.ACTIVE_CHANGED,path_id);
 
 class LevelRendererReporter(ThreadedGameReporter[PathMessage]): #process_num,active_id
     
-    def __init__(self,**kwargs):
+    def __init__(self,task_source:TDSource[SegmentState],**kwargs):
         super().__init__(**kwargs);
         self.active_id = None;
         self.id_complete = False;
         self.reset_paths();
+        self.source = task_source;
 
     def reset_paths(self):
         self.active:dict[int,int] = {};
         self.completed:set[int] = set();
         self.failed:set[int] = set();
     
-    def on_training_data_load(self, game: SMB1Game, id):
+    def on_training_data_load(self, game: SMB1Game, id:int|None):
+        if game.runConfig.training_data.get_datum_source(id) != self.source:
+            id = None;
+        else:
+            id = game.runConfig.training_data[id].source_id;
         self.pid = os.getpid();
         if (self.active_id != id): #active changed
             self.put_data(PathMessage.active(self.pid,id));
-        self.active_id  = id;
         self.id_complete = False;
+        self.active_id = id;
+        
         
     def on_finish(self, game: RunGame):
-        if not self.id_complete and game.getMappedData()['task_path_complete']:
-            self.put_data(PathMessage.complete(self.pid,self.active_id));
-            self.id_complete = True;
+        if self.active_id is not None:
+            if not self.id_complete and game.getMappedData()['task_path_complete']:
+                self.put_data(PathMessage.complete(self.pid,self.active_id));
+                self.id_complete = True;
 
     def update_display(self,renderer:LevelRenderer):
         #pull all updates from the pool
         for message in self.get_all_data():
             pid = message.pid;
             did = message.path_id; #data id
-            if did not in renderer.paths: #renderer no longer rendering level
+            if did is None or did not in renderer.paths: #renderer no longer rendering level
                 if pid not in self.active:
                     #already popped
                     continue;
@@ -224,12 +232,11 @@ class LevelRendererReporter(ThreadedGameReporter[PathMessage]): #process_num,act
                         self.active[pid] = did;
                         renderer.update_active_paths(self.active.values());
                         break;
-
                     prev = self.active[pid];
                     if prev == did: 
                         print("LevelRendererReporter warning: Unnecessary data transfer - changing active id to already active path for process",pid);
                         break;
-                    if prev not in self.completed:
+                    if prev not in self.completed and prev is not None:
                         self.failed.add(prev);
                         renderer.update_failed_paths(self.failed);
                     self.active[pid] = did;

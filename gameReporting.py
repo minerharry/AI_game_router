@@ -40,6 +40,10 @@ class ThreadedGameReporter(GameReporter,Generic[T]): #class with nice builtin mu
 
     def put_data(self,data:T):
         self.data.put(data);
+    
+    def put_all_data(self,*data:T):
+        for d in data:
+            self.data.put(d);
 
     def get_data(self)->T:
         return self.data.get();
