@@ -189,8 +189,11 @@ class LevelPlayer:
             multiprocessing_type="ray")->TDSource[SegmentState]:
 
         gen = self._yield_NEAT_data(game,level,goal,fitness_save_path,training_dat_per_gen,search_data_resolution,task_offset_downscale,search_checkpoint,checkpoint_save_location,fitness_aggregation_type,render_progress,multiprocessing_type)
-        self.source = IteratorTDSource(gen)
-        return self.source;
+        self.source = IteratorTDSource[SegmentState](gen)
+        if next(gen) == True:
+            return self.source;
+        else:
+            raise Exception(); ##shrug
 
     def _yield_NEAT_data(self,
             game:EvalGame,
@@ -365,6 +368,14 @@ class LevelPlayer:
         self.a_searcher = LevelSearcher[tuple[gridPos,...],gridPos]((start_idx,),lambda x: x[-1] in goal_idxs,a_star_heuristic,lambda node: node[-1],a_star_succ,a_star_cost,frustration_multiplier=0.02,checkpoint=check);
 
 
+        self.renderer = None;
+        if render_progress:
+            self.renderer = LevelRenderer(level,point_size=3,path_width=2,active_path_width=3);
+            self.renderReporter = LevelRendererReporter(self.source,queue_type=self.multi);
+            self.game.register_reporter(self.renderReporter);
+
+        yield True; #ready signal
+
         ### ROUTE + PLAY LEVEL
         log("beginning routing")
 
@@ -375,11 +386,7 @@ class LevelPlayer:
         level_finished = False;
         winning_path = None
 
-        self.renderer = None;
-        if render_progress:
-            self.renderer = LevelRenderer(level,point_size=3,path_width=2,active_path_width=3);
-            self.renderReporter = LevelRendererReporter(self.source,queue_type=self.multi);
-            self.game.register_reporter(self.renderReporter);
+
 
         while not level_finished:
             log("checkpoint saved")
@@ -435,7 +442,7 @@ class LevelPlayer:
                     renderProcess.start();
                 elif self.multi == "ray":
                     self.kill_event = RayEvent();
-                    ray.util.inspect_serializability(self.renderReporter);
+                    # ray.util.inspect_serializability(self.renderReporter);
                     renderProcess = self.renderReporter.ray_render_loop.remote(self.renderReporter,self.renderer,self.kill_event);
                 else:
                     raise Exception();
@@ -527,6 +534,7 @@ class TaskFitnessReporter(BaseReporter,ThreadedGameReporter[IdData[list[tuple[tu
         self.generation = None;
         self.active = False if source is not None else True;
         self.source = source;
+        self.data_list = None
 
     def on_training_data_load(self, game: SMB1Game, id:int):
         if self.data_list is not None:
@@ -654,7 +662,7 @@ if __name__== "__main__":
     runConfig.view_distance = 3.75;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
-    runConfig.parallel_processes = 1;
+    runConfig.parallel_processes = 10;
     runConfig.chunkFactor = 24;
     runConfig.saveFitness = False;
 
@@ -668,23 +676,6 @@ if __name__== "__main__":
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
 
     # transfer = True;
     # if transfer:
@@ -713,7 +704,7 @@ if __name__== "__main__":
 
     ### LOAD/GENERATE LEVEL ###
 
-    level_path = Path('levels')/'testing'/'test2.lvl';
+    level_path = Path('levels')/'smb1_levels'/'1-1.lvl';
     level = None;
     if (os.path.exists(level_path)):
         level = SegmentState(None,None,file_path=level_path);
@@ -730,8 +721,9 @@ if __name__== "__main__":
         goalx = 48*c.TILE_SIZE
 
     goals = [(goalx,i*c.TILE_SIZE) for i in range(20)]; 
+    print(goals);
 
-    save = "level_routing_checkpoints/level2.chp"
+    save = "level_routing_checkpoints/level1-1.chp"
     checkpoint = None;
     if os.path.exists(save):
         print("loading checkpoint...")
@@ -786,13 +778,13 @@ if __name__== "__main__":
 
     ### RUN NEAT ###
 
-    manager = SourcedShelvedTDManager([levelTDSource,auto_gen_source],'smb1Py',run_name);
+    manager = SourcedShelvedTDManager('smb1Py',run_name,initial_sources=[levelTDSource,auto_gen_source]);
     manager.add_source();
     runConfig.training_data = manager;
 
     gamerunner.continue_run("run_10");
     
     
-    print("Level successfully completed!! Winning Path:",winning_path,"completed using the population of generation",player.gamerunner.generation);
+    print("Level successfully completed!! Winning Path:",player.winning_path,"completed using the population of generation",player.gamerunner.generation);
     
 

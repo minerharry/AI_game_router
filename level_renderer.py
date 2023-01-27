@@ -19,7 +19,7 @@ except:
 
 class LevelRenderer:
     def __init__(self,state:SegmentState,
-            max_dims:tuple[int,int]=(1000,500),
+            max_dims:tuple[int,int]=(2000,500),
             reached_color=c.GREEN,
             failed_color=c.RED,
             path_color=c.BLUE,
@@ -193,9 +193,12 @@ class LevelRendererReporter(ThreadedGameReporter[PathMessage]): #process_num,act
         self.failed:set[int] = set();
     
     def on_training_data_load(self, game: SMB1Game, id:int|None):
+        # print("training data loaded, datum id:",id);
         if game.runConfig.training_data.get_datum_source(id) != self.source:
+            # print("irrelevant datum, ignoring")
             id = None;
         else:
+            # print("relevant datum! updating id");
             id = game.runConfig.training_data[id].source_id;
         self.pid = os.getpid();
         if (self.active_id != id): #active changed
@@ -242,6 +245,8 @@ class LevelRendererReporter(ThreadedGameReporter[PathMessage]): #process_num,act
                     self.active[pid] = did;
                     renderer.update_active_paths(self.active.values());
                 case PathMessage.PATH_COMPLETED:
+                    if did is None:
+                        break;
                     if pid not in self.active:
                         self.active[pid] = did;
                         renderer.update_active_paths(self.active.values());
@@ -266,8 +271,10 @@ class LevelRendererReporter(ThreadedGameReporter[PathMessage]): #process_num,act
                 except:
                     print("error in ray render loop:",sys.exc_info());
                 # print(renderer.display_set);
-                pg.event.pump();
-                time.sleep(interval);
+                end = time.time() + interval;
+                while time.time() < end:
+                    pg.event.pump();
+                    time.sleep(0.1);
 
     def render_loop(self,renderer:LevelRenderer,kill_event:Event,interval=5): #update interval in seconds
         import pygame as pg

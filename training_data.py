@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from pathlib import Path
 import os
 import pickle
-from typing import Any, Generic, Iterable, Iterator, MutableMapping, Protocol, TypeVar,Callable
+from typing import Any, Generic, Iterable, Iterator, MutableMapping, Protocol, TypeVar,Callable, runtime_checkable
 from interrupt import DelayedKeyboardInterrupt
 from filelock import FileLock
 import shelve
@@ -158,7 +158,7 @@ class ShelvedTDMixin(Generic[TD]):
             self.save_data();
 
 
-# TDSource = Callable[[int],Iterable[TD]]
+@runtime_checkable
 class TDSource(Protocol[TD]):
     @abstractmethod
     def __call__(self, gen:int) -> Iterable[TD]: pass;
@@ -180,7 +180,18 @@ class TDSource(Protocol[TD]):
     def generator(generator_func:Callable[[int],Iterable[TD]]):
         return GeneratorTDSource(generator_func);
         
-class GeneratorTDSource(TDSource[TD],Generic[TD]):
+class PickleableTDSource(TDSource[TD]):
+    def __getstate__(self):
+        return {"id":id(self),**{k:v for k,v in self.__dict__.items() if k in ["__getstate__","__setstate__ "]}};
+
+    def __eq__(self, __o: PickleableTDSource) -> bool:
+        try:
+            return self.id == __o.id;
+        except:
+            return super() == __o;
+    
+
+class GeneratorTDSource(PickleableTDSource[TD],Generic[TD]):
     def __init__(self,gen): self.genr = gen;
     def __call__(self, gen: int) -> Iterable[TD]: 
         try: return self.genr(gen); 
@@ -189,7 +200,7 @@ class GeneratorTDSource(TDSource[TD],Generic[TD]):
         return False;
 
 # DOESN'T WORK UNLESS USED IN ASYNCIO LOOP
-# class AsyncStreamTDSource(TDSource[TD],Generic[TD]):
+# class AsyncStreamTDSource(_TDSource[TD],Generic[TD]):
 #     def __init__(self): 
 #         self.event = Event(); 
 #         self.data = None;
@@ -208,12 +219,12 @@ class GeneratorTDSource(TDSource[TD],Generic[TD]):
 #     def end_stream(self):
 #         self.done = True;
 
-class ConstantTDSource(TDSource[TD],Generic[TD]):
+class ConstantTDSource(PickleableTDSource[TD],Generic[TD]):
     def __init__(self,data:Iterable[TD]): self.data = data;
     def __call__(self, gen: int): return self.data;
     def empty(self): return False;
 
-class IteratorTDSource(TDSource[TD],Generic[TD]):
+class IteratorTDSource(PickleableTDSource[TD],Generic[TD]):
     def __init__(self,scheduled_data:Iterator[Iterable[TD]],startgen:int|None=None): self.iterator = scheduled_data; self.start = startgen; self.finished = False;
     def __call__(self, gen: int) -> Iterable[TD]: 
         if self.start == gen: self.start = None;
@@ -227,24 +238,25 @@ class IteratorTDSource(TDSource[TD],Generic[TD]):
 
 class SourcedTDMixin(Generic[TD]):
 
-    def __init__(self,game_name,run,*args,initial_sources:list[TDSource[TD]],data_folder:os.PathLike="memories",ext="tdat",override_filepath=None,**kwargs):
+    def __init__(self,game_name,run,*args,initial_sources:list[TDSource[TD]]=[],data_folder:os.PathLike="memories",ext="tdat",override_filepath=None,**kwargs):
         super().__init__(game_name,run,*args,data_folder=data_folder,ext=ext,override_filepath=override_filepath,**kwargs);
-        self.sources = {}
-        self.add_source(*initial_sources);
+        self.sources = []
         self.active_data:dict[int,TD]
         self.source_map = {};
-        self._next_source_id = 0;
+        # self._next_source_id = 0;
 
-    def next_source_id(self):
-        id = self._next_source_id;
-        self._next_source_id += 1;
-        return id;
+        self.add_source(*initial_sources);
+
+    # def next_source_id(self):
+    #     id = self._next_source_id;
+    #     self._next_source_id += 1;
+    #     return id;
 
     def get_datum_source(self,id:int):
         return self.source_map[id] if id in self.source_map else None;
 
     def add_source(self,*sources:TDSource[TD]):
-        [self.sources.update({self.next_source_id:s}) for s in sources];
+        [self.sources.append(s) for s in sources];
 
     def remove_source(self,source):
         self.sources.remove(source);

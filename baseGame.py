@@ -61,6 +61,7 @@ class RunGame(ABC):
             [self.register_reporter(rep) for rep in reporters];
             self.signal_start();
         if ('training_datum_id' in kwargs):
+            # print("training data loading?")
             self.signal_training_data_load(kwargs['training_datum_id'])
 
     def getData(self)->list:
