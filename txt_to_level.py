@@ -111,14 +111,14 @@ def level_from_txt_file(file:PathLike):
 
 if __name__ == "__main__":
     path = "levels/smb1_levels/txt/{0}-{1}.level";
-    for w,l in (('1','1'),):#itertools.product(range(1,9),range(1,5)):
+    for w,l in itertools.product(range(1,9),range(1,5)):
         p = Path(path.format(w,l));
         if p.exists():
             try:
-                l = (level_from_txt_file(p));
-                print(l);
-                print(l.static_data);
-                l.save_file("level_1_from_txt.lvl");
+                level = (level_from_txt_file(p));
+                # print(l);
+                # print(l.static_data);
+                level.save_file(f"levels/smb1_levels/{w}-{l}.lvl");
 
             except:
                 raise Exception(f"error parsing from level {w}-{l}");

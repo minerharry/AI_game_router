@@ -54,7 +54,7 @@ class Stuff(pg.sprite.Sprite):
             sizes = [];
             for frame in image_rect_list:
                 rect = (frame[2],frame[3]);
-                if (rect not in sizes):
+                if (rect not in sizes): 
                     sizes.append(rect);
                     frame = pg.Surface((rect[0]*scale,rect[1]*scale)).convert();
                     self.frames.append(frame);
