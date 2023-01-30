@@ -203,8 +203,8 @@ class LevelRendererReporter(ThreadedGameReporter[PathMessage]): #process_num,act
         self.pid = os.getpid();
         if (self.active_id != id): #active changed
             self.put_data(PathMessage.active(self.pid,id));
-        self.id_complete = False;
-        self.active_id = id;
+            self.id_complete = False;
+            self.active_id = id;
         
         
     def on_finish(self, game: RunGame):
