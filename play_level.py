@@ -967,7 +967,8 @@ if __name__== "__main__":
             task_offset_downscale=2,
             search_checkpoint=checkpoint,
             checkpoint_save_location=save,
-            training_dat_per_gen=40);
+            training_dat_per_gen=40,
+            fitness_aggregation_type="q3");
         
 
 
