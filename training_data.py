@@ -204,6 +204,9 @@ class PickleableTDSource(TDSource[TD]):
             return self.id == __o.id;
         except:
             return super() == __o;
+
+    def __hash__(self) -> int:
+        return id(self);
     
 
 class GeneratorTDSource(PickleableTDSource[TD],Generic[TD]):
