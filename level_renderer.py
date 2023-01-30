@@ -254,7 +254,7 @@ class LevelRendererReporter(ThreadedGameReporter[PathMessage]): #process_num,act
                         print("LevelRendererReporter error: completed path does not match active path for process",pid);
                         # break;
                     if did in self.completed:
-                        print("LevelRendererReporter warning: Unnecessary data transfer - completing previously completed path")
+                        print("LevelRendererReporter warning: Unnecessary data transfer - completing previously completed path",did,"by pid",pid);
                     self.completed.add(did);
                     renderer.update_completed_paths(self.completed);
         renderer.display();
