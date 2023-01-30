@@ -6,6 +6,7 @@ import multiprocessing
 import os
 from pathlib import Path
 import pickle
+import random
 import time
 from typing import Callable, DefaultDict, Generic, Iterable, Literal, NamedTuple, TypeVar
 from baseGame import EvalGame
@@ -274,12 +275,29 @@ class LevelPlayer:
         def pos_to_grid_index(pos:floatPos):
             return p2gi(search_data_resolution,grids_bounds,grid_size,pos);
 
+        # def test(pos):
+        #     pos = pos[0]-c.TILE_SIZE/(2*search_data_resolution),pos[1]-c.TILE_SIZE/(2*search_data_resolution);
+        #     position_parameter = ((pos[0]-grids_bounds[0])/(grids_bounds[1]-grids_bounds[0]),(pos[1]-grids_bounds[2])/(grids_bounds[3]-grids_bounds[2]));
+        #     closest_pixel = (round(position_parameter[0]*grid_size[0]),round(position_parameter[1]*grid_size[1]))
+        #     return closest_pixel;
+
         self.pos_to_grid_index = pos_to_grid_index;
+
+        # for _ in tqdm(range(500)):
+        #     p = (random.random()*5000,random.random()*5000)
+        #     assert self.pos_to_grid_index(p) == test(p);
 
         def grid_index_to_pos(index:gridPos):
             return gi2p(search_data_resolution,grids_bounds,grid_size,index);
 
         self.grid_index_to_pos = grid_index_to_pos;
+
+        def test2(index):
+            return (c.TILE_SIZE/(2*search_data_resolution)+index[0]/grid_size[0]*(grids_bounds[1]-grids_bounds[0])+grids_bounds[0],c.TILE_SIZE/(2*search_data_resolution)+index[1]/grid_size[1]*(grids_bounds[3]-grids_bounds[2])+grids_bounds[2]);
+
+        # for _ in tqdm(range(500)):
+        #     p = (int(random.random()*500),int(random.random()*500))
+        #     assert self.grid_index_to_pos(p) == test2(p);
         
         if search_checkpoint is None:
             self.costs = dict[tuple[gridPos,gridPos],float]();
@@ -964,6 +982,7 @@ if __name__== "__main__":
             level,
             goals,
             fitness_reporter,
+            search_data_resolution=search_resolution,
             task_offset_downscale=2,
             search_checkpoint=checkpoint,
             checkpoint_save_location=save,

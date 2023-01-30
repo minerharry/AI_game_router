@@ -145,17 +145,32 @@ class ShelvedTDMixin(Generic[TD]):
     
         with DelayedKeyboardInterrupt():
             with open(self.data_file,'rb') as f:
-                ob = pickle.load(f);
-                self._next_id = ob['next_id'];
-                self.active_data = ob['active_data'];
-                self._shelf_file = ob['shelf'] if 'shelf' in ob else self.data_file.with_suffix(".tdac");
-                temp_inactive = ob['inactive_data'] if 'inactive_data' in ob else None; #for conversion from base tdmanager compatiblity
+                try:
+                    ob = pickle.load(f);
+                    self._next_id = ob['next_id'];
+                    self.active_data = ob['active_data'];
+                    self._shelf_file = ob['shelf'] if 'shelf' in ob else self.data_file.with_suffix(".tdac");
+                    temp_inactive = ob['inactive_data'] if 'inactive_data' in ob else None; #for conversion from base tdmanager compatiblity
+                except EOFError:
+                    recover = input("error: training data manager save was corrupted (don't force close the process, you buffoon). Would you like to attempt recovery of the shelf file? ")
+                    if recover.lower().startswith("y"):
+                        self._shelf_file = self.data_file.with_suffix(".tdac");
+                        temp_inactive = None;
+                        self._next_id = None;
+                        self.active_data = {};
+                    else:
+                        raise Exception("Training data manager pickle file corrupted");
         self._shelf = shelve.DbfilenameShelf[TD](str(self._shelf_file));
         if temp_inactive:
             print("previous data entry found, loading into shelf...");
             for k,v in tqdm(temp_inactive.items()):
                 self._shelf[str(k)] = v;
             self.save_data();
+        if self._next_id is None: #attempt recovery by using maximum id in shelf
+            self._next_id = max((int(s) for s in self._shelf.keys()));
+            self.save_data();
+            print("recovery successful")
+
 
 
 @runtime_checkable

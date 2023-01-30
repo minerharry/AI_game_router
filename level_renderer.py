@@ -19,7 +19,7 @@ except:
 
 class LevelRenderer:
     def __init__(self,state:SegmentState,
-            max_dims:tuple[int,int]=(2000,500),
+            max_dims:tuple[int,int]=(1800,500),
             reached_color=c.GREEN,
             failed_color=c.RED,
             path_color=c.BLUE,
