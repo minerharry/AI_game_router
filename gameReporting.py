@@ -33,21 +33,21 @@ T = TypeVar('T');
 class ThreadedGameReporter(GameReporter,Generic[T]): #class with nice builtin multithreading functionality
     def __init__(self,queue_type="multiprocessing"):
         if queue_type == "ray":
-            self.data = Queue();
+            self.__data = Queue();
         else:
             m = multiprocessing.Manager();
-            self.data = m.Queue();
+            self.__data = m.Queue();
 
     def put_data(self,data:T):
-        self.data.put(data);
+        self.__data.put(data);
     
     def put_all_data(self,*data:T):
         for d in data:
-            self.data.put(d);
+            self.__data.put(d);
 
     def get_data(self)->T:
-        return self.data.get();
+        return self.__data.get();
 
     def get_all_data(self):
-        while not self.data.empty():
+        while not self.__data.empty():
             yield self.get_data();

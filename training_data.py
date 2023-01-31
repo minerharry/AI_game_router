@@ -197,6 +197,8 @@ class TDSource(Protocol[TD]):
         
 class PickleableTDSource(TDSource[TD]):
     def __getstate__(self):
+        if hasattr(self,"id"):
+            return self.__dict__.copy();
         return {"id":id(self),**{k:v for k,v in self.__dict__.items() if k in ["__getstate__","__setstate__ "]}};
 
     def __eq__(self, __o: PickleableTDSource) -> bool:

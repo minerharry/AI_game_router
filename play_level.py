@@ -226,7 +226,7 @@ class LevelPlayer:
 
         self.game = game;
         self.task_reporter = fitness_reporter
-        self.task_reporter.add_capture_source(self.source);
+        # self.task_reporter.add_capture_source(self.source);
 
         fitness_from_list = {
             "max":max,
@@ -453,7 +453,7 @@ class LevelPlayer:
 
                 reached = [self.grid_index_to_pos(idx) for idx in reached_idxs];
                 failed = [self.grid_index_to_pos(idx) for idx in failed_idxs];
-                paths:dict[int,Iterable[tuple[float,float]]] = {state.source_id:[self.player_start,state.task] + state.task_path for state in data};
+                paths:dict[int,Iterable[tuple[float,float]]] = {state.source_id:[self.player_start,state.task] + state.task_path for state in data}; #type: ignore
 
                 self.renderer.set_annotations(reached,failed,paths);
 
@@ -472,16 +472,16 @@ class LevelPlayer:
             yield data;
 
 
-            result:list[list[tuple[tuple[floatPos, floatPos | Literal['complete']], float]]] = [d.data for d in self.task_reporter.get_captured_data(self.source)];
+            result:list[list[tuple[tuple[floatPos, floatPos | Literal['complete']], float]]] = [d.data[1] for d in self.task_reporter.get_all_conserved_data() if d.data[0] == self.source];
             
             print("Neat player evaluated;",len(result),"data collected");
 
             if renderProcess is not None:
                 self.kill_event.set();
                 if self.multi=="multiprocessing":
-                    renderProcess.join();
+                    renderProcess.join(); #type: ignore
                 else:
-                    ray.get(renderProcess);
+                    ray.get(renderProcess); #type: ignore
             
             all_fitnesses = result
             log("fitnesses calculated")
@@ -543,37 +543,46 @@ class LevelPlayer:
                 self.a_searcher.complete_edge((tuple(path[:-1]),tuple(path)));
 
             self.a_searcher.update_scores(a_updates);
-        
+        log("checkpoint saved")
+        ##save checkpoint
+        save_data = self.get_checkpoint_data();
+        with open(checkpoint_save_location,'wb') as f:
+            pickle.dump(save_data,f);
         if render_progress:
             self.game.deregister_reporter(self.renderReporter)
 
         self.winning_path = winning_path;
+        print("winning path found! Path:",self.winning_path);
 
 task_out_k = list[tuple[tuple[floatPos,floatPos|Literal['complete']],float]]#I'm so sorry
-class TaskFitnessReporter(BaseReporter,ThreadedGameReporter[IdData[task_out_k]]): 
+class TaskFitnessReporter(BaseReporter,ThreadedGameReporter[IdData[tuple[TDSource,task_out_k]]]): 
     def __init__(self,capture_sources:Iterable[TDSource]|None=None,save_path=None,**kwargs):
         super().__init__(**kwargs);
         self.save_path = Path(save_path) if save_path else None;
         self.generation = None;
-        self.captures:list[TDSource] = list(capture_sources or []);
-        self.source_id_map:dict[TDSource,set[int]] = DefaultDict(lambda:set());
-        self.data_list = None
+        # self.captures:list[TDSource] = list(capture_sources or []);
+        # self.source_id_map:dict[TDSource,set[int]] = DefaultDict(lambda:set());
+        self.data_list:list[IdData[tuple[TDSource,task_out_k]]]|None = None
+        self.data = None;
+        self.data_source:TDSource|None = None;
 
-    def add_capture_source(self,*source:TDSource):
-        self.captures.extend(source);
+    # def add_capture_source(self,*source:TDSource):
+    #     self.captures.extend(source);
     
-    def remove_capture_source(self,*source:TDSource):
-        [self.captures.remove(s) for s in source];
+    # def remove_capture_source(self,*source:TDSource):
+    #     [self.captures.remove(s) for s in source];
 
+
+    #NOTE: EXECUTED IN PARALLEL PROCESSES
     def on_training_data_load(self, game: SMB1Game, id:int):
         if self.data_list is not None:
             self.put_all_data(*self.data_list);
-        self.data_id = id;
         self.data_list = [];
-        t:SourcedShelvedTDManager = game.runConfig.training_data
-        s = t.get_datum_source(id)
-        if s is not None and s in self.captures:
-            self.source_id_map[s].add(id);
+        if self.data_id != id:
+            self.data_id = id;
+            t:SourcedShelvedTDManager = game.runConfig.training_data #type: ignore
+            s = t.get_datum_source(id)
+            self.data_source = s;
 
     def on_start(self, game: SMB1Game):
         self.previous_task:floatPos = game.getMappedData()['pos'];
@@ -595,12 +604,15 @@ class TaskFitnessReporter(BaseReporter,ThreadedGameReporter[IdData[task_out_k]])
         self.on_tick(game,None,finish=True);
         if game.getMappedData()['task_path_complete']:
             self.current_data.append(((self.previous_task,'complete'),-1));
-        self.data_list.append(IdData(self.data_id,self.current_data));
+        assert self.data_list is not None
+        assert self.data_source is not None
+        self.data_list.append(IdData(self.data_id,(self.data_source,self.current_data)));
 
     def start_generation(self, generation):
         print(f"Task Fitness Reporter - generation {generation} started");
         self.generation = generation;
         super().get_all_data(); #flush data contents
+        self.data = None;
         self.source_id_map = DefaultDict(lambda:set());
 
     def end_generation(self, config, population, species_set):
@@ -609,36 +621,39 @@ class TaskFitnessReporter(BaseReporter,ThreadedGameReporter[IdData[task_out_k]])
             data = list(self.get_all_conserved_data());
             out:dict[int,list[list[float]]] = DefaultDict(lambda: []);
             for d in data:
-                out[d.id].append([f[1] for f in d.data]);
+                out[d.id].append([f[1] for f in d.data[1]]);
             
             out_path = self.save_path/f"gen_{self.generation}";
-            checkpoint = FitnessCheckpoint(out);
+            checkpoint = FitnessCheckpoint(out); #type: ignore
             checkpoint.save_checkpoint(out_path);
 
     def get_all_data(self):
         raise NotImplementedError("unable to pull all data from fitness reporter; if you want to pull data from a source, add a capture source");
 
     def get_all_conserved_data(self):
-        out:list[IdData[task_out_k]] = [];
+        if self.data is not None:
+            return self.data
+        out:list[IdData[tuple[TDSource,task_out_k]]] = [];
         for d in list(super().get_all_data()):
             out.append(d);
             self.put_data(d);
+        self.data = out;
         return out;
 
 
-    def get_captured_data(self,capture_source:TDSource):
-        if capture_source not in self.captures:
-            raise ValueError(f"capture source {capture_source} not tracked by reporter!")
-        out:list[IdData[task_out_k]] = [];
+    # def get_captured_data(self,capture_source:TDSource):
+    #     if capture_source not in self.captures:
+    #         raise ValueError(f"capture source {capture_source} not tracked by reporter!")
+    #     out:list[IdData[task_out_k]] = [];
         
-        captured_ids = self.source_id_map[capture_source];
-        for d in list(self.get_all_conserved_data()):
-            if d.id in captured_ids:
-                out.append(d);
+    #     captured_ids = self.source_id_map[capture_source];
+    #     for d in list(self.get_all_conserved_data()):
+    #         if d.id in captured_ids:
+    #             out.append(d);
 
-        return out;
+    #     return out;
 
-def train_loop(dataloader, model, loss_fn, optimizer,weight_fun:Callable[[Tensor,Tensor,Tensor],Tensor]|None=None):
+def train_loop(dataloader:DataLoader, model, loss_fn, optimizer,weight_fun:Callable[[Tensor,Tensor,Tensor],Tensor]|None=None):
     loss = None;
     for (X,y) in tqdm(dataloader,leave=False):
         # Compute prediction and loss
@@ -658,7 +673,7 @@ def train_loop(dataloader, model, loss_fn, optimizer,weight_fun:Callable[[Tensor
     tqdm.write(f"Train loss: {loss:>7f}");
 
 
-def test_loop(dataloader, model, loss_fn,weight_fun:Callable[[Tensor,Tensor,Tensor],Tensor]|None=None):
+def test_loop(dataloader:DataLoader, model, loss_fn,weight_fun:Callable[[Tensor,Tensor,Tensor],Tensor]|None=None):
     num_batches = 0;
     test_loss = 0
     loss = 0;
@@ -776,17 +791,17 @@ class ModelTunerReporter(BaseReporter):
         return Tensor(grids);
         
 
-    def update_model(self,data:list[IdData[task_out_k]]):
+    def update_model(self,data:list[IdData[tuple[TDSource,task_out_k]]]):
         print("Tuning Model from generation's fitnesses");
 
         mapped_fitnesses:dict[int,dict[tuple[floatPos,floatPos],list[float]]] = DefaultDict(lambda: DefaultDict(lambda: []));
         for d in tqdm(data,desc="extracting data..."):
             id = d.id;
-            dd = d.data;
+            dd = d.data[1];
             for (step,fitness) in dd:
                 if step[1] == "complete":
                     continue;
-                mapped_fitnesses[id][step].append(fitness);
+                mapped_fitnesses[id][step].append(fitness); #type: ignore
 
         mapped_aggregates:dict[int,dict[tuple[floatPos,floatPos],float]] = DefaultDict(lambda:{});
         for id,steps in tqdm(mapped_fitnesses.items(),desc="aggregating fitnesses"):
@@ -1018,7 +1033,7 @@ if __name__== "__main__":
 
     ### INITIALIZE TDMANAGER ###
     manager = SourcedShelvedTDManager[SegmentState]('smb1Py',run_name,initial_sources=[levelTDSource,auto_gen_source]);
-    manager.add_source();
+    # manager.add_source();
     runConfig.training_data = manager;
 
 
@@ -1044,11 +1059,12 @@ if __name__== "__main__":
         model_save_path="models/tuning",
         model_save_format="run10_model_gen{0}.model");
 
+    runConfig.reporters.append(model_tuner);
 
     ### RUN NEAT ###
     gamerunner.continue_run("run_10");
     
     
-    print("Level successfully completed!! Winning Path:",player.winning_path,"completed using the population of generation",player.gamerunner.generation);
+    # print("Level successfully completed!! Winning Path:",player.winning_path,"completed using the population of generation",player.gamerunner.generation);
     
 
