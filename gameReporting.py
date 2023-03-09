@@ -3,7 +3,7 @@ from abc import abstractmethod
 import abc
 import multiprocessing
 from pkgutil import get_data
-from typing import TypeVar,Generic,TYPE_CHECKING
+from typing import Type, TypeVar,Generic,TYPE_CHECKING
 if TYPE_CHECKING:
     from baseGame import RunGame
 
@@ -22,6 +22,8 @@ class GameReporter():
     def on_render_tick(self,game:RunGame,inputs): self.on_tick(game,inputs);
 
     def on_finish(self,game:RunGame): pass;
+
+    def on_process_init(self,gameClass:Type[RunGame],pnum:int): pass;
 
     #custom reporter function; game can send signal to reporters and only the ones who have the function will receive it
     def on_signal(self,game:RunGame,signal:str,*args,**kwargs):

@@ -18,6 +18,7 @@ class SMB1Game(RunGame):
         game.setup_states(state_dict, c.LEVEL)
         game.state.startup(0,{c.LEVEL_NUM:1});
         parent_game.initInputs['game'] = game;
+        [reporter.on_process_init(cls,pnum) for reporter in parent_game.reporters];
 
     
     def __init__(self,runnerConfig:RunnerConfig,parentGame:EvalGame=None,**kwargs):
