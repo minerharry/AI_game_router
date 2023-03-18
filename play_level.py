@@ -1072,7 +1072,7 @@ if __name__== "__main__":
     runConfig.view_distance = 3.75;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
-    runConfig.parallel_processes = 10;
+    runConfig.parallel_processes = 3;
     runConfig.chunkFactor = 24;
     runConfig.saveFitness = False;
 
@@ -1108,7 +1108,8 @@ if __name__== "__main__":
     tuned_modelsfolder = Path("models/tuning");
 
     model_path = 'models/test_q3_long3.model';
-    model_path = tuned_modelsfolder/sorted(os.listdir(tuned_modelsfolder))[-1];
+    tunedmodels = sorted(os.listdir(tuned_modelsfolder)) if os.path.exists(tuned_modelsfolder) else None;
+    model_path = tuned_modelsfolder/tunedmodels[-1] if tunedmodels else model_path;
     model = None;
     with open(model_path,'rb') as f:
         model = torch.load(f,map_location=torch.device('cpu'));
