@@ -24,7 +24,7 @@ def task_obstruction_score(obstructions):
 
 def getFitness(inputs):
     obstructions = inputs['task_obstructions'];
-    return task_obstruction_score(obstructions) + inputs['player_state'] + inputs['task_reached']*50 - inputs['steps']*5;
+    return task_obstruction_score(obstructions) + inputs['player_state'] + inputs['task_reached']*50 - inputs['steps']*25;
 
 def getRunning(inputs):
     return (not(inputs['done']) and (not inputs['stillness_time'] > steps_threshold));

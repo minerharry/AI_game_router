@@ -52,14 +52,16 @@ class RunGame(ABC):
     def initProcess(cls,pnum:int,parent_game:EvalGame): #for parallel processes
         pass;
 
-    def __init__(self,runnerConfig:RunnerConfig,reporters:list|None=None,**kwargs):
+    def __init__(self,runnerConfig:RunnerConfig,genome_id:int|None=None,reporters:list|None=None,**kwargs):
         self.steps = 0;
         self.runConfig = runnerConfig;
         self.reporters:list[GameReporter] = [];
         self.mapDataCache = None;
         if reporters:
             [self.register_reporter(rep) for rep in reporters];
-            self.signal_start();
+            if genome_id is None:
+                raise Exception("genome id not provided");
+            self.signal_start(genome_id);
         if ('training_datum_id' in kwargs):
             # print("training data loading?")
             self.signal_training_data_load(kwargs['training_datum_id'])
@@ -72,14 +74,8 @@ class RunGame(ABC):
             if (isinstance(datum,str)):
                 result.append(mappedData.get(datum));
             else:
-                result += datum.extract_data(mappedData.get(datum.name));
-            # elif (datum.data_type == 'array'):
-            #     if (datum.name not in mappedData):
-            #         print(datum.name);
-            #     result += listifyArray(mappedData.get(datum.name));
-            # elif (datum.data_type == 'ndarray'):
-            #     result += mappedData.get(datum.name).tolist();
-        
+                d = datum.extract_data(mappedData.get(datum.name));
+                result += d        
         return result;
 
     def register_reporter(self,reporter:GameReporter):
@@ -212,8 +208,8 @@ class Multi_Data_Game(RunGame):
             self.global_steps += 1;
 
 class StarSmash(RunGame):
-    def __init__(self,runnerConfig,kwargs):
-        super().__init__(runnerConfig,kwargs);
+    def __init__(self,runnerConfig,**kwargs):
+        super().__init__(runnerConfig,**kwargs);
         self.height = 1; #0-7 height
         self.score = 0;
         self.level = 0;

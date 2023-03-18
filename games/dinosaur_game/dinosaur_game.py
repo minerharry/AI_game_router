@@ -19,8 +19,8 @@ class DinosaurGame(RunGame):
     max_obstacle_delay = 200;
     jump_velocity = 16;
 
-    def __init__(self,runnerConfig,kwargs):
-        super().__init__(runnerConfig,kwargs);
+    def __init__(self,runnerConfig,**kwargs):
+        super().__init__(runnerConfig,**kwargs);
         self.obstacles = []; #list of lists (length 4): xpos, ypos, width, height; pos is of center of hitbox rectangle
         self.xVel = 1;
         self.yVel = 0;

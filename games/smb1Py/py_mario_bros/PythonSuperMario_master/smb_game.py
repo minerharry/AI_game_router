@@ -12,12 +12,16 @@ empty_actions = dict(zip(['action','jump','left','right','down'],[False for i in
 class SMB1Game(RunGame):
 
     @classmethod
-    def initProcess(cls, pnum: int, parent_game: EvalGame):
-        game = tools.Control(process_num=pnum);
+    def _initProcess(cls, pnum: int, parent_game: EvalGame):
+        if "window_title" in parent_game.initInputs:
+            game = tools.Control(window_title=parent_game.initInputs["window_title"]);
+        else:
+            game = tools.Control(window_title=f"Process #{pnum}");
         state_dict = {c.LEVEL: Segment()};
         game.setup_states(state_dict, c.LEVEL)
         game.state.startup(0,{c.LEVEL_NUM:1});
         parent_game.initInputs['game'] = game;
+        [reporter.on_process_init(cls,pnum) for reporter in parent_game.reporters];
 
     
     def __init__(self,runnerConfig:RunnerConfig,parentGame:EvalGame=None,**kwargs):
@@ -38,7 +42,12 @@ class SMB1Game(RunGame):
                     c.GRAPHICS_SETTINGS = c.NONE;
             if 'process_num' in kwargs:
                 self.process_num = kwargs['process_num']
-                self.game = tools.Control(process_num=self.process_num)
+            else:
+                self.process_num = None
+            if 'window_title' in kwargs:
+                self.game = tools.Control(window_title=kwargs['window_title'])
+            elif self.process_num is not None:
+                self.game = tools.Control(window_title=f"Process #{self.process_num}")
             else:
                 self.game = tools.Control();
             state_dict = {c.LEVEL: Segment()}

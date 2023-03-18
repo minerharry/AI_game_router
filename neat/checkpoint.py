@@ -16,7 +16,7 @@ except ImportError:
 
 
 from neat.population import Population
-from neat.reporting import BaseReporter
+from neat.reporting import BaseReporter, ReporterSet
 from neat.six_util import itervalues
 
 
@@ -26,7 +26,7 @@ class Checkpointer(BaseReporter):
     to save and restore populations (and other aspects of the simulation state).
     """
     def __init__(self, generation_interval=100, time_interval_seconds=300,
-                 filename_prefix='neat-checkpoint-',file_extension=".gz"):
+                 filename_prefix='neat-checkpoint-',file_extension=".gz", save_reporters=False):
         """
         Saves the current state (at the end of a generation) every ``generation_interval`` generations or
         ``time_interval_seconds``, whichever happens first.
@@ -45,6 +45,7 @@ class Checkpointer(BaseReporter):
         self.current_generation = None
         self.last_generation_checkpoint = -1
         self.last_time_checkpoint = time.time()
+        self.save_reporters = False;
 
     def start_generation(self, generation):
         self.current_generation = generation
@@ -71,11 +72,18 @@ class Checkpointer(BaseReporter):
         """ Save the current simulation state. """
         filename = '{0}{1}{2}'.format(self.filename_prefix,generation,self.file_ext)
         print("Saving checkpoint to {0}".format(filename))
+
+        if not self.save_reporters:
+            temp_reps = species_set.reporters;
+            species_set.reporters = None;
         
         with DelayedKeyboardInterrupt():
             with gzip.open(filename, 'w', compresslevel=5) as f:
                 data = (generation, config, population, species_set, random.getstate())
                 pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+        if not self.save_reporters:
+            species_set.reporters = temp_reps;
 
     @staticmethod
     def restore_checkpoint(filename,config_transfer=None)->Population:

@@ -29,7 +29,6 @@ class TrainingDataManager(Generic[TD]):
         self.active_data:dict[int,TD] = {};
         self._inactive_data:dict[int,TD] = {};
 
-
     def clear_data(self,save=True):
         for id,datum in self.active_data.items():
             self._inactive_data[id] = datum;
@@ -99,13 +98,14 @@ class TrainingDataManager(Generic[TD]):
 
     def items(self):
         return self.active_data.items();
-        
-class Metadatum(Generic[TD]):
-    def __init__(self,value:TD):
-        self.value = value;
 
-    def datum(self):
-        return self.value;
+        
+# class Metadatum(Generic[TD]):
+#     def __init__(self,value:TD):
+#         self.value = value;
+
+#     def datum(self):
+#         return self.value;
 
 class ShelvedTDMixin(Generic[TD]):
     def create_blank(self):
@@ -196,17 +196,24 @@ class TDSource(Protocol[TD]):
         return GeneratorTDSource(generator_func);
         
 class PickleableTDSource(TDSource[TD]):
+    def __init__(self) -> None:
+        super().__init__();
+
+    @property
+    def pickle_id(self):
+        self._id = getattr(self,"_id",id(self));
+        return self._id;
+
     def __getstate__(self):
-        return {"id":id(self),**{k:v for k,v in self.__dict__.items() if k in ["__getstate__","__setstate__ "]}};
+        state = {"_id":self.pickle_id,**{k:v for k,v in self.__dict__.items() if k in ["__getstate__","__setstate__ "]}};
+        # print(state);
+        return state;
 
     def __eq__(self, __o: PickleableTDSource) -> bool:
-        try:
-            return self.id == __o.id;
-        except:
-            return super() == __o;
+        return self.pickle_id == __o.pickle_id;
 
     def __hash__(self) -> int:
-        return id(self);
+        return self.pickle_id;
     
 
 class GeneratorTDSource(PickleableTDSource[TD],Generic[TD]):

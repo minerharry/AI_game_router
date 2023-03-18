@@ -37,13 +37,12 @@ class State():
         '''abstract method'''
 
 class Control():
-    def __init__(self,process_num=None):
+    def __init__(self,window_title:str|None=None):
         setup.get_GFX();
-        self.process_num = process_num;
         self.screen = None;
         self.screen = pg.display.get_surface()
-        if process_num is not None:
-            pg.display.set_caption(f'{c.ORIGINAL_CAPTION} - Process #{process_num}')
+        if window_title is not None:
+            pg.display.set_caption(f'{c.ORIGINAL_CAPTION}: {window_title}')
         self.done = False
         self.clock = pg.time.Clock()
         self.fps = 20
@@ -111,8 +110,6 @@ class Control():
                 self.clock.tick(self.fps)
 
     def tick_inputs(self,named_inputs,show_game=True):
-        if self.process_num is not None and self.process_num != 0:
-            show_game = True;
         keys = {};
         for name,val in named_inputs.items():
             keys[keybinding[name]] = val;

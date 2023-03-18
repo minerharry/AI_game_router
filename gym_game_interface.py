@@ -69,8 +69,8 @@ class NESGymRunnerConfig(GymRunnerConfig):
         self.used_buttons = used_buttons;
         
 class GymEnvGame(RunGame):
-    def __init__(self,runnerConfig,kwargs):
-        super().__init__(runnerConfig,kwargs);
+    def __init__(self,runnerConfig,**kwargs):
+        super().__init__(runnerConfig,**kwargs);
         self.done = False
         self.info = {};
         self.env = kwargs['env'];

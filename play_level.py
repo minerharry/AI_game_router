@@ -1,6 +1,8 @@
 from __future__ import annotations
 import argparse
+import copy
 from functools import lru_cache, partial
+import itertools
 import math
 import multiprocessing
 import os
@@ -8,7 +10,10 @@ from pathlib import Path
 import pickle
 import random
 import time
-from typing import Callable, DefaultDict, Generic, Iterable, Literal, NamedTuple, TypeVar
+from typing import Any, Callable, DefaultDict, Generic, Iterable, Iterator, Literal, NamedTuple, Sequence, TypeVar
+import typing
+
+from ray import ObjectRef
 from baseGame import EvalGame
 from fitnessReporter import FitnessCheckpoint
 from gameReporting import ThreadedGameReporter
@@ -21,6 +26,7 @@ from games.smb1Py.py_mario_bros.PythonSuperMario_master.source.states.segmentGen
 import games.smb1Py.py_mario_bros.PythonSuperMario_master.source.constants as c
 
 from id_data import IdData
+from interrupt import DelayedKeyboardInterrupt
 
 from level_renderer import LevelRenderer, LevelRendererReporter
 
@@ -29,21 +35,23 @@ from neat.reporting import BaseReporter
 import torch
 from torch import Tensor
 from torch.utils.data import DataLoader, random_split
+from torchvision.transforms.functional import hflip
 
 import numpy as np
 from tqdm import tqdm
+from replay_renderer import ReplayRenderer
 
-try:
-    import ray
-    from ray_event import RayEvent
-except:
-    ray = None
+
+import ray
+from ray_event import RayEvent
     
 from runnerConfiguration import IOData, RunnerConfig
 from search import DStarSearcher, LevelSearcher
 from smb1Py_runner import NAME, generate_data, getFitness, getRunning, task_obstruction_score
 from training_data import GeneratorTDSource, IteratorTDSource, SourcedShelvedTDManager,TDSource, TrainingDataManager
 
+def log(*args,**kwargs):
+    print(*args,**kwargs);
 
 floatPos = tuple[float,float];
 gridPos = tuple[int,int];
@@ -94,14 +102,63 @@ class LevelCheckpoint:
                 edge_costs:dict[tuple[gridPos,gridPos],float],
                 edge_predictions:dict[tuple[gridPos,gridPos],float],
                 d_checkpoint:dict,
-                a_checkpoint:dict):
+                a_checkpoint:dict,
+                previous_replay:dict[tuple[gridPos,...],list[tuple[float,int,int]]]|None=None):
         self.costs = edge_costs;
         self.pred = edge_predictions;
         self.d = d_checkpoint;
         self.a = a_checkpoint;
+        self.replay = dict(previous_replay) if previous_replay else previous_replay
 
 
-class LevelPlayer:
+# from https://docs.python.org/3/library/itertools.html#itertools-recipes
+# def roundrobin(*iterables):
+#     "roundrobin('ABC', 'D', 'EF') --> A D E B F C"
+#     # Recipe credited to George Sakkis
+#     num_active = len(iterables)
+#     nexts = itertools.cycle(iter(it).__next__ for it in iterables)
+#     while num_active:
+#         try:
+#             for next in nexts:
+#                 yield next()
+#         except StopIteration:
+#             # Remove the iterator we just exhausted from the cycle.
+#             num_active -= 1
+#             nexts = itertools.cycle(itertools.islice(nexts, num_active))
+
+# def cycle(iterable):
+#     # cycle('ABCD') --> A B C D A B C D A B C D ...
+#     saved = []
+#     for element in iterable:
+#         yield element
+#         saved.append(element)
+#     while saved:
+#         for element in saved:
+#               yield element
+
+def roundrobin(*iterables:Iterable):
+    return iter_roundrobin(*iterables);
+
+class iter_roundrobin(Iterator):
+    def __init__(self,*iterables:Iterable):
+        self.iterables = iterables;
+        self.num_active = len(iterables);
+        self.index = -1;
+        self.iterators = [iter(iterable) for iterable in iterables]        
+    
+    def __next__(self):
+        if self.num_active == 0:
+            raise StopIteration;
+        self.index = (self.index + 1) % self.num_active;
+        try:
+            return next(self.iterators[self.index]);
+        except StopIteration:
+            self.num_active -= 1;
+            self.iterators.pop(self.index);
+            return next(self);
+
+
+class LevelPlayer(BaseReporter):
     def set_level_info(self,view_distance:int,tile_scale:int):
         self.view_distance = view_distance;
         self.tile_scale = tile_scale;
@@ -135,6 +192,13 @@ class LevelPlayer:
 
     #     self.view_distance = player_view_distance if player_view_distance else self.runConfig.view_distance;
     #     self.tile_scale = player_tile_scale if player_tile_scale else self.runConfig.tile_scale;
+
+    def start_generation(self, generation):
+        self.generation = generation;
+
+    def end_generation(self, config, population, species_set):
+        self.reporter_data = self.task_reporter.get_all_conserved_data();
+
 
 
     def set_fixed_net(self,model:torch.nn.Module,used_grids:str|list[str],endpoint_padding:gridPos,minimum_viable_distance:float,maximum_viable_distance:float):
@@ -178,11 +242,19 @@ class LevelPlayer:
 
     #     return result;
 
-    def log(self,*args,**kwargs):
-        print(*args,**kwargs);
 
-    def get_checkpoint_data(self):
-        return LevelCheckpoint(self.costs,self.predictions,self.d_searcher.get_checkpoint_data(),self.a_searcher.get_checkpoint_data());
+
+    def get_checkpoint_data(self,saved_replay:dict[tuple[gridPos,...],list[tuple[float,int,int]]]|None=None):
+        return LevelCheckpoint(self.costs,self.predictions,self.d_searcher.get_checkpoint_data(),self.a_searcher.get_checkpoint_data(),previous_replay=saved_replay);
+
+    @classmethod
+    def task_path_to_state(cls,level:SegmentState,task_path:Sequence[floatPos],id:Any=None):
+        state = level.deepcopy();
+        task_path = task_path[1:];
+        state.task = task_path[0];
+        state.task_path = task_path;
+        state.source_id = id;
+        return state;
 
     #given a level (no task, no task_bounds), a goal block or set of blocks
     #offset downscale means with how much resolution are potential task blocks generated.
@@ -198,9 +270,10 @@ class LevelPlayer:
             checkpoint_save_location="play_checkpoint.chp",
             fitness_aggregation_type="max",
             render_progress=True,
-            multiprocessing_type="ray")->TDSource[SegmentState]:
-
-        gen = self._yield_NEAT_data(game,level,goal,fitness_reporter,training_dat_per_gen,search_data_resolution,task_offset_downscale,search_checkpoint,checkpoint_save_location,fitness_aggregation_type,render_progress,multiprocessing_type)
+            replay_renderer:ReplayRenderer|None = None,
+            multiprocessing_type:Literal["ray","multiprocessing"]="ray")->TDSource[SegmentState]:
+        self.generation = -1;
+        gen = self._yield_NEAT_data(game,level,goal,fitness_reporter,training_dat_per_gen,search_data_resolution,task_offset_downscale,search_checkpoint,checkpoint_save_location,fitness_aggregation_type,render_progress,replay_renderer,multiprocessing_type)
         self.source = IteratorTDSource[SegmentState](gen)
         if next(gen) == True:
             return self.source;
@@ -219,14 +292,18 @@ class LevelPlayer:
             checkpoint_save_location:str|Path|os.PathLike,
             fitness_aggregation_type:str,
             render_progress:bool,
-            multiprocessing_type:Literal["ray","multiprocessing"]):
+            replay_renderer:ReplayRenderer|None,
+            multiprocessing_type:Literal["ray","multiprocessing"]
+            ):
         self.multi = multiprocessing_type
         if self.multi not in ["multiprocessing","ray"]:
             raise TypeError(f"library type {self.multi} not known");
 
+        render_best = replay_renderer is not None;
+        replay_ref = None;
+        
         self.game = game;
         self.task_reporter = fitness_reporter
-        self.task_reporter.add_capture_source(self.source);
 
         fitness_from_list = {
             "max":max,
@@ -236,10 +313,9 @@ class LevelPlayer:
             "q1":lambda l: np.quantile(l,0.25),
             "min":min
         }[fitness_aggregation_type];
-        log = self.log #shorthand
 
         if search_data_resolution % task_offset_downscale != 0:
-            print("WARNING: Attempting to downscale task resolution by a nonfactor of the data resolution. Setting task resolution to data resolution.")
+            log("WARNING: Attempting to downscale task resolution by a nonfactor of the data resolution. Setting task resolution to data resolution.")
             task_offset_downscale = 1;
 
         ### Extract level info for routing purposes
@@ -326,8 +402,8 @@ class LevelPlayer:
                 try:
                     return min([d_star_heuristic(pos,p2) for pos,_ in d_star_pred(p1)]);
                 except Exception as e:
-                    print(p1)
-                    print(list(d_star_succ(p1)));
+                    log(p1)
+                    log(list(d_star_succ(p1)));
                     raise e;
             if isinstance(p2,str):
                 return d_star_heuristic(p2,p1);
@@ -392,9 +468,11 @@ class LevelPlayer:
 
         self.renderer = None;
         if render_progress:
+            log("activating renderer")
             self.renderer = LevelRenderer(level,point_size=3,path_width=2,active_path_width=3);
             self.renderReporter = LevelRendererReporter(self.source,queue_type=self.multi);
             self.game.register_reporter(self.renderReporter);
+            
 
         yield True; #ready signal
 
@@ -408,20 +486,48 @@ class LevelPlayer:
         level_finished = False;
         winning_path = None
 
+        # log(self.a_searcher.completed_edges);
+        # log(self.d_searcher);
+        # log(self.a_searcher);
 
+        current_replay:dict[tuple[gridPos,...],list[tuple[float,int,int]]]|None = getattr(search_checkpoint,"replay",None);
 
         while not level_finished:
             log("checkpoint saved")
             ##save checkpoint
-            save_data = self.get_checkpoint_data();
-            with open(checkpoint_save_location,'wb') as f:
-                pickle.dump(save_data,f);
+            if render_best:
+                save_data = self.get_checkpoint_data(saved_replay=current_replay);
+            else:
+                save_data = self.get_checkpoint_data();
+            try:
+                pickle.dumps(save_data);
+                with open(checkpoint_save_location,'wb') as f, DelayedKeyboardInterrupt():
+                    pickle.dump(save_data,f);
+            except:
+                raise Exception("Error while trying to pickle checkpoint data");
+            
 
+            if render_best and current_replay:
+                log("activating replay")
+                rators = [];
+                for path,bests in current_replay.items():
+                    print(path);
+                    state = self.task_path_to_state(level,[grid_index_to_pos(p) for p in path]);
+                    rators.append([b + (state,) for b in sorted(bests,reverse=True)]);
+                rators.sort(key = lambda l: l[0][0]);
+                log("Best genome paths:", [r[0] for r in rators])
+                if replay_ref is not None:
+                    replay_renderer.deregister_replay.remote(ray.get(replay_ref));
+                replay_ref = replay_renderer.register_replay.remote(roundrobin(*rators))
+
+
+            while True:
+                time.sleep(5);
 
             log("retrieving best edges from A*")
             top_paths = self.a_searcher.sorted_edges()
             
-            # print('top ten scores:',[(self.a_searcher.sort_key(e),e) for e in top_paths[:10]]);
+            # log('top ten scores:',[(self.a_searcher.sort_key(e),e) for e in top_paths[:10]]);
 
             top_paths = top_paths[:training_dat_per_gen];
             log(len(top_paths),"edges retrieved");
@@ -435,14 +541,10 @@ class LevelPlayer:
             ### Evaluating neat player, used to be its own function, copy-pasted
             tasks = player_paths
 
-            self.log("evaluating NEAT-player with training data",len(tasks),'ex:',tasks[0],'and level',level);
+            log("evaluating NEAT-player with training data",len(tasks),'ex:',tasks[0],'and level',level);
             data:list[SegmentState] = [];
             for i,task_path in enumerate(tasks):
-                state = level.deepcopy();
-                task_path = task_path[1:];
-                state.task = task_path[0];
-                state.task_path = task_path;
-                state.source_id = i;
+                state = self.task_path_to_state(level,task_path,id=i);
                 data.append(state);
             
 
@@ -453,7 +555,7 @@ class LevelPlayer:
 
                 reached = [self.grid_index_to_pos(idx) for idx in reached_idxs];
                 failed = [self.grid_index_to_pos(idx) for idx in failed_idxs];
-                paths:dict[int,Iterable[tuple[float,float]]] = {state.source_id:[self.player_start,state.task] + state.task_path for state in data};
+                paths:dict[int,Sequence[tuple[float,float]]] = {state.source_id:[self.player_start,state.task,*state.task_path] for state in data};
 
                 self.renderer.set_annotations(reached,failed,paths);
 
@@ -469,19 +571,27 @@ class LevelPlayer:
                 else:
                     raise Exception();
 
+
+
+            ### Generation n
+
             yield data;
 
+            ### Generation n+1
 
-            result:list[list[tuple[tuple[floatPos, floatPos | Literal['complete']], float]]] = [d.data for d in self.task_reporter.get_captured_data(self.source)];
+
+
+            all_d = self.reporter_data or [];
+            result:list[tuple[int,list[tuple[tuple[floatPos, floatPos | Literal['complete']], float]]]] = [(d.data[2],d.data[1]) for d in all_d if d.data[0] == self.source];
             
-            print("Neat player evaluated;",len(result),"data collected");
+            log("Neat player evaluated;",len(result),"data collected");
 
             if renderProcess is not None:
                 self.kill_event.set();
                 if self.multi=="multiprocessing":
-                    renderProcess.join();
+                    renderProcess.join(); #type: ignore
                 else:
-                    ray.get(renderProcess);
+                    ray.get(renderProcess); #type: ignore
             
             all_fitnesses = result
             log("fitnesses calculated")
@@ -492,12 +602,16 @@ class LevelPlayer:
             best_segments:dict[tuple[gridPos,gridPos],list[float]] = DefaultDict(lambda:[]);
             best_paths:dict[tuple[gridPos,...],list[float]] = DefaultDict(lambda:[])
             completed_paths:list[tuple[gridPos]] = [];
+
+            best_players:dict[tuple[gridPos,...],list[tuple[float,int,int]]] = DefaultDict(lambda:[]);
+            #fitness,genome id,generation
             
-            for fitness_list in all_fitnesses:
+            for gid,fitness_list in tqdm(all_fitnesses,desc="processing fitnesses: "):
                 acc_fitness = 0;
                 acc_path:list[gridPos] = [];
                 for (start,end),fitness in fitness_list:
                     if end == 'complete':
+                        # log("completed")
                         if tuple(acc_path) not in completed_paths:
                             completed_paths.append(tuple(acc_path)) 
                             if (pos_to_grid_index(start) in goal_idxs):
@@ -508,7 +622,7 @@ class LevelPlayer:
                         start = pos_to_grid_index(start);
                         end = pos_to_grid_index(end);
                         if start == end:
-                            print("ERROR: start and end should not be the same; from path",fitness_list)
+                            log("ERROR: start and end should not be the same; from path",fitness_list)
                             continue;
 
                         best_segments[start,end].append(fitness);
@@ -520,6 +634,9 @@ class LevelPlayer:
                         acc_path.append(end);
                         
                         best_paths[tuple(acc_path)].append(acc_fitness);
+                        if render_best: best_players[tuple(acc_path)].append((acc_fitness,gid,self.generation-1));
+            log("total paths:",len(best_paths));
+            log("completed paths:",len(completed_paths));
 
             d_updates:list[tuple[gridPos|Literal['goal'],gridPos|Literal['goal'],float,float]] = [];
             a_updates:list[tuple[tuple[gridPos,...],float]] = [];
@@ -533,6 +650,9 @@ class LevelPlayer:
             for path,fitnesses in best_paths.items():
                 fitness = fitness_from_list(fitnesses);
                 a_updates.append((path,cost_from_fitness(fitness)));
+            
+            current_replay = best_players;
+
 
             log('running d* iteration')
             self.d_searcher.update_costs(d_updates);
@@ -543,41 +663,51 @@ class LevelPlayer:
                 self.a_searcher.complete_edge((tuple(path[:-1]),tuple(path)));
 
             self.a_searcher.update_scores(a_updates);
-        
+        log("checkpoint saved")
+        ##save checkpoint
+        save_data = self.get_checkpoint_data();
+        with open(checkpoint_save_location,'wb') as f:
+            pickle.dump(save_data,f);
         if render_progress:
             self.game.deregister_reporter(self.renderReporter)
 
         self.winning_path = winning_path;
+        log("winning path found! Path:",self.winning_path);
 
 task_out_k = list[tuple[tuple[floatPos,floatPos|Literal['complete']],float]]#I'm so sorry
-class TaskFitnessReporter(BaseReporter,ThreadedGameReporter[IdData[task_out_k]]): 
-    def __init__(self,capture_sources:Iterable[TDSource]|None=None,save_path=None,**kwargs):
+class TaskFitnessReporter(BaseReporter,ThreadedGameReporter[IdData[tuple[TDSource,task_out_k,int]]]): 
+    def __init__(self,save_path=None,**kwargs):
         super().__init__(**kwargs);
         self.save_path = Path(save_path) if save_path else None;
         self.generation = None;
-        self.captures:list[TDSource] = list(capture_sources or []);
-        self.source_id_map:dict[TDSource,set[int]] = DefaultDict(lambda:set());
-        self.data_list = None
+        #out: tuple[source, out, genome id]
+        self.data_list:list[IdData[tuple[TDSource,task_out_k,int]]]|None = None
+        self.data = None;
+        self.data_source:TDSource|None = None;
+        self.data_id = None;
 
-    def add_capture_source(self,*source:TDSource):
-        self.captures.extend(source);
+    # def add_capture_source(self,*source:TDSource):
+    #     self.captures.extend(source);
     
-    def remove_capture_source(self,*source:TDSource):
-        [self.captures.remove(s) for s in source];
+    # def remove_capture_source(self,*source:TDSource):
+    #     [self.captures.remove(s) for s in source];
 
-    def on_training_data_load(self, game: SMB1Game, id:int):
+
+    #NOTE: EXECUTED IN PARALLEL PROCESSES
+    def on_training_data_load(self, game: SMB1Game, id:int|None):
         if self.data_list is not None:
             self.put_all_data(*self.data_list);
-        self.data_id = id;
         self.data_list = [];
-        t:SourcedShelvedTDManager = game.runConfig.training_data
-        s = t.get_datum_source(id)
-        if s is not None and s in self.captures:
-            self.source_id_map[s].add(id);
+        if id is not None and self.data_id != id:
+            self.data_id = id;
+            t:SourcedShelvedTDManager = game.runConfig.training_data #type: ignore
+            s = t.get_datum_source(id)
+            self.data_source = s;
 
-    def on_start(self, game: SMB1Game):
+    def on_start(self, game: SMB1Game, genome_id:int):
         self.previous_task:floatPos = game.getMappedData()['pos'];
         self.current_task:floatPos = game.getMappedData()['task_position'];
+        self.current_genome = genome_id;
         self.current_fitness = game.getFitnessScore();
         self.current_data:list[tuple[tuple[floatPos,floatPos|Literal['complete']],float]] = [];
 
@@ -585,67 +715,71 @@ class TaskFitnessReporter(BaseReporter,ThreadedGameReporter[IdData[task_out_k]])
         task:floatPos = game.getMappedData()['task_position'];
         if (task != self.current_task or finish):
             out_fitness = game.getFitnessScore() - self.current_fitness;
-            self.current_data.append(((self.previous_task,self.current_task),out_fitness));
+            self.current_data.append(((tuple(self.previous_task),tuple(self.current_task)),out_fitness));
             self.previous_task = self.current_task;
 
             self.current_task = task;
             self.current_fitness = game.getFitnessScore();
 
     def on_finish(self, game: SMB1Game):
+
         self.on_tick(game,None,finish=True);
         if game.getMappedData()['task_path_complete']:
-            self.current_data.append(((self.previous_task,'complete'),-1));
-        self.data_list.append(IdData(self.data_id,self.current_data));
+            self.current_data.append(((tuple(self.previous_task),'complete'),-1));
+        assert self.data_list is not None
+        assert self.data_source is not None
+        assert self.data_id is not None
+        self.data_list.append(IdData(self.data_id,(self.data_source,self.current_data,self.current_genome)));
 
     def start_generation(self, generation):
-        print(f"Task Fitness Reporter - generation {generation} started");
+        log(f"Task Fitness Reporter - generation {generation} started");
         self.generation = generation;
         super().get_all_data(); #flush data contents
-        self.source_id_map = DefaultDict(lambda:set());
+        self.data = None;
 
     def end_generation(self, config, population, species_set):
-        print(f"Task Fitness Reporter - generation {self.generation} ended");
+        log(f"Task Fitness Reporter - generation {self.generation} ended");
         if self.generation is not None and self.save_path:
             data = list(self.get_all_conserved_data());
-            out:dict[int,list[list[float]]] = DefaultDict(lambda: []);
+            out:dict[int,dict[int,list[float]]] = DefaultDict(lambda: {});
             for d in data:
-                out[d.id].append([f[1] for f in d.data]);
-            
-            out_path = self.save_path/f"gen_{self.generation}";
-            checkpoint = FitnessCheckpoint(out);
-            checkpoint.save_checkpoint(out_path);
+                out[d.id][d.data[2]] = ([f[1] for f in d.data[1]]);
+            try:
+                out_path = self.save_path/f"gen_{self.generation}";
+                checkpoint = FitnessCheckpoint(out);
+                checkpoint.save_checkpoint(out_path);
+            except Exception as e:
+                print(e);
 
     def get_all_data(self):
         raise NotImplementedError("unable to pull all data from fitness reporter; if you want to pull data from a source, add a capture source");
 
     def get_all_conserved_data(self):
-        out:list[IdData[task_out_k]] = [];
+        log("obtaining conserved data")
+        if self.data is not None:
+            log("already obtained data; returning",len(self.data),"data");
+            return self.data
+        if self.data_list is not None:
+            self.put_all_data(*self.data_list);
+            self.data_list = None;
+        out:list[IdData[tuple[TDSource,task_out_k,int]]] = [];
+        log("getting conserved data...");
         for d in list(super().get_all_data()):
             out.append(d);
-            self.put_data(d);
+            # self.put_data(d);
+        self.data = out;
+        log("conserved data obtained:",len(self.data))
         return out;
 
 
-    def get_captured_data(self,capture_source:TDSource):
-        if capture_source not in self.captures:
-            raise ValueError(f"capture source {capture_source} not tracked by reporter!")
-        out:list[IdData[task_out_k]] = [];
-        
-        captured_ids = self.source_id_map[capture_source];
-        for d in list(self.get_all_conserved_data()):
-            if d.id in captured_ids:
-                out.append(d);
-
-        return out;
-
-def train_loop(dataloader, model, loss_fn, optimizer,weight_fun:Callable[[Tensor,Tensor,Tensor],Tensor]|None=None):
+def train_loop(dataloader:DataLoader, model, loss_fn, optimizer,weight_fun:Callable[[Tensor,Tensor,Tensor],Tensor]|None=None):
     loss = None;
     for (X,y) in tqdm(dataloader,leave=False):
         # Compute prediction and loss
         pred = model(X)
-        # print(X.shape);
-        # print(y.shape);
-        # print(pred.shape);
+        # log(X.shape);
+        # log(y.shape);
+        # log(pred.shape);
 
         # Backpropagation
         optimizer.zero_grad(set_to_none=True)
@@ -655,28 +789,29 @@ def train_loop(dataloader, model, loss_fn, optimizer,weight_fun:Callable[[Tensor
           loss = loss_fn(pred,y);
         loss.backward()
         optimizer.step()
+        
     tqdm.write(f"Train loss: {loss:>7f}");
 
 
-def test_loop(dataloader, model, loss_fn,weight_fun:Callable[[Tensor,Tensor,Tensor],Tensor]|None=None):
+def test_loop(dataloader:DataLoader, model, loss_fn,weight_fun:Callable[[Tensor,Tensor,Tensor],Tensor]|None=None):
     num_batches = 0;
     test_loss = 0
     loss = 0;
     with torch.no_grad():
         for X, y in tqdm(dataloader,leave=False):
             num_batches += 1;
-            # print(X.shape);
+            # log(X.shape);
             pred = model(X)
-            # print(y);
+            # log(y);
             if weight_fun:
               loss = loss_fn(pred, y, weight_fun(X,y,pred));
             else:
               loss = loss_fn(pred,y);
             test_loss += loss.item()
             # correct += np.array(pred-y).mean();
-
-    test_loss /= num_batches
-    tqdm.write(f"Test loss: {test_loss:>8f} \n")
+    if num_batches != 0:
+        test_loss /= num_batches
+        tqdm.write(f"Test loss: {test_loss:>8f} \n")
 
 class ModelTunerReporter(BaseReporter):
     def __init__(self,
@@ -697,7 +832,8 @@ class ModelTunerReporter(BaseReporter):
             device_type:str="cpu",
             fitness_aggregation_type:str="max",
             model_save_path:str|None=None,
-            model_save_format:str="model_gen{0}.model"):
+            model_save_format:str="model_gen{0}.model",
+            do_hflip=True):
         self.model = model;
         self.fitness_from_list = {
             "max":max,
@@ -726,6 +862,7 @@ class ModelTunerReporter(BaseReporter):
         self.save_path = Path(model_save_path) if model_save_path else None;
         self.save_format = model_save_format;
         self.generation = -1;
+        self.do_hflip = do_hflip
 
     def get_search_grids(self,td_id:int):
         level = self.manager[td_id];
@@ -733,7 +870,7 @@ class ModelTunerReporter(BaseReporter):
         data_game = Segment()
         data_game.startup(0,{c.LEVEL_NUM:1},initial_state=level);
 
-        print("acquiring map data")
+        # log("acquiring map data")
         gdat = data_game.get_game_data(self.view_distance,self.tile_scale);
         mdat = data_game.get_map_data(self.search_resolution);
 
@@ -751,7 +888,9 @@ class ModelTunerReporter(BaseReporter):
         # return super().start_generation(generation)
 
     def end_generation(self, config, population, species_set):
+        log("Model tuner - generation complete")
         all_data = self.reporter.get_all_conserved_data();
+        log("accumulated data from this generation:",len(all_data))
         self.update_model(all_data);
         if self.save_path:
             torch.save(self.model,self.save_path/self.save_format.format(self.generation))
@@ -771,61 +910,78 @@ class ModelTunerReporter(BaseReporter):
         
         grids:np.ndarray = np.concatenate((in_grids,[x_grad,y_grad,smear]),axis=0)
 
-        grids = np.expand_dims(grids,0);
+        # grids = np.expand_dims(grids,0); #don't expand, because training batches
 
         return Tensor(grids);
+    
+
+    def update_model(self,data:list[IdData[tuple[TDSource,task_out_k,int]]]):
+        log("Tuning Model from generation's fitnesses");
+        try:
+            mapped_fitnesses:dict[int,dict[tuple[floatPos,floatPos],list[float]]] = DefaultDict(lambda: DefaultDict(lambda: []));
+            for d in tqdm(data,desc="extracting data..."):
+                id = d.id;
+                dd = d.data[1];
+                for (step,fitness) in dd:
+                    if step[1] == "complete":
+                        continue;
+                    mapped_fitnesses[id][step].append(fitness); #type: ignore
+
+            mapped_aggregates:dict[int,dict[tuple[floatPos,floatPos],float]] = DefaultDict(lambda:{});
+            for id,steps in tqdm(mapped_fitnesses.items(),desc="aggregating fitnesses"):
+                for step,fitnesses in steps.items():
+                    mapped_aggregates[id][step] = self.fitness_from_list(fitnesses);
         
 
-    def update_model(self,data:list[IdData[task_out_k]]):
-        print("Tuning Model from generation's fitnesses");
+            shaped_grids:dict[tuple[int,...],list[tuple[Tensor,Tensor]]] = DefaultDict(lambda:[]);
+            for training_id in tqdm(mapped_aggregates,desc="extracting training data info"):
+                search_grids,grid_size,grids_bounds = self.get_search_grids(training_id);
+                # def grid_index_to_pos(grid_index:gridPos):
+                #     return gi2p(self.search_resolution,grids_bounds,grid_size,grid_index);
+                def pos_to_grid_index(pos:floatPos):
+                    return p2gi(self.search_resolution,grids_bounds,grid_size,pos);
 
-        mapped_fitnesses:dict[int,dict[tuple[floatPos,floatPos],list[float]]] = DefaultDict(lambda: DefaultDict(lambda: []));
-        for d in tqdm(data,desc="extracting data..."):
-            id = d.id;
-            dd = d.data;
-            for (step,fitness) in dd:
-                if step[1] == "complete":
-                    continue;
-                mapped_fitnesses[id][step].append(fitness);
+                for (start,task),fitness in mapped_aggregates[training_id].items():
+                    gridstart = pos_to_grid_index(start);
+                    gridend = pos_to_grid_index(task);
 
-        mapped_aggregates:dict[int,dict[tuple[floatPos,floatPos],float]] = DefaultDict(lambda:{});
-        for id,steps in tqdm(mapped_fitnesses.items(),desc="aggregating fitnesses"):
-            for step,fitnesses in steps.items():
-                mapped_aggregates[id][step] = self.fitness_from_list(fitnesses);
-       
+                    base_grids = self.get_input_grids(gridstart,gridend,grid_size,search_grids);
 
-        shaped_grids:dict[tuple[int,...],list[tuple[Tensor,Tensor]]] = DefaultDict(lambda:[]);
-        for training_id in tqdm(mapped_aggregates,desc="extracting training data info"):
-            search_grids,grid_size,grids_bounds = self.get_search_grids(training_id);
-            # def grid_index_to_pos(grid_index:gridPos):
-            #     return gi2p(self.search_resolution,grids_bounds,grid_size,grid_index);
-            def pos_to_grid_index(pos:floatPos):
-                return p2gi(self.search_resolution,grids_bounds,grid_size,pos);
+                    d = dist(*start,task);
 
-            for (start,task),fitness in mapped_aggregates[training_id].items():
-                gridstart = pos_to_grid_index(start);
-                gridend = pos_to_grid_index(task);
+                    eq_grids = [base_grids];
+                    if self.do_hflip:
+                        eq_grids.append(hflip(base_grids))
 
-                input_grids = self.get_input_grids(gridstart,gridend,grid_size,search_grids);
+                    for input_grids in eq_grids:
+                        shaped_grids[input_grids.shape[1:]].append((input_grids.to(self.device_type),Tensor([fitness/d]).to(self.device_type)));
 
-                d = dist(*start,task);
+            # log(shaped_grids);
+            
+            sets = [random_split(s,[len(s)-int(len(s)*self.test_fraction),int(len(s)*self.test_fraction)], generator=torch.Generator().manual_seed(0)) for s in shaped_grids.values()];
 
-                shaped_grids[input_grids.shape[1:]].append((input_grids.to(self.device_type),Tensor([fitness/d]).to(self.device_type)));
-        
-        sets = [random_split(s,[len(s)-int(len(s)*self.test_fraction),int(len(s)*self.test_fraction)], generator=torch.Generator().manual_seed(0)) for s in shaped_grids.values()];
+            train_dataloader = [b for loader in [DataLoader(data[0],batch_size=self.batch_size) for data in sets] for b in loader];
+            test_dataloader = [b for loader in [DataLoader(data[1],batch_size=self.batch_size) for data in sets] for b in loader ];
+            # log(len(train_dataloader))
+            # log(train_dataloader);
+            # log(test_dataloader);
 
-        train_dataloader = [b for loader in [DataLoader(data[0],batch_size=self.batch_size) for data in sets] for b in loader];
-        test_dataloader = [b for loader in [DataLoader(data[1],batch_size=self.batch_size) for data in sets] for b in loader ];
 
-        loss_fn = torch.nn.MSELoss()
-        optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr,nesterov=True);
-
-        for t in tqdm(range(self.epochs),desc="Model Fine-Tuning: "):
-            print(f"Epoch {t+1}\n-------------------------------")
-            train_loop(train_dataloader, model, loss_fn, optimizer)
-            test_loop(test_dataloader, model, loss_fn)
-
-        print("Model Tuned!");
+            loss_fn = torch.nn.MSELoss()
+            optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr,nesterov=True,momentum=0.8);
+            for t in tqdm(range(self.epochs),desc="Model Fine-Tuning: "):
+                tqdm.write(f"Epoch {t+1}\n-------------------------------")
+                train_loop(train_dataloader, model, loss_fn, optimizer)
+                test_loop(test_dataloader, model, loss_fn)
+            # import code
+            # code.interact(local=locals());
+        except Exception as e:
+            raise e;
+            # import code
+            # code.interact(local=locals());
+        # finally:
+        #     raise Exception();
+        log("Model Tuned!");
 
     
         
@@ -836,6 +992,15 @@ class ModelTunerReporter(BaseReporter):
         
     
 if __name__== "__main__":
+
+    open("console_out.txt","w");
+    def log2(*args,**kwargs):
+        print(*args,**kwargs);
+        print(*args,**kwargs,file=open("console_out.txt","a"))
+
+    log = log2;
+        
+
     
     ### PREPARE RAY / MULTIPROCESSING / CMDLINE STUFF ###
     import ray
@@ -851,21 +1016,21 @@ if __name__== "__main__":
     ip = args.ip;
     local_display = args.local_display;
 
-    print("Displaying locally" if local_display else "Displaying remotely");
+    log("Displaying locally" if local_display else "Displaying remotely");
 
     
 
     if not local_display:
         ray.init(address=ip);
-        print("waiting for display node...");
+        log("waiting for display node...");
         num_display = 0
         while num_display < 2:
             r = ray.cluster_resources();
             if "Display" in r:
                 num_display = r["Display"]
             time.sleep(5);
-        print("display node obtained, display cores available:",num_display);
-        print("cluster nodes:",ray.nodes());
+        log("display node obtained, display cores available:",num_display);
+        log("cluster nodes:",ray.nodes());
 
         basic_cores = ray.cluster_resources()["CPU"]-num_display-2; #two extra cores for whatever
 
@@ -875,7 +1040,7 @@ if __name__== "__main__":
         total_bundles = cpu_bundles + display_bundles
         group = placement_group(total_bundles,strategy="SPREAD");
         ray.get(group.ready());
-        print(placement_group_table(group));
+        log(placement_group_table(group));
         st = PlacementGroupSchedulingStrategy(group);
     else:
         ray.init(resources={"Display":100});
@@ -912,6 +1077,7 @@ if __name__== "__main__":
     runConfig.saveFitness = False;
 
     run_name = 'play_test'
+    checkpoint_run_name = "run_10";
 
     runConfig.logPath = f'logs/smb1Py/run-{run_name}-log.txt';
     runConfig.fitness_collection_type='delta_max';
@@ -922,14 +1088,27 @@ if __name__== "__main__":
     gamerunner = GameRunner(game,runConfig);
 
 
+    ### LOAD REPLAY RENDERER ###
+    replay_runConfig = copy.deepcopy(runConfig)
+    replay_runConfig.logging = False;
+    replay_runConfig.training_data = TrainingDataManager("smb1Py","replay");
+    replay_runConfig.reporters = [];
+    replay_game = copy.deepcopy(game);
+    replay_game.initInputs.update({"window_title":"Best Genomes - Instant Replay"})
+    replay = ReplayRenderer.remote(replay_game,checkpoint_run_name,replay_runConfig)
+
+
     ### LOAD TASK FITNESS REPORTER ###
     fitness_save_path = Path("memories")/"smb1Py"/f"{run_name}_fitness_history";
     fitness_reporter = TaskFitnessReporter(save_path=fitness_save_path,queue_type="ray");
-
+    game.register_reporter(fitness_reporter);
 
     ### LOAD FIXED NET ###
 
-    model_path = 'models/test_q3_long3.model'
+    tuned_modelsfolder = Path("models/tuning");
+
+    model_path = 'models/test_q3_long3.model';
+    model_path = tuned_modelsfolder/sorted(os.listdir(tuned_modelsfolder))[-1];
     model = None;
     with open(model_path,'rb') as f:
         model = torch.load(f,map_location=torch.device('cpu'));
@@ -962,15 +1141,15 @@ if __name__== "__main__":
         goalx = 48*c.TILE_SIZE
 
     goals = [(goalx,i*c.TILE_SIZE) for i in range(20)]; 
-    print(goals);
+    log(goals);
 
     save = "level_routing_checkpoints/level1-1.chp"
     checkpoint = None;
     if os.path.exists(save):
-        print("loading checkpoint...")
+        log("loading checkpoint...")
         with open(save,'rb') as f:
             checkpoint = pickle.load(f);
-        print("checkpoint successfully loaded")
+        log("checkpoint successfully loaded")
 
 
     player = LevelPlayer();
@@ -986,9 +1165,10 @@ if __name__== "__main__":
             task_offset_downscale=2,
             search_checkpoint=checkpoint,
             checkpoint_save_location=save,
-            training_dat_per_gen=40,
-            fitness_aggregation_type="q3");
-        
+            training_dat_per_gen=30,
+            fitness_aggregation_type="q3",
+            replay_renderer=replay);
+    
 
 
 
@@ -1009,24 +1189,24 @@ if __name__== "__main__":
         GenerationOptions(size=(18,14),inner_size=(12,8),num_blocks=(0,6),ground_height=7,task_batch_size=(1,4),num_gaps=(1,3),gap_width=(1,3)), #10
         ];
     
-    orders = [(configs[4],45),(configs[2],15),(configs[6],10),(configs[7],5),(configs[9],30),(configs[10],15)];
+    orders = [(configs[4],15),(configs[2],5),(configs[6],4),(configs[7],1),(configs[9],10),(configs[10],5)];
 
     tdat_gen = partial(generate_data,orders);
 
     auto_gen_source = GeneratorTDSource(tdat_gen);
 
 
+
     ### INITIALIZE TDMANAGER ###
     manager = SourcedShelvedTDManager[SegmentState]('smb1Py',run_name,initial_sources=[levelTDSource,auto_gen_source]);
-    manager.add_source();
     runConfig.training_data = manager;
 
 
     ### CREATE MODEL TUNER ###
 
     torch_device_type = "cuda" if torch.cuda.is_available() else "cpu";
-    model_lr = 1e-5;
-    model_epochs_per_gen = 10;
+    model_lr = 5e-6;
+    model_epochs_per_gen = 5;
     model_batchsize = 20;
 
     model_tuner = ModelTunerReporter(
@@ -1041,14 +1221,19 @@ if __name__== "__main__":
         model_lr, model_epochs_per_gen, model_batchsize,
         device_type=torch_device_type,
         fitness_aggregation_type="q3",
-        model_save_path="models/tuning",
+        model_save_path=tuned_modelsfolder,
         model_save_format="run10_model_gen{0}.model");
 
+    runConfig.reporters.append(model_tuner);
+    runConfig.reporters.append(fitness_reporter);
+    runConfig.reporters.append(player);
 
     ### RUN NEAT ###
-    gamerunner.continue_run("run_10");
+    replay.start_replay_loop.remote();
+
+    gamerunner.continue_run(checkpoint_run_name);
     
     
-    print("Level successfully completed!! Winning Path:",player.winning_path,"completed using the population of generation",player.gamerunner.generation);
+    log("Level successfully completed!! Winning Path:",player.winning_path,"completed using the population of generation",player.gamerunner.generation);
     
 

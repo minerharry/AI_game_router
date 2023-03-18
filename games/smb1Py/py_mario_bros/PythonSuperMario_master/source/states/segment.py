@@ -1153,20 +1153,28 @@ class Segment(tools.State):
 
     #TODO: Examine performance impact of all of this *math*
     def get_task_obstructions(self)->list[float]:
-        center = self.player.rect.center;
-        distance = math.sqrt((center[0]-self.task[0])**2 + (center[1]-self.task[1])**2);
-        if self.no_obstruction:
-            return [distance,0,0];
-        block_obstructions = 0;
-        check_group = pg.sprite.Group(self.ground_step_pipe_group,
-                    self.brick_group, self.box_group);
-        for sprite in check_group:
-            block_obstructions += 1 if collideRectLine(sprite.rect,center,self.task) else 0;
+        try:
+            center = self.player.rect.center;
+            distance = math.sqrt((center[0]-self.task[0])**2 + (center[1]-self.task[1])**2);
+            if self.no_obstruction:
+                return [distance,0,0];
+            block_obstructions = 0;
+            check_group = pg.sprite.Group(self.ground_step_pipe_group,
+                        self.brick_group, self.box_group);
+            for sprite in check_group:
+                block_obstructions += 1 if collideRectLine(sprite.rect,center,self.task) else 0;
 
-        enemy_obstructions = 0;
-        for sprite in self.enemy_group:
-            enemy_obstructions += 1 if collideRectLine(sprite.rect,center,self.task) else 0;
-        return [distance,block_obstructions,enemy_obstructions];
+            enemy_obstructions = 0;
+            for sprite in self.enemy_group:
+                enemy_obstructions += 1 if collideRectLine(sprite.rect,center,self.task) else 0;
+            return [distance,block_obstructions,enemy_obstructions];
+        except Exception as e:
+            import code
+            code.interact(local=locals())
+            print("task:",self.task);
+            print("center:",center);
+            raise Exception
+            
 
 
 def collideLineLine(l1_p1, l1_p2, l2_p1, l2_p2):

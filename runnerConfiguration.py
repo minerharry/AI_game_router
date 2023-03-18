@@ -20,7 +20,9 @@ class RunnerConfig:
             returnData:list[str|IOData]=[],
             gameName='game',
             num_generations:int|None=300,
-            fitness_collection_type='final'):
+            fitness_collection_type='final',
+            serialize_reporters=False,
+            **kwargs):
         self.logging = logging;
         self.logPath = logPath;
         self.generations = num_generations;
@@ -34,6 +36,8 @@ class RunnerConfig:
             print("ray detected, activating...");
             import ray
             ray.init(ignore_reinit_error=True);
+
+        self.serialize_reporters = serialize_reporters;
 
         self.time_step = time_step;
         self.numTrials = num_trials;
@@ -49,6 +53,16 @@ class RunnerConfig:
         self.trialFitnessAggregation = trial_fitness_aggregation;
         self.reporters = [];
 
+        for name,arg in kwargs.items():
+            setattr(self,name,arg);
+
+    def __getstate__(self): #pickling
+        state = self.__dict__.copy();
+        if not self.serialize_reporters:
+            state["reporters"] = [];
+        return state;
+
+    @property
     def fitnessFromArray(self)->Callable[[list[float]],float]:
         if self.customFitnessFunction is not None:
             return self.customFitnessFunction;

@@ -3,7 +3,8 @@ from abc import abstractmethod
 import abc
 import multiprocessing
 from pkgutil import get_data
-from typing import TypeVar,Generic,TYPE_CHECKING
+import tqdm
+from typing import Type, TypeVar,Generic,TYPE_CHECKING
 if TYPE_CHECKING:
     from baseGame import RunGame
 
@@ -15,13 +16,15 @@ from ray.util.queue import Queue
 class GameReporter():
     def on_training_data_load(self,game:RunGame,id): pass;
     
-    def on_start(self,game:RunGame): pass;
+    def on_start(self,game:RunGame,genome_id:int|None): pass;
 
     def on_tick(self,game:RunGame,inputs): pass;
 
     def on_render_tick(self,game:RunGame,inputs): self.on_tick(game,inputs);
 
     def on_finish(self,game:RunGame): pass;
+
+    def on_process_init(self,gameClass:Type[RunGame],pnum:int): pass;
 
     #custom reporter function; game can send signal to reporters and only the ones who have the function will receive it
     def on_signal(self,game:RunGame,signal:str,*args,**kwargs):
@@ -33,21 +36,31 @@ T = TypeVar('T');
 class ThreadedGameReporter(GameReporter,Generic[T]): #class with nice builtin multithreading functionality
     def __init__(self,queue_type="multiprocessing"):
         if queue_type == "ray":
-            self.data = Queue();
+            self.__data = Queue();
         else:
             m = multiprocessing.Manager();
-            self.data = m.Queue();
+            self.__data = m.Queue();
+
+    def empty(self):
+        return self.__data.empty();
 
     def put_data(self,data:T):
-        self.data.put(data);
+        self.__data.put(data);
     
     def put_all_data(self,*data:T):
         for d in data:
-            self.data.put(d);
+            self.__data.put(d);
 
     def get_data(self)->T:
-        return self.data.get();
+        return self.__data.get();
 
-    def get_all_data(self):
-        while not self.data.empty():
-            yield self.get_data();
+    def get_all_data(self,bar=True):
+        if bar:
+            with tqdm.tqdm(desc="fetching queue data",leave=False) as b:
+                while not self.__data.empty():
+                    yield self.get_data();
+                    b.update();
+            
+        else:
+            while not self.__data.empty():
+                yield self.get_data();

@@ -10,7 +10,7 @@ import sys
 import threading
 import time
 from multiprocessing import TimeoutError
-from typing import Any, Callable, Dict, Hashable, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Generic, Hashable, Iterable, List, Optional, Tuple, TypeVar
 
 import ray
 from ray.util import log_once
@@ -562,9 +562,9 @@ class PoolActor:
                 results.append(PoolTaskError(e))
         return results
 
-
+FuncType = TypeVar("FuncType")
 # https://docs.python.org/3/library/multiprocessing.html#module-multiprocessing.pool
-class Pool:
+class Pool(Generic[FuncType]):
     """A pool of actor processes that is used to process tasks in parallel.
 
     Args:
@@ -706,7 +706,7 @@ class Pool:
 
     def apply(
         self,
-        func: Callable,
+        func: FuncType,
         args: Optional[Tuple] = None,
         kwargs: Optional[Dict] = None,
     ):
@@ -726,7 +726,7 @@ class Pool:
 
     def apply_async(
         self,
-        func: Callable,
+        func: FuncType,
         args: Optional[Tuple] = None,
         kwargs: Optional[Dict] = None,
         callback: Callable[[Any], None] = None,
@@ -754,7 +754,7 @@ class Pool:
         object_ref = self._run_batch(self._next_actor_index(), func, [(args, kwargs)])
         return AsyncResult([object_ref], callback, error_callback, single_result=True)
 
-    def _convert_to_ray_batched_calls_if_needed(self, func: Callable) -> Callable:
+    def _convert_to_ray_batched_calls_if_needed(self, func: FuncType) -> FuncType:
         """Convert joblib's BatchedCalls to RayBatchedCalls for ObjectRef caching.
 
         This converts joblib's BatchedCalls callable, which is a collection of
@@ -846,7 +846,7 @@ class Pool:
         )
         return AsyncResult(object_refs, callback, error_callback)
 
-    def map(self, func: Callable, iterable: Iterable, chunksize: Optional[int] = None):
+    def map(self, func: FuncType, iterable: Iterable, chunksize: Optional[int] = None):
         """Run the given function on each element in the iterable round-robin
         on the actor processes and return the results synchronously.
 
@@ -867,7 +867,7 @@ class Pool:
 
     def map_async(
         self,
-        func: Callable,
+        func: FuncType,
         iterable: Iterable,
         chunksize: Optional[int] = None,
         callback: Callable[[List], None] = None,
@@ -914,7 +914,7 @@ class Pool:
 
     def starmap_async(
         self,
-        func: Callable,
+        func: FuncType,
         iterable: Iterable,
         callback: Callable[[List], None] = None,
         error_callback: Callable[[Exception], None] = None,
@@ -932,7 +932,7 @@ class Pool:
         )
 
     def imap(
-        self, func: Callable, iterable: Iterable, chunksize: Optional[int] = 1, 
+        self, func: FuncType, iterable: Iterable, chunksize: Optional[int] = 1, 
         error_callback: Callable[[Exception], None] = None
     ):
         """Same as `map`, but only submits one batch of tasks to each actor
@@ -952,7 +952,7 @@ class Pool:
         return OrderedIMapIterator(self, func, iterable, chunksize=chunksize,error_callback=error_callback)
 
     def imap_unordered(
-        self, func: Callable, iterable: Iterable, chunksize: Optional[int] = 1, 
+        self, func: FuncType, iterable: Iterable, chunksize: Optional[int] = 1, 
         error_callback: Callable[[Exception], None] = None
     ):
         """Same as `map`, but only submits one batch of tasks to each actor

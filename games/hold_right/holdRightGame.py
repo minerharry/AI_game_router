@@ -3,8 +3,8 @@ from PIL import Image, ImageDraw, ImageFont
 import math
 
 class HoldRightGame(RunGame):
-    def __init__(self,runnerConfig,kwargs):
-        super().__init__(runnerConfig,kwargs);
+    def __init__(self,runnerConfig,**kwargs):
+        super().__init__(runnerConfig,**kwargs);
         self.coeff = runnerConfig.rightCoeff;
         self.position = 0.0;
 

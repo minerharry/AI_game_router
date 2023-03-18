@@ -15,9 +15,9 @@ class GenomeFitness(NamedTuple):
 
 
 class FitnessCheckpoint:
-    def __init__(self,data:dict[int,dict[int,float|list[float]]|list[float|list[float]]]):
+    def __init__(self,data:dict[int,list[float|list[float]]|dict[int,float|list[float]]]):
         self.data:dict[int, list[GenomeFitness]] = {};
-        for tdat_id, tdat_data in data:
+        for tdat_id, tdat_data in data.items():
             res:list[GenomeFitness];
             if isinstance(tdat_data,dict):
                 ## genome_id mapped fitness data

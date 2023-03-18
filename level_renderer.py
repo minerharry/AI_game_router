@@ -3,7 +3,7 @@ import sys
 from threading import Event
 from pathlib import Path
 import time
-from typing import Iterable
+from typing import Iterable, Sequence
 from baseGame import RunGame
 from gameReporting import ThreadedGameReporter
 from games.smb1Py.py_mario_bros.PythonSuperMario_master.smb_game import SMB1Game
@@ -45,12 +45,12 @@ class LevelRenderer:
         self.last_level_dims = None;
         self.last_scale = None;
         
-        self.reached:Iterable[tuple[float,float]] = [];
-        self.failed:Iterable[tuple[float,float]] = [];
-        self.paths:dict[int,Iterable[tuple[float,float]]];
-        self.active_paths:Iterable[int] = [];
-        self.completed_paths:Iterable[int] = [];
-        self.failed_paths:Iterable[int] = [];
+        self.reached:Sequence[tuple[float,float]] = [];
+        self.failed:Sequence[tuple[float,float]] = [];
+        self.paths:dict[int,Sequence[tuple[float,float]]];
+        self.active_paths:Sequence[int] = [];
+        self.completed_paths:Sequence[int] = [];
+        self.failed_paths:Sequence[int] = [];
 
         self.reached_color = reached_color;
         self.failed_color = failed_color;
@@ -81,13 +81,14 @@ class LevelRenderer:
         self.display_set = True;
 
     def set_annotations(self,
-            reached:Iterable[tuple[float,float]],
-            failed:Iterable[tuple[float,float]],
-            paths:dict[int,Iterable[tuple[float,float]]],
-            active_paths:Iterable[int]=[],
-            failed_paths:Iterable[int]=[],
-            completed_paths:Iterable[int]=[],
+            reached:Sequence[tuple[float,float]],
+            failed:Sequence[tuple[float,float]],
+            paths:dict[int,Sequence[tuple[float,float]]],
+            active_paths:Sequence[int]=[],
+            failed_paths:Sequence[int]=[],
+            completed_paths:Sequence[int]=[],
                 ):
+        print("renderer annotations set:",len(reached),"reached,",len(failed),"failed, and",len(paths),"paths");
         self.reached = reached;
         self.failed = failed;
         self.paths = paths;
@@ -95,16 +96,16 @@ class LevelRenderer:
         self.failed_paths = failed_paths;
         self.completed_paths = completed_paths;
 
-    def set_paths(self,paths:dict[int,Iterable[tuple[float,float]]]):
+    def set_paths(self,paths:dict[int,Sequence[tuple[float,float]]]):
         self.paths = paths;
 
-    def update_active_paths(self,active_paths:Iterable[int]):
+    def update_active_paths(self,active_paths:Sequence[int]):
         self.active_paths = active_paths;
 
-    def update_failed_paths(self,failed_paths:Iterable[int]):
+    def update_failed_paths(self,failed_paths:Sequence[int]):
         self.failed_paths=failed_paths;
 
-    def update_completed_paths(self,completed_paths:Iterable[int]):
+    def update_completed_paths(self,completed_paths:Sequence[int]):
         self.completed_paths=completed_paths;
 
     def display(self):
@@ -116,7 +117,7 @@ class LevelRenderer:
         level = pg.Surface(self.game.level.get_size());
         self.game.draw(level,blit_all=True);
 
-        if self.last_level_dims != level.get_size() or self.last_scale is None:
+        if self.last_level_dims != level.get_size() or self.last_level_dims is None or self.last_scale is None:
             self.last_level_dims = level.get_size();
             self.last_scale = min([self.dims[i]/self.last_level_dims[i] for i in [0,1]]);
         scale = self.last_scale;
@@ -186,6 +187,8 @@ class LevelRendererReporter(ThreadedGameReporter[PathMessage]): #process_num,act
         self.id_complete = False;
         self.reset_paths();
         self.source = task_source;
+    
+
 
     def reset_paths(self):
         self.active:dict[int,int] = {};
@@ -206,16 +209,19 @@ class LevelRendererReporter(ThreadedGameReporter[PathMessage]): #process_num,act
             self.id_complete = False;
             self.active_id = id;
         
+    def on_start(self, game: RunGame, genome_id: int | None):
+        self.gid = genome_id;
         
     def on_finish(self, game: RunGame):
         if self.active_id is not None:
             if not self.id_complete and game.getMappedData()['task_path_complete']:
                 self.put_data(PathMessage.complete(self.pid,self.active_id));
+                print(self.pid,self.active_id,self.gid);
                 self.id_complete = True;
 
     def update_display(self,renderer:LevelRenderer):
         #pull all updates from the pool
-        for message in self.get_all_data():
+        for message in self.get_all_data(bar=False):
             pid = message.pid;
             did = message.path_id; #data id
             if did is None or did not in renderer.paths: #renderer no longer rendering level
