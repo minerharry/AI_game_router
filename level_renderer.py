@@ -216,7 +216,7 @@ class LevelRendererReporter(ThreadedGameReporter[PathMessage]): #process_num,act
         if self.active_id is not None:
             if not self.id_complete and game.getMappedData()['task_path_complete']:
                 self.put_data(PathMessage.complete(self.pid,self.active_id));
-                print(self.pid,self.active_id,self.gid);
+                print("Task path complete! pid:",self.pid,"active id:",self.active_id,"gid:",self.gid);
                 self.id_complete = True;
 
     def update_display(self,renderer:LevelRenderer):

@@ -85,13 +85,6 @@ class _ReplayRenderer:
         except StopIteration:
             self.replay_queue.pop(self.replay_index);
             return self._get_next_state();
-
-    def pong(self):
-        print("pinging player...")
-        self.player.ping.remote();
-
-    def ping(self):
-        print("I've been pinged")
         
 
 
@@ -110,39 +103,16 @@ class _ReplayRenderPlayer():
             fitness:float; gid:int; generation:int;
             next_state = ray.get(self.queue._get_next_state.remote());
             if next_state is None:
-                # self.pong();
-                # print("replay looping: no state, sleeping")
+
                 time.sleep(60)
                 continue;
-            # print("replay looping: state acquired")
             n = next_state; 
             fitness,gid,generation,state = n
-            print(n);
-            print([state.task] + state.task_path);
-            # print(state);
-            # print(state.task);
             self.manager.set_data([state]);
-            # print(self.manager.active_data)
+            print("rendering genome gid",gid,"generation",generation,"run name",self.run_name);
             try:
                 self.runner.render_genome_by_id(gid,generation,self.run_name)
             except Exception as e:
                 import pdb
                 pdb.set_trace();
                 self.runner.render_genome_by_id(gid,generation,self.run_name)
-
-    def ping(self):
-        print("I've been pinged")
-
-    def pong(self):
-        print("pinging queue...")
-        self.queue.ping.remote();
-
-
-
-
-        # state = level.deepcopy();
-        # task_path = task_path[1:];
-        # state.task = task_path[0];
-        # state.task_path = task_path;
-        # state.source_id = i;
-        # data.append(state);

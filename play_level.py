@@ -492,6 +492,8 @@ class LevelPlayer(BaseReporter):
 
         current_replay:dict[tuple[gridPos,...],list[tuple[float,int,int]]]|None = getattr(search_checkpoint,"replay",None);
 
+        # log("current_replay:",current_replay)
+
         while not level_finished:
             log("checkpoint saved")
             ##save checkpoint
@@ -521,13 +523,10 @@ class LevelPlayer(BaseReporter):
                 replay_ref = replay_renderer.register_replay.remote(roundrobin(*rators))
 
 
-            while True:
-                time.sleep(5);
 
             log("retrieving best edges from A*")
             top_paths = self.a_searcher.sorted_edges()
             
-            # log('top ten scores:',[(self.a_searcher.sort_key(e),e) for e in top_paths[:10]]);
 
             top_paths = top_paths[:training_dat_per_gen];
             log(len(top_paths),"edges retrieved");
@@ -1072,7 +1071,7 @@ if __name__== "__main__":
     runConfig.view_distance = 3.75;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
-    runConfig.parallel_processes = 3;
+    runConfig.parallel_processes = 10;
     runConfig.chunkFactor = 24;
     runConfig.saveFitness = False;
 
@@ -1207,7 +1206,7 @@ if __name__== "__main__":
 
     torch_device_type = "cuda" if torch.cuda.is_available() else "cpu";
     model_lr = 5e-6;
-    model_epochs_per_gen = 5;
+    model_epochs_per_gen = 4;
     model_batchsize = 20;
 
     model_tuner = ModelTunerReporter(
