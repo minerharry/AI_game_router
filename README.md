@@ -3,7 +3,7 @@ A more in-depth fork of https://github.com/minerharry/neat_game_testing, attempt
 
 NOTE: for the game, I am using marblexu's (https://github.com/marblexu) awesome Python Mario Bros game, at https://github.com/marblexu/PythonSuperMario/. I have torn it apart to optimize and fit it with my infrastructure :).
 
-Streamed on https://www.twitch.tv/minerharry 24/7 when running
+Streamed on https://www.twitch.tv/minerharry 24/7 when running. Some extra details about the training progress can be found in the panels below the stream.
 
 __Resources:__
 https://neat-python.readthedocs.io/en/latest/neat_overview.html - the python library I am using to run these tests
