@@ -3,7 +3,7 @@ import games.smb1Py.py_mario_bros.PythonSuperMario_master.source.constants as c
 from games.smb1Py.py_mario_bros.PythonSuperMario_master.source.states.segment import Segment, SegmentState
 
 
-state = SegmentState(None,None,file_path='levels/testing/test3.lvl');
+state = SegmentState(None,None,file_path='level_1_from_txt.lvl');
 game = tools.Control();
 state_dict = {c.LEVEL: Segment()}
 game.setup_states(state_dict, c.LEVEL)

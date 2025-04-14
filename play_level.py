@@ -32,7 +32,7 @@ from runnerConfiguration import IOData, RunnerConfig
 
 from search import DStarSearcher, LevelSearcher
 from smb1Py_runner import NAME, generate_data, getFitness, getRunning, task_obstruction_score
-from training_data import ShelvedTDManager, TrainingDataManager
+from training_data import ShelvedTDManager, SourcedShelvedTDManager, TrainingDataManager
 try:
     import ray
 except:
@@ -106,7 +106,7 @@ class LevelPlayer:
         self.run_name = run_name;
         self.checkpoint_run_name = checkpoint_run_name if checkpoint_run_name else self.run_name;
 
-        self.tdat = ShelvedTDManager[SegmentState]('smb1Py',run_name);
+        self.tdat = SourcedShelvedTDManager[SegmentState]('smb1Py',run_name);
         self.runConfig.training_data = self.tdat;
 
         self.extra_dat_gen = extra_training_data_gen if extra_training_data_gen else ((lambda: extra_training_data) if extra_training_data else None);
@@ -170,7 +170,7 @@ class LevelPlayer:
             state.task_path = task_path;
             data.append(state);
 
-        self.tdat.set_data(data);
+        self. .set_data(data);
 
         renderProcess = None;
         if self.renderer is not None:
@@ -441,7 +441,7 @@ class LevelPlayer:
                     if end == 'complete':
                         if tuple(acc_path) not in completed_paths:
                             completed_paths.append(tuple(acc_path)) 
-                            if (start in goal_idxs):
+                            if (pos_to_grid_index(start) in goal_idxs):
                                 level_finished = True;
                                 winning_path = acc_path;
 
@@ -610,7 +610,7 @@ if __name__== "__main__":
     runConfig.view_distance = 3.75;
     runConfig.task_obstruction_score = task_obstruction_score;
     runConfig.external_render = False;
-    runConfig.parallel_processes = 8;
+    runConfig.parallel_processes = 5;
     runConfig.chunkFactor = 24;
     runConfig.saveFitness = False;
 
@@ -668,7 +668,7 @@ if __name__== "__main__":
 
     ### LEVEL INITIATION ###
 
-    level_path = Path('levels')/'testing'/'test1.lvl';
+    level_path = Path('levels')/'testing'/'test2.lvl';
     level = None;
     if (os.path.exists(level_path)):
         level = SegmentState(None,None,file_path=level_path);
@@ -679,9 +679,14 @@ if __name__== "__main__":
         level.task = (48*c.TILE_SIZE,10*c.TILE_SIZE);
         level.save_file(level_path);
 
-    goals = [(48*c.TILE_SIZE,i*c.TILE_SIZE) for i in range(20)]; 
+    try:
+        goalx = level.static_data[c.MAP_MAPS][0][c.MAP_FLAGX];
+    except:
+        goalx = 48*c.TILE_SIZE
 
-    save = "level_routing_checkpoints/level1.chp"
+    goals = [(goalx,i*c.TILE_SIZE) for i in range(20)]; 
+
+    save = "level_routing_checkpoints/level2.chp"
     checkpoint = None;
     if os.path.exists(save):
         print("loading checkpoint...")

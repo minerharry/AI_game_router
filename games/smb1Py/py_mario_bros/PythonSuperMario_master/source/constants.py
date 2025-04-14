@@ -19,6 +19,8 @@ GRAPHICS_SETTINGS = LOW;
 
 DISPLAY_FRAMERATE = False;
 
+DEBUG_RENDER = True
+
 DEBUG = False;
 DEBUG_START_X = 200
 DEBUG_START_y = 538
@@ -116,6 +118,7 @@ MAP_IMAGE = 'image_name'
 MAP_BOUNDS = 'map_bounds'
 MAP_START = 'map_start'
 MAP_MAPS = 'maps'
+MAP_FLAGX = 'flag_x'
 SUB_MAP = 'sub_map'
 MAP_GROUND = 'ground'
 MAP_PIPE = 'pipe'

@@ -17,8 +17,9 @@ class Collider(pg.sprite.Sprite):
         self.name = name
         if c.GRAPHICS_SETTINGS == c.LOW:
             self.image.fill(c.GROUND_PLACEHOLDER_COLOR)
-        if c.DEBUG:
+        if c.DEBUG_RENDER:
             self.image.fill(c.RED)
+            self.image.fill(c.GROUND_PLACEHOLDER_COLOR,self.image.get_rect().inflate((-4,-4)))
 
 class Checkpoint(pg.sprite.Sprite):
     def __init__(self, x, y, width, height, type, enemy_groupid=0, map_index=0, name=c.MAP_CHECKPOINT):
