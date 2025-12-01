@@ -6,6 +6,6 @@ NOTE: for the game, I am using marblexu's (https://github.com/marblexu) awesome 
 Streamed on https://www.twitch.tv/minerharry 24/7 when running. Some extra details about the training progress can be found in the panels below the stream.
 
 __Resources:__
-https://neat-python.readthedocs.io/en/latest/neat_overview.html - the python library I am using to run these tests
-http://www.cs.ucf.edu/~kstanley/#publications - papers about neat, including the original that started the whole thing
-http://nn.cs.utexas.edu/downloads/papers/stanley.ec02.pdf - a specific paper in the above list with some helpful information about the reproduction algorithm
+* https://neat-python.readthedocs.io/en/latest/neat_overview.html - the python library I am using to run these tests
+* http://www.cs.ucf.edu/~kstanley/#publications - papers about neat, including the original that started the whole thing
+* http://nn.cs.utexas.edu/downloads/papers/stanley.ec02.pdf - a specific paper in the above list with some helpful information about the reproduction algorithm
